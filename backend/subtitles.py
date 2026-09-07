@@ -6,6 +6,7 @@ mirrored in frontend/src/subtitleLayout.ts so the preview matches the render.
 
 from pathlib import Path
 
+from . import fonts
 from .models import Output, Segment, Style, Transcript
 
 SAFE_MARGIN_BOTTOM = 320  # px from the bottom edge at 1080x1920 (clear of the Reels UI)
@@ -20,9 +21,14 @@ WEIGHT_SUFFIX = {"regular": "", "medium": " Medium", "semibold": " SemiBold", "b
 
 
 def family_for(font: str, weight: str) -> tuple[str, bool]:
-    """Return (ASS Fontname, bold flag) for a font family and weight."""
-    if font == "Arial":
-        return "Arial", weight in ("semibold", "bold", "extrabold")
+    """Return (ASS Fontname, bold flag) for a font family and weight.
+
+    Families that do not have the asked-for weight fall back to their nearest one,
+    so a single-weight display font like Bebas Neue still renders.
+    """
+    if font == fonts.SYSTEM_FONT:
+        return fonts.SYSTEM_FONT, weight in ("semibold", "bold", "extrabold")
+    weight = fonts.resolve_weight(font, weight)
     return font + WEIGHT_SUFFIX.get(weight, ""), weight == "bold"
 
 

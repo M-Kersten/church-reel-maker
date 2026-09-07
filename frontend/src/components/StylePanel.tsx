@@ -1,5 +1,6 @@
 import type { Style } from '../api'
-import { FONTS, WEIGHTS, cssWeight } from '../subtitleLayout'
+import { WEIGHT_LABELS, resolveWeight, useFonts, weightsOf } from '../fonts'
+import { cssWeight } from '../subtitleLayout'
 import Section from './Section'
 
 interface Props {
@@ -7,16 +8,12 @@ interface Props {
   onChange: (style: Style) => void
 }
 
-const WEIGHT_LABELS: Record<Style['fontWeight'], string> = {
-  regular: 'Normaal',
-  medium: 'Medium',
-  semibold: 'Halfvet',
-  bold: 'Vet',
-  extrabold: 'Extra vet',
-}
-
 export default function StylePanel({ style, onChange }: Props) {
+  const families = useFonts()
   const set = <K extends keyof Style>(key: K, value: Style[K]) => onChange({ ...style, [key]: value })
+  // Some fonts have one weight only; keep the choice within what the family has.
+  const pickFont = (font: string) => onChange({ ...style, font, fontWeight: resolveWeight(families, font, style.fontWeight) })
+  const weights = weightsOf(families, style.font)
   const outline = style.outline * 0.45
   return (
     <Section step={3} title="Stijl van de ondertitels" intro="Wit met een donkere rand leest bijna altijd het best.">
@@ -38,16 +35,16 @@ export default function StylePanel({ style, onChange }: Props) {
       </div>
       <div className="fields">
         <label htmlFor="font">Lettertype</label>
-        <select id="font" value={style.font} onChange={(e) => set('font', e.target.value)}>
-          {FONTS.map((f) => (
-            <option key={f} value={f}>{f}</option>
+        <select id="font" value={style.font} onChange={(e) => pickFont(e.target.value)}>
+          {families.map((f) => (
+            <option key={f.name} value={f.name}>{f.name}</option>
           ))}
         </select>
 
         <label htmlFor="weight">Dikte</label>
-        <select id="weight" value={style.fontWeight} onChange={(e) => set('fontWeight', e.target.value as Style['fontWeight'])}>
-          {WEIGHTS.map((w) => (
-            <option key={w.value} value={w.value}>{WEIGHT_LABELS[w.value]}</option>
+        <select id="weight" value={style.fontWeight} disabled={weights.length < 2} onChange={(e) => set('fontWeight', e.target.value as Style['fontWeight'])}>
+          {weights.map((w) => (
+            <option key={w} value={w}>{WEIGHT_LABELS[w]}</option>
           ))}
         </select>
 

@@ -7,7 +7,6 @@ export const CHAR_WIDTH_RATIO = 0.58
 export const MIN_FONT_SCALE = 0.6
 export const BACKGROUND_ALPHA = 0.5
 
-export const FONTS = ['Inter', 'Montserrat', 'Poppins', 'Arial']
 export const WEIGHTS: { value: Style['fontWeight']; label: string; css: number }[] = [
   { value: 'regular', label: 'Regular', css: 400 },
   { value: 'medium', label: 'Medium', css: 500 },

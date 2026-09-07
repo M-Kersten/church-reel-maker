@@ -100,6 +100,13 @@ export interface OutroConfig {
   lines: OutroLine[]
 }
 
+export interface FontFamily {
+  name: string
+  /** File-name prefix in /templates/fonts; empty for the system font. */
+  stem: string
+  weights: FontWeight[]
+}
+
 export interface ChurchInfo {
   churchName: string
   serviceTimes: string[]
@@ -142,7 +149,14 @@ export const api = {
   render: (id: string) => request<RenderStatus>(`/projects/${id}/render`, { method: 'POST' }),
   renderStatus: (id: string) => request<RenderStatus>(`/projects/${id}/render-status`),
   church: () => request<ChurchInfo>('/church'),
+  fonts: () => request<FontFamily[]>('/fonts'),
   outroConfig: () => request<OutroConfig>('/outro'),
+  saveOutro: (config: OutroConfig) => request<OutroConfig>('/outro', json('PUT', config)),
+  uploadOutroBackground: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ image: string }>('/outro/background', { method: 'POST', body: form })
+  },
   rebuildOutro: () => request<OutroConfig>('/outro/rebuild', { method: 'POST' }),
   sourceUrl: (id: string) => `/projects/${id}/source`,
   outputUrl: (id: string) => `/projects/${id}/output`,

@@ -1,19 +1,3 @@
-@font-face { font-family: 'Montserrat'; font-weight: 400; src: url('/templates/fonts/Montserrat-Regular.ttf'); }
-@font-face { font-family: 'Montserrat'; font-weight: 500; src: url('/templates/fonts/Montserrat-Medium.ttf'); }
-@font-face { font-family: 'Montserrat'; font-weight: 600; src: url('/templates/fonts/Montserrat-SemiBold.ttf'); }
-@font-face { font-family: 'Montserrat'; font-weight: 700; src: url('/templates/fonts/Montserrat-Bold.ttf'); }
-@font-face { font-family: 'Montserrat'; font-weight: 800; src: url('/templates/fonts/Montserrat-ExtraBold.ttf'); }
-@font-face { font-family: 'Inter'; font-weight: 400; src: url('/templates/fonts/Inter-Regular.ttf'); }
-@font-face { font-family: 'Inter'; font-weight: 500; src: url('/templates/fonts/Inter-Medium.ttf'); }
-@font-face { font-family: 'Inter'; font-weight: 600; src: url('/templates/fonts/Inter-SemiBold.ttf'); }
-@font-face { font-family: 'Inter'; font-weight: 700; src: url('/templates/fonts/Inter-Bold.ttf'); }
-@font-face { font-family: 'Inter'; font-weight: 800; src: url('/templates/fonts/Inter-ExtraBold.ttf'); }
-@font-face { font-family: 'Poppins'; font-weight: 400; src: url('/templates/fonts/Poppins-Regular.ttf'); }
-@font-face { font-family: 'Poppins'; font-weight: 500; src: url('/templates/fonts/Poppins-Medium.ttf'); }
-@font-face { font-family: 'Poppins'; font-weight: 600; src: url('/templates/fonts/Poppins-SemiBold.ttf'); }
-@font-face { font-family: 'Poppins'; font-weight: 700; src: url('/templates/fonts/Poppins-Bold.ttf'); }
-@font-face { font-family: 'Poppins'; font-weight: 800; src: url('/templates/fonts/Poppins-ExtraBold.ttf'); }
-
 /* ---------- Nieuwe Kerk Utrecht ---------- */
 :root {
   --purple: #4B1E78;
@@ -242,3 +226,26 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .ghost { aspect-ratio: 9 / 16; border: 2px dashed var(--line); border-radius: 12px; display: grid; place-items: center; color: var(--muted); font-size: 0.78rem; }
 .how { margin: 0.6rem 0 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem; color: var(--muted); }
 .how b { color: var(--ink); font-weight: 600; }
+
+/* end screen editor */
+.outro-edit { display: grid; grid-template-columns: 190px 1fr; gap: 1.3rem; align-items: start; }
+@media (max-width: 720px) { .outro-edit { grid-template-columns: 1fr; } }
+.endscreen { position: relative; width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden; background: #17121D; }
+.endscreen .line { position: absolute; left: 0; right: 0; text-align: center; line-height: 1.15; }
+.outro-edit .made { margin-top: 0.5rem; }
+.outro-edit .made video { width: 100%; border-radius: 8px; background: #000; display: block; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: none; border-radius: 0; padding: 0.35rem 0.7rem; font-size: 0.85rem; font-weight: 500; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--purple); color: var(--white); }
+.swatches { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.lines-edit { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.3rem; }
+.line-edit { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.7rem; }
+.line-edit .top { display: flex; gap: 0.4rem; align-items: center; }
+.line-edit .top input { flex: 1; }
+.line-edit .bits { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.45rem; font-size: 0.8rem; color: var(--muted); }
+.line-edit .bits label { display: flex; align-items: center; gap: 0.25rem; }
+.line-edit .bits input[type='range'] { width: 5.5rem; }
+.line-edit .bits input[type='number'] { width: 4.2rem; padding: 0.15rem 0.3rem; font-family: var(--mono); font-size: 0.78rem; }
+.line-edit .bits select { padding: 0.15rem 0.3rem; font-size: 0.8rem; }
+.save-row { display: flex; align-items: center; gap: 0.7rem; margin-top: 1rem; flex-wrap: wrap; }

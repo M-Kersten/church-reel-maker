@@ -264,7 +264,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               onChange={changeCrop}
             />
             <StylePanel style={style} onChange={changeStyle} />
-            <OutroPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
+            <OutroPanel church={church} outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>
       )}

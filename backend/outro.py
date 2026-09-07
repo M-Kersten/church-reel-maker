@@ -83,6 +83,10 @@ def load_config() -> OutroConfig:
     return OutroConfig()
 
 
+def save_config(config: OutroConfig) -> None:
+    CONFIG_PATH.write_text(json.dumps(config.model_dump(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def save_default_config() -> None:
     """Write templates/outro.json the first time, so there is something to edit."""
     if not CONFIG_PATH.is_file():

@@ -14,9 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import clips, discovery, outro, renderer, transcription
+from . import clips, discovery, fonts, outro, renderer, transcription
 from .jobs import Job, JobManager
-from .models import (FONTS, ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, ProcessedClip, Project,
+from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, ProcessedClip, Project,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
                      save_project, save_service, save_service_transcript, save_transcript, service_dir)
@@ -116,8 +116,8 @@ def update_transcript(project_id: str, transcript: Transcript):
 @app.put("/projects/{project_id}/style", response_model=ProjectDetail)
 def update_style(project_id: str, style: Style):
     project = get_project(project_id)
-    if style.font not in FONTS:
-        raise HTTPException(400, f"font must be one of {FONTS}")
+    if style.font not in fonts.names():
+        raise HTTPException(400, f"onbekend lettertype: {style.font}")
     project.style = style
     save_project(project)
     return detail(project)
@@ -191,11 +191,48 @@ def read_church():
     return load_church_info()
 
 
+@app.get("/fonts", response_model=list[fonts.FontFamily])
+def read_fonts():
+    """Font families found in templates/fonts, plus the system font."""
+    return fonts.catalogue()
+
+
 @app.get("/outro", response_model=outro.OutroConfig)
 def read_outro():
     """The look of the end screen, from templates/outro.json."""
     outro.save_default_config()
     return outro.load_config()
+
+
+@app.put("/outro", response_model=outro.OutroConfig)
+def update_outro(config: outro.OutroConfig):
+    """Save the end-screen settings from the interface and rebuild the video."""
+    for line in config.lines:
+        if line.font and line.font not in fonts.names():
+            raise HTTPException(400, f"onbekend lettertype: {line.font}")
+    if config.font not in fonts.names():
+        raise HTTPException(400, f"onbekend lettertype: {config.font}")
+    outro.save_config(config)
+    if config.generate:
+        try:
+            outro.build(config)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, str(exc)) from exc
+    return config
+
+
+@app.post("/outro/background")
+def upload_outro_background(file: UploadFile):
+    """Store a background image for the end screen and return its file name."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise HTTPException(400, "Gebruik een jpg-, png- of webp-afbeelding")
+    target = TEMPLATES_DIR / f"outro-achtergrond{ext}"
+    for old in TEMPLATES_DIR.glob("outro-achtergrond.*"):
+        old.unlink(missing_ok=True)
+    with target.open("wb") as out:
+        shutil.copyfileobj(file.file, out, length=1024 * 1024)
+    return {"image": target.name}
 
 
 @app.post("/outro/rebuild", response_model=outro.OutroConfig)

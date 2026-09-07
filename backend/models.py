@@ -21,7 +21,6 @@ PROJECTS_DIR = ROOT / "projects"
 TEMPLATES_DIR = ROOT / "templates"
 FONTS_DIR = TEMPLATES_DIR / "fonts"
 
-FONTS = ["Inter", "Montserrat", "Poppins", "Arial"]
 FontWeight = Literal["regular", "medium", "semibold", "bold", "extrabold"]
 CropStrategy = Literal["static", "tracked"]  # "tracked" is reserved for Part 2
 

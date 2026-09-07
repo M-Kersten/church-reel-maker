@@ -139,7 +139,7 @@ The interface between discovery and production is one function, `create_clip(sou
   }
   ```
 
-- `templates/outro.json` holds the look. It is created on the first start from the defaults; `templates/outro.example.json` is the copy in the repository. Every field:
+- `templates/outro.json` holds the look. **The Afsluiter panel in the Clip tab edits all of it**: background (solid colour, gradient with up to four colours and a direction, or an uploaded image with a darkening slider), font, duration, and the text lines with their size, colour, weight, height, letter spacing and capitals. The panel draws the end screen live while you type and rebuilds the video when you press **Opslaan en vernieuwen**. The file is created on the first start from the defaults; `templates/outro.example.json` is the copy in the repository. Every field:
 
   | Field | Meaning |
   | --- | --- |
@@ -174,7 +174,19 @@ The interface is in Dutch and carries the Nieuwe Kerk Utrecht colours: deep purp
 
 ## Fonts
 
-`templates/fonts/` contains Inter, Montserrat and Poppins (SIL Open Font License, licence texts included) in the weights the app offers. The renderer passes this directory to libass and the frontend loads the same files, so the preview matches the output. Arial comes from the operating system (libass falls back to a similar sans-serif when it is missing, for example on Linux without `ttf-mscorefonts-installer`).
+`templates/fonts/` holds the families the app offers, subset to the Latin characters Dutch needs (SIL Open Font License, licence texts included):
+
+| Family | Character |
+| --- | --- |
+| Inter, Roboto, Open Sans | neutral sans, easy to read at any size |
+| Montserrat, Poppins, Nunito | geometric and friendly |
+| Oswald, Barlow Condensed | condensed, fits more words per line |
+| Bebas Neue, Anton | heavy display, one weight, all caps feel |
+| Lora, Playfair Display | serif, calmer and more formal |
+
+Arial comes from the operating system. The backend scans the folder on request, so **dropping a pair of files named `{Family}-{Weight}.ttf` into `templates/fonts/` adds that font to both the subtitle and end-screen pickers** with no code change. Weights are `Regular`, `Medium`, `SemiBold`, `Bold` and `ExtraBold`; the family name inside the file must be `Family` for Regular and Bold and `Family Weight` for the rest, which is how Google Fonts static instances are built. A family that lacks the chosen weight falls back to its nearest one, so single-weight fonts work everywhere.
+
+The renderer passes this directory to libass and the browser loads the same files, so the preview matches the output.
 
 ## API
 
@@ -191,8 +203,11 @@ GET  /projects/{id}/render-status   {status, progress, message, error}
 GET  /projects/{id}/output          the rendered final.mp4
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
+GET  /fonts                         font families found in templates/fonts
 GET  /outro                         the end-screen config from templates/outro.json
-POST /outro/rebuild                 rebuild templates/outro.mp4 from that config
+PUT  /outro                         save the end-screen config and rebuild the video
+POST /outro/background              upload a background image for the end screen
+POST /outro/rebuild                 rebuild templates/outro.mp4 from the config on disk
 GET  /templates/...                 fonts and outro.mp4 (for the preview)
 
 POST /services                      create an empty service
@@ -220,6 +235,7 @@ backend/
   jobs.py           in-process background jobs
   discovery.py      transcript windows -> LLM analysis -> deduplicated, ranked ClipCandidates
   outro.py          end-screen config -> ASS + FFmpeg, rebuilt when the config changes
+  fonts.py          which font families and weights templates/fonts holds
   clips.py          create_clip(source, start, end): cuts a range into a regular clip project
 frontend/src/
   App.tsx                      tab switch between Full service and Clip
@@ -228,7 +244,8 @@ frontend/src/
   components/ClipEditor.tsx    single-clip editor: project state, API calls, auto-save, render polling
   components/ServiceView.tsx   full-service upload, states, progress, processed clips
   components/ClipSuggestions.tsx  ranked candidate list: preview, select, adjust boundaries
-  components/OutroPanel.tsx    end-screen preview and rebuild button
+  components/OutroPanel.tsx    end-screen editor with a live preview
+  fonts.ts                     font catalogue: loads the faces and resolves weights
   components/VideoPreview.tsx  9:16 preview with subtitle overlay and outro
   components/SubtitleEditor.tsx
   components/StylePanel.tsx
