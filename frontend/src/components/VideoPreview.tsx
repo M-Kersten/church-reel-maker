@@ -208,11 +208,11 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
             ))}
           </div>
         )}
-        <span className="badge">{phase === 'main' ? `9:16 · ${portrait ? 'portrait' : 'landscape'} · zoom ${crop.zoom.toFixed(2)}` : `Outro · ${church?.churchName ?? ''}`}</span>
+        <span className="badge">{phase === 'main' ? `9:16 · ${portrait ? 'staand' : 'liggend'} · zoom ${crop.zoom.toFixed(2)}` : `Afsluiter · ${church?.churchName ?? ''}`}</span>
       </div>
       <div className="controls">
-        <button className="small" onClick={togglePlay}>{playing ? 'Pause' : 'Play'}</button>
-        <span>{phase === 'main' ? formatTime(time) : 'outro'}</span>
+        <button className="small" onClick={togglePlay}>{playing ? 'Pauze' : 'Afspelen'}</button>
+        <span>{phase === 'main' ? formatTime(time) : 'afsluiter'}</span>
         <input
           type="range"
           min={0}
@@ -233,8 +233,8 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
         <span>{formatTime(sourceInfo.duration)}</span>
       </div>
       <p className="info">
-        Source {sourceInfo.width}×{sourceInfo.height} · {sourceInfo.fps} fps · {sourceInfo.duration.toFixed(1)}s ·{' '}
-        {sourceInfo.hasAudio ? `audio ${sourceInfo.audioCodec ?? ''}` : 'no audio'} → output {output.width}×{output.height} @ {output.fps} fps
+        Bron {sourceInfo.width}×{sourceInfo.height} · {sourceInfo.duration.toFixed(1).replace('.', ',')} s ·{' '}
+        {sourceInfo.hasAudio ? 'met geluid' : 'zonder geluid'} → video {output.width}×{output.height}, {output.fps} beelden per seconde
       </p>
     </div>
   )

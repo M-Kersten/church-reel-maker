@@ -208,10 +208,10 @@ def render_video(
         key, _, value = line.strip().partition("=")
         if key in ("out_time_us", "out_time_ms") and value.lstrip("-").isdigit() and on_progress:
             done = int(value) / 1_000_000
-            on_progress(min(0.99, done / total) if total else 0.0, f"Encoding {done:.0f}s / {total:.0f}s")
+            on_progress(min(0.99, done / total) if total else 0.0, f"Video wordt gemaakt · {done:.0f} van {total:.0f} seconden")
     stderr = proc.stderr.read() if proc.stderr else ""
     if proc.wait() != 0:
         tmp.unlink(missing_ok=True)
-        raise RuntimeError("ffmpeg failed: " + stderr.strip()[-2000:])
+        raise RuntimeError("FFmpeg is mislukt: " + stderr.strip()[-2000:])
     tmp.replace(destination)
     return destination

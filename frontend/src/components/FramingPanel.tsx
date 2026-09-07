@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { CropWindow, Output, VideoInfo } from '../api'
 import { MAX_ZOOM, canPan, clampCrop, cropGeometry, defaultCrop, minZoom } from '../crop'
+import Section from './Section'
 
 interface Props {
   sourceUrl: string
@@ -61,8 +62,11 @@ export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, curr
   const isDefault = JSON.stringify(crop) === JSON.stringify(defaultCrop(sourceInfo, output))
 
   return (
-    <section className="panel">
-      <h2>Framing</h2>
+    <Section
+      eyebrow="Beeldkader"
+      title="Welk deel van het beeld gebruiken we?"
+      intro="Een staande video laat maar een deel van het brede beeld zien. Sleep het witte kader over het beeld tot de spreker er goed in staat. Je kunt ook de voorvertoning zelf verslepen."
+    >
       <div className="framing-stage">
         <div
           ref={boxRef}
@@ -88,21 +92,21 @@ export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, curr
           </div>
         </div>
       </div>
-      <div className="fields" style={{ marginTop: '0.8rem' }}>
+      <div className="fields" style={{ marginTop: '1rem' }}>
         <label htmlFor="zoom">Zoom</label>
         <div className="inline">
           <input id="zoom" type="range" min={low} max={MAX_ZOOM} step={0.01} value={crop.zoom} onChange={(e) => setZoom(Number(e.target.value))} />
           <output>{crop.zoom.toFixed(2)}×</output>
         </div>
-        <label>Position</label>
+        <label>Positie</label>
         <div className="inline">
-          <span className="meta">x {Math.round(crop.x * 100)}% · y {Math.round(crop.y * 100)}%</span>
-          <button className="small" onClick={() => onChange(defaultCrop(sourceInfo, output))} disabled={isDefault}>Reset</button>
-          <button className="small" onClick={() => setZoom(low)} title="Show the whole source with black bars">Fit whole frame</button>
-          <button className="small" onClick={() => setZoom(1)} title="Fill the 9:16 frame">Fill</button>
+          <span className="meta">{Math.round(crop.x * 100)}% van links · {Math.round(crop.y * 100)}% van boven</span>
+          <button className="small" onClick={() => onChange(defaultCrop(sourceInfo, output))} disabled={isDefault}>Herstel</button>
+          <button className="small" onClick={() => setZoom(low)} title="Laat het hele beeld zien, met zwarte balken">Hele beeld</button>
+          <button className="small" onClick={() => setZoom(1)} title="Vul de staande video helemaal">Beeldvullend</button>
         </div>
       </div>
-      <p className="info">Drag the frame here or drag the preview itself. Cut-off area is grey; the render uses exactly this window.</p>
-    </section>
+      <p className="hint">Het donkere deel valt weg. Met de zoom-schuif snijd je verder in of laat je juist het hele beeld zien met zwarte balken.</p>
+    </Section>
   )
 }

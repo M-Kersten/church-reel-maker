@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Segment } from '../api'
 import { formatTime, parseTime } from '../subtitleLayout'
+import Section from './Section'
 
 interface Props {
   segments: Segment[]
@@ -44,31 +45,34 @@ export default function SubtitleEditor({ segments, currentTime, onChange, onSeek
   }
 
   return (
-    <section className="panel">
-      <h2>Subtitles</h2>
-      {segments.length === 0 && <p className="empty">No subtitles yet. Run the transcription or add a segment.</p>}
+    <Section
+      eyebrow="Ondertitels"
+      title="Lees de tekst na"
+      intro="De computer heeft de gesproken tekst uitgeschreven, maar maakt soms fouten in namen en Bijbelteksten. Klik in een regel om de tekst te verbeteren. Met ▶ hoor je precies dat stukje. Splitsen maakt een lange regel korter, Samenvoegen plakt twee regels aan elkaar."
+    >
+      {segments.length === 0 && <p className="empty">Nog geen ondertitels. Klik onderaan op Ondertitels maken, of voeg zelf een regel toe.</p>}
       <div className="segments">
         {segments.map((seg, i) => (
           <div key={i} className={`segment ${currentTime >= seg.start && currentTime < seg.end ? 'active' : ''}`}>
             <div className="times">
               <TimeInput value={seg.start} onCommit={(t) => update(i, { start: t })} />
-              <span>→</span>
+              <span>tot</span>
               <TimeInput value={seg.end} onCommit={(t) => update(i, { end: t })} />
-              <button className="small" title="Jump to this segment" onClick={() => onSeek(seg.start)}>▶</button>
+              <button className="small" title="Speel dit stukje af" onClick={() => onSeek(seg.start)}>▶</button>
               <div className="actions">
-                <button className="small" onClick={() => split(i)} disabled={seg.text.trim().split(/\s+/).length < 2} title="Split into two segments">Split</button>
-                <button className="small" onClick={() => merge(i)} disabled={i >= segments.length - 1} title="Merge with the next segment">Merge ↓</button>
-                <button className="small" onClick={() => remove(i)} title="Delete segment">✕</button>
+                <button className="small" onClick={() => split(i)} disabled={seg.text.trim().split(/\s+/).length < 2} title="Verdeel deze regel in twee regels">Splitsen</button>
+                <button className="small" onClick={() => merge(i)} disabled={i >= segments.length - 1} title="Voeg samen met de volgende regel">Samenvoegen ↓</button>
+                <button className="small" onClick={() => remove(i)} title="Verwijder deze regel">✕</button>
               </div>
             </div>
-            <textarea value={seg.text} rows={2} onChange={(e) => update(i, { text: e.target.value })} lang="nl" spellCheck />
+            <textarea value={seg.text} rows={2} onChange={(e) => update(i, { text: e.target.value })} lang="nl" spellCheck placeholder="Tekst van deze regel" />
           </div>
         ))}
       </div>
-      <div style={{ marginTop: '0.6rem' }}>
-        <button className="small" onClick={add}>+ Add segment</button>
+      <div style={{ marginTop: '0.8rem' }}>
+        <button className="small" onClick={add}>+ Regel toevoegen</button>
       </div>
-    </section>
+    </Section>
   )
 }
 
@@ -101,7 +105,7 @@ function TimeInput({ value, onCommit }: { value: number; onCommit: (t: number) =
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-      title="mm:ss.s"
+      title="minuten:seconden, bijvoorbeeld 00:03.2"
     />
   )
 }

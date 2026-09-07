@@ -139,7 +139,9 @@ The bundled outro is generated from `templates/church.json` with FFmpeg (no AI):
 }
 ```
 
-Edit that file and run `python templates/make_outro.py` to regenerate `outro.mp4`.
+Edit that file and run `python templates/make_outro.py` to regenerate `outro.mp4`. The `churchName` is also shown as the small label above the wordmark in the interface.
+
+The interface is in Dutch and styled after the Nieuwe Kerk Utrecht identity (deep purple, gold labels, Poppins, rounded arch motifs). The colour tokens live at the top of `frontend/src/index.css`.
 
 ## Fonts
 

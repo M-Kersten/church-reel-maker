@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type ChurchInfo, type CropWindow, type Project, type RenderStatus, type Segment, type Style } from '../api'
 import FramingPanel from './FramingPanel'
 import RenderControls from './RenderControls'
+import Section from './Section'
+import Steps from './Steps'
 import StylePanel from './StylePanel'
 import SubtitleEditor from './SubtitleEditor'
 import VideoPreview, { type PreviewHandle } from './VideoPreview'
 
 const IDLE: RenderStatus = { status: 'idle', progress: 0, message: '', error: null }
 const STORAGE_KEY = 'church-reel-maker.project'
+const STEPS = ['Video kiezen', 'Ondertitels maken', 'Nakijken en instellen', 'Video maken']
 
 interface Props {
   /** Project to open (for example a clip cut from a full service). */
@@ -15,7 +18,7 @@ interface Props {
   onProjectChange: (id: string) => void
 }
 
-/** The Part 1 single-clip editor: upload, transcribe, subtitles, style, preview, render. */
+/** The single-clip editor: upload, transcribe, subtitles, framing, style, preview, render. */
 export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [project, setProject] = useState<Project | null>(null)
   const [segments, setSegments] = useState<Segment[]>([])
@@ -78,7 +81,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     }
   }
 
-  // Debounced auto-save of subtitles and style.
+  // Debounced auto-save of subtitles, style and framing.
   useEffect(() => {
     if (!project || !dirty.current.transcript) return
     const handle = setTimeout(() => {
@@ -110,7 +113,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     dirty.current.crop = true
     setCrop(next)
   }
-
   const changeSegments = (next: Segment[]) => {
     dirty.current.transcript = true
     setSegments(next)
@@ -173,48 +175,64 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   }
 
   const hasVideo = Boolean(project?.sourceVideo && project.sourceInfo)
+  const step = !hasVideo ? 0 : segments.length === 0 ? 1 : renderStatus.status === 'done' ? STEPS.length : 2
 
   return (
     <div>
-      <p className="meta">
-        {project ? `${project.title ? `${project.title} · ` : ''}${project.id}` : 'no project'}
-        {project?.origin ? ` · cut from ${project.origin.serviceId}` : ''}
-        {church ? ` · ${church.churchName}` : ''}
-      </p>
+      <Steps steps={STEPS} current={step} />
 
       {error && <div className="error">{error}</div>}
 
       <label
-        className={`dropzone ${dragging ? 'active' : ''}`}
+        className={`dropzone ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           setDragging(true)
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        style={{ marginBottom: '1.25rem', padding: hasVideo ? '1rem' : undefined }}
       >
         <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-        {uploading ? 'Uploading…' : hasVideo ? 'Drop another clip here to start a new project' : 'Drop a video clip here or click to choose one'}
+        {uploading ? (
+          <strong>Bezig met uploaden…</strong>
+        ) : hasVideo ? (
+          <span>
+            <strong>{project?.title ?? 'Je fragment staat klaar'}</strong>
+            <span className="meta">
+              {project?.origin ? `Geknipt uit de dienst · ` : ''}Sleep hier een ander fragment naartoe om een nieuwe clip te beginnen.
+            </span>
+          </span>
+        ) : (
+          <span>
+            <strong>Sleep hier een videofragment naartoe, of klik om een bestand te kiezen</strong>
+            <span className="hint">Een fragment van ongeveer 20 tot 90 seconden werkt het best. Mp4- en mov-bestanden zijn prima.</span>
+          </span>
+        )}
       </label>
 
       {project && style && crop && hasVideo && (
         <div className="layout">
           <div className="sticky">
-            <VideoPreview
-              ref={previewRef}
-              sourceUrl={api.sourceUrl(project.id)}
-              sourceInfo={project.sourceInfo!}
-              outroUrl={api.outroUrl()}
-              church={church}
-              segments={segments}
-              style={style}
-              output={project.output}
-              crop={crop}
-              onCropChange={changeCrop}
-              onTime={setCurrentTime}
-              onPlayState={setPlaying}
-            />
+            <Section
+              eyebrow="Voorvertoning"
+              title="Zo wordt je video"
+              intro="Klik op het beeld om af te spelen. Na het fragment volgt automatisch de afsluiter van de kerk."
+            >
+              <VideoPreview
+                ref={previewRef}
+                sourceUrl={api.sourceUrl(project.id)}
+                sourceInfo={project.sourceInfo!}
+                outroUrl={api.outroUrl()}
+                church={church}
+                segments={segments}
+                style={style}
+                output={project.output}
+                crop={crop}
+                onCropChange={changeCrop}
+                onTime={setCurrentTime}
+                onPlayState={setPlaying}
+              />
+            </Section>
           </div>
           <div>
             <SubtitleEditor segments={segments} currentTime={currentTime} onChange={changeSegments} onSeek={(t) => previewRef.current?.seek(t)} />
@@ -229,7 +247,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
             />
             <StylePanel style={style} onChange={changeStyle} />
             <RenderControls
-              canTranscribe={Boolean(project.sourceInfo?.hasAudio)}
+              hasAudio={Boolean(project.sourceInfo?.hasAudio)}
+              hasSubtitles={segments.length > 0}
               transcribing={transcribing}
               canRender={hasVideo}
               renderStatus={renderStatus}

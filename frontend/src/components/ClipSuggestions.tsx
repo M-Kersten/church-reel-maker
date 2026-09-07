@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ClipCandidate, Segment, Service } from '../api'
 import { formatTime, parseTime } from '../subtitleLayout'
+import Section from './Section'
 
 interface Props {
   service: Service
@@ -50,18 +51,21 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
   }, [previewing, service.candidates])
 
   const active = service.candidates.find((c) => c.id === previewing)
+  const count = service.candidates.length
 
   return (
-    <section className="panel suggestions">
-      <h2>Clip Suggestions</h2>
-      <p className="meta">
-        {service.title} · {formatTime(duration)} · {service.candidates.length} suggestions, best first
-      </p>
-
+    <Section
+      className="suggestions"
+      eyebrow="Suggesties"
+      title="Voorgestelde fragmenten"
+      intro={`${count === 1 ? 'Eén fragment' : `${count} fragmenten`} gevonden in ${service.title} (${formatTime(duration)}), het beste bovenaan. Klik op Beluister om het stukje te horen, vink Kiezen aan bij wat je wilt gebruiken. Klopt het begin of einde niet helemaal? Open Tekst en tijden en schuif ze een paar seconden.`}
+    >
       <div className="player">
-        <video ref={videoRef} src={sourceUrl} preload="metadata" playsInline controls onPause={() => undefined} />
+        <video ref={videoRef} src={sourceUrl} preload="metadata" playsInline controls />
         <div className="meta">
-          {active ? `Previewing ${active.id.replace('candidate-', '#')} · ${formatTime(time)} / ends ${formatTime(active.end)}` : 'Click ▶ Preview on a suggestion'}
+          {active
+            ? `Je hoort fragment ${active.id.replace('candidate-', '')} · ${formatTime(time)} · stopt bij ${formatTime(active.end)}`
+            : 'Klik bij een fragment op ▶ Beluister; de speler stopt vanzelf aan het einde van het fragment.'}
         </div>
       </div>
 
@@ -76,13 +80,13 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
                 <div className="candidate-main">
                   <h3>{cand.title}</h3>
                   <div className="meta">
-                    {formatTime(cand.start)} — {formatTime(cand.end)} · {Math.round(cand.end - cand.start)} sec
-                    {cand.alternateBoundaries.length > 0 ? ` · ${cand.alternateBoundaries.length} alternate ${cand.alternateBoundaries.length === 1 ? 'boundary' : 'boundaries'}` : ''}
+                    {formatTime(cand.start)} tot {formatTime(cand.end)} · {Math.round(cand.end - cand.start)} seconden
+                    {cand.alternateBoundaries.length > 0 ? ` · ${cand.alternateBoundaries.length === 1 ? '1 alternatief begin/einde' : `${cand.alternateBoundaries.length} alternatieve begin/eindes`}` : ''}
                   </div>
                 </div>
                 <label className="select">
                   <input type="checkbox" checked={cand.selected} disabled={disabled} onChange={(e) => update(cand.id, { selected: e.target.checked })} />
-                  Select
+                  {cand.selected ? 'Gekozen' : 'Kiezen'}
                 </label>
               </div>
 
@@ -92,17 +96,17 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
                 </blockquote>
               )}
               {cand.summary && <p className="summary">{cand.summary}</p>}
-              {cand.reason && <p className="reason">{cand.reason}</p>}
+              {cand.reason && <p className="reason">Waarom dit werkt: {cand.reason}</p>}
 
               <div className="candidate-actions">
-                <button className="small" onClick={() => preview(cand)}>{previewing === cand.id ? '■ Stop' : '▶ Preview'}</button>
-                <button className="small" onClick={() => setExpanded(open ? null : cand.id)}>{open ? 'Hide details' : 'Transcript & timecodes'}</button>
+                <button className="small" onClick={() => preview(cand)}>{previewing === cand.id ? '■ Stop' : '▶ Beluister'}</button>
+                <button className="small" onClick={() => setExpanded(open ? null : cand.id)}>{open ? 'Verberg tekst en tijden' : 'Tekst en tijden'}</button>
               </div>
 
               {open && (
                 <div className="boundaries">
                   <BoundaryEditor
-                    label="Start"
+                    label="Begin"
                     value={cand.start}
                     min={0}
                     max={cand.end - 1}
@@ -114,7 +118,7 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
                     }}
                   />
                   <BoundaryEditor
-                    label="End"
+                    label="Einde"
                     value={cand.end}
                     min={cand.start + 1}
                     max={duration}
@@ -125,12 +129,13 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
                       if (v) v.currentTime = Math.max(cand.start, cand.end - 3)
                     }}
                   />
+                  <p className="hint">Met -5, -1, +1 en +5 schuif je het begin of einde een paar seconden. De ▶ springt in de speler naar dat punt.</p>
                   {cand.alternateBoundaries.length > 0 && (
                     <div className="alternates">
-                      Alternatives:
+                      Andere mogelijkheid:
                       {cand.alternateBoundaries.map((alt, i) => (
                         <button key={i} className="small" disabled={disabled} onClick={() => update(cand.id, { start: alt.start, end: alt.end })}>
-                          {formatTime(alt.start)} — {formatTime(alt.end)}
+                          {formatTime(alt.start)} tot {formatTime(alt.end)}
                         </button>
                       ))}
                     </div>
@@ -148,7 +153,7 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
           )
         })}
       </ol>
-    </section>
+    </Section>
   )
 }
 
@@ -186,10 +191,10 @@ function BoundaryEditor({ label, value, min, max, disabled, onChange, onJump }: 
       <span className="boundary-label">{label}</span>
       <button className="small" disabled={disabled} onClick={() => nudge(-5)}>-5</button>
       <button className="small" disabled={disabled} onClick={() => nudge(-1)}>-1</button>
-      <input value={text} disabled={disabled} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} title="mm:ss.s" />
+      <input value={text} disabled={disabled} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} title="minuten:seconden, bijvoorbeeld 34:12.4" />
       <button className="small" disabled={disabled} onClick={() => nudge(1)}>+1</button>
       <button className="small" disabled={disabled} onClick={() => nudge(5)}>+5</button>
-      <button className="small" onClick={onJump} title="Jump the player here">▶</button>
+      <button className="small" onClick={onJump} title="Spring in de speler naar dit punt">▶</button>
     </div>
   )
 }

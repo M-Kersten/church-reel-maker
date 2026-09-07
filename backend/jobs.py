@@ -34,7 +34,7 @@ class JobManager:
         with self._lock:
             if self._jobs.get(key, Job()).status == "running":
                 raise RuntimeError("job already running")
-            job = Job(status="running", message="Starting")
+            job = Job(status="running", message="Bezig met starten")
             self._jobs[key] = job
 
         def run() -> None:
@@ -42,11 +42,11 @@ class JobManager:
                 work(job)
                 job.progress = 1.0
                 job.status = "done"
-                job.message = "Done"
+                job.message = "Klaar"
             except Exception as exc:  # noqa: BLE001
                 job.status = "error"
                 job.error = str(exc)
-                job.message = "Failed"
+                job.message = "Mislukt"
                 traceback.print_exc()
 
         threading.Thread(target=run, name=f"job-{key}", daemon=True).start()

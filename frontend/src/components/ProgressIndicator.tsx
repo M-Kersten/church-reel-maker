@@ -9,7 +9,7 @@ export default function ProgressIndicator({ status }: { status: RenderStatus }) 
         <div style={{ width: `${status.status === 'error' ? 100 : percent}%` }} />
       </div>
       <div className="label">
-        <span>{status.status === 'error' ? `Rendering failed: ${status.error}` : status.message}</span>
+        <span>{status.status === 'error' ? `Het maken is mislukt: ${status.error}` : status.message}</span>
         <span>{status.status === 'error' ? '' : `${percent}%`}</span>
       </div>
     </div>

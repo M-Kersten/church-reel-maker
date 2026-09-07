@@ -31,7 +31,7 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"}
 def get_project(project_id: str) -> Project:
     project = load_project(project_id)
     if project is None:
-        raise HTTPException(404, "project not found")
+        raise HTTPException(404, "Project niet gevonden")
     return project
 
 
@@ -56,7 +56,7 @@ def upload_video(project_id: str, file: UploadFile):
     project = get_project(project_id)
     ext = Path(file.filename or "").suffix.lower() or ".mp4"
     if ext not in ALLOWED_VIDEO_EXTENSIONS:
-        raise HTTPException(400, f"unsupported file type {ext}")
+        raise HTTPException(400, f"Bestandstype {ext} wordt niet ondersteund; gebruik mp4, mov, m4v, mkv of webm")
     if project.sourceVideo:
         (project_dir(project.id) / project.sourceVideo).unlink(missing_ok=True)
     target = project_dir(project.id) / f"source{ext}"
@@ -66,7 +66,7 @@ def upload_video(project_id: str, file: UploadFile):
         info = renderer.probe(target)
     except Exception as exc:  # noqa: BLE001
         target.unlink(missing_ok=True)
-        raise HTTPException(400, f"could not read video: {exc}") from exc
+        raise HTTPException(400, f"De video kan niet gelezen worden: {exc}") from exc
     project.sourceVideo = target.name
     project.sourceInfo = info
     project.crop = renderer.default_crop(info, project.output)
@@ -78,7 +78,7 @@ def upload_video(project_id: str, file: UploadFile):
 def read_source(project_id: str):
     project = get_project(project_id)
     if not project.sourceVideo:
-        raise HTTPException(404, "no video uploaded")
+        raise HTTPException(404, "Er is nog geen video geüpload")
     return FileResponse(project_dir(project.id) / project.sourceVideo)
 
 
@@ -86,9 +86,9 @@ def read_source(project_id: str):
 def transcribe_project(project_id: str):
     project = get_project(project_id)
     if not project.sourceVideo or not project.sourceInfo:
-        raise HTTPException(400, "upload a video first")
+        raise HTTPException(400, "Upload eerst een video")
     if not project.sourceInfo.hasAudio:
-        raise HTTPException(400, "the video has no audio track")
+        raise HTTPException(400, "De video heeft geen geluid")
     transcript = transcription.transcribe(project_dir(project.id) / project.sourceVideo, project_dir(project.id) / "work")
     save_transcript(project, transcript)
     return transcript
@@ -124,9 +124,9 @@ def update_crop(project_id: str, crop: CropWindow):
 def render_project(project_id: str):
     project = get_project(project_id)
     if not project.sourceVideo or not project.sourceInfo:
-        raise HTTPException(400, "upload a video first")
+        raise HTTPException(400, "Upload eerst een video")
     if jobs.is_running(project.id):
-        raise HTTPException(409, "render already running")
+        raise HTTPException(409, "De video wordt al gemaakt")
 
     source = project_dir(project.id) / project.sourceVideo
     info = project.sourceInfo
@@ -136,7 +136,7 @@ def render_project(project_id: str):
     outro = ROOT / project.outro
 
     def work_fn(job: Job) -> None:
-        job.message = "Writing subtitles"
+        job.message = "Ondertitels worden voorbereid"
         subtitles = write_ass(transcript, project.style, project.output, work / "subtitles.ass")
 
         def on_progress(fraction: float, message: str) -> None:
@@ -157,7 +157,7 @@ def render_status(project_id: str):
     project = get_project(project_id)
     job = jobs.get(project.id)
     if job.status == "idle" and (project_dir(project.id) / "output" / "final.mp4").is_file():
-        return {"status": "done", "progress": 1.0, "message": "Rendered earlier", "error": None}
+        return {"status": "done", "progress": 1.0, "message": "Eerder gemaakt", "error": None}
     return job.to_dict()
 
 
@@ -166,7 +166,7 @@ def read_output(project_id: str):
     project = get_project(project_id)
     path = project_dir(project.id) / "output" / "final.mp4"
     if jobs.is_running(project.id) or not path.is_file():
-        raise HTTPException(404, "no rendered video yet")
+        raise HTTPException(404, "Er is nog geen video gemaakt")
     return FileResponse(path, media_type="video/mp4", filename=f"{project.id}-reel.mp4")
 
 
@@ -185,7 +185,7 @@ def read_church():
 def get_service(service_id: str) -> Service:
     service = load_service(service_id)
     if service is None:
-        raise HTTPException(404, "service not found")
+        raise HTTPException(404, "Dienst niet gevonden")
     return service
 
 
@@ -207,7 +207,7 @@ def set_status(service: Service, status: str, error: str | None = None) -> None:
 def run_service_job(service: Service, busy_status: str, done_status: str, work) -> ServiceDetail:
     """Run `work(job, service)` in the shared job manager and keep service.status in sync."""
     if jobs.is_running(service.id):
-        raise HTTPException(409, "the service is busy")
+        raise HTTPException(409, "De dienst wordt nog verwerkt, wacht even")
     set_status(service, busy_status)
 
     def wrapped(job: Job) -> None:
@@ -236,10 +236,10 @@ def read_service(service_id: str):
 def upload_service_video(service_id: str, file: UploadFile):
     service = get_service(service_id)
     if jobs.is_running(service.id):
-        raise HTTPException(409, "the service is busy")
+        raise HTTPException(409, "De dienst wordt nog verwerkt, wacht even")
     ext = Path(file.filename or "").suffix.lower() or ".mp4"
     if ext not in ALLOWED_VIDEO_EXTENSIONS:
-        raise HTTPException(400, f"unsupported file type {ext}")
+        raise HTTPException(400, f"Bestandstype {ext} wordt niet ondersteund; gebruik mp4, mov, m4v, mkv of webm")
     if service.sourceVideo:
         (service_dir(service.id) / service.sourceVideo).unlink(missing_ok=True)
     target = service_dir(service.id) / f"source{ext}"
@@ -249,10 +249,10 @@ def upload_service_video(service_id: str, file: UploadFile):
         info = renderer.probe(target)
     except Exception as exc:  # noqa: BLE001
         target.unlink(missing_ok=True)
-        raise HTTPException(400, f"could not read video: {exc}") from exc
+        raise HTTPException(400, f"De video kan niet gelezen worden: {exc}") from exc
     if not info.hasAudio:
         target.unlink(missing_ok=True)
-        raise HTTPException(400, "the video has no audio track")
+        raise HTTPException(400, "De video heeft geen geluid")
     service.sourceVideo = target.name
     service.sourceInfo = info
     service.title = Path(file.filename or "Service").stem or "Service"
@@ -266,7 +266,7 @@ def upload_service_video(service_id: str, file: UploadFile):
 def read_service_source(service_id: str):
     service = get_service(service_id)
     if not service.sourceVideo:
-        raise HTTPException(404, "no video uploaded")
+        raise HTTPException(404, "Er is nog geen video geüpload")
     return FileResponse(service_dir(service.id) / service.sourceVideo)
 
 
@@ -274,13 +274,13 @@ def read_service_source(service_id: str):
 def transcribe_service(service_id: str):
     service = get_service(service_id)
     if not service.sourceVideo or not service.sourceInfo:
-        raise HTTPException(400, "upload a video first")
+        raise HTTPException(400, "Upload eerst een video")
 
     def work(job: Job, service: Service) -> None:
-        job.message = "Extracting audio"
+        job.message = "Geluid wordt uit de opname gehaald"
 
         def on_progress(fraction: float) -> None:
-            job.progress, job.message = fraction, "Transcribing"
+            job.progress, job.message = fraction, "Gesproken tekst wordt uitgeschreven"
 
         transcript = transcription.transcribe(
             service_dir(service.id) / service.sourceVideo, service_dir(service.id) / "work",
@@ -296,7 +296,7 @@ def analyze_service(service_id: str):
     service = get_service(service_id)
     transcript = load_service_transcript(service)
     if transcript is None:
-        raise HTTPException(400, "transcribe the service first")
+        raise HTTPException(400, "Schrijf de dienst eerst uit")
 
     def work(job: Job, service: Service) -> None:
         def on_progress(fraction: float, message: str) -> None:
@@ -318,11 +318,11 @@ def update_candidates(service_id: str, candidates: list[ClipCandidate]):
     """Save user adjustments: selection and boundary changes. Order is preserved as given."""
     service = get_service(service_id)
     if jobs.is_running(service.id):
-        raise HTTPException(409, "the service is busy")
+        raise HTTPException(409, "De dienst wordt nog verwerkt, wacht even")
     duration = service.sourceInfo.duration if service.sourceInfo else None
     for cand in candidates:
         if cand.end <= cand.start or cand.start < 0 or (duration and cand.end > duration + 0.5):
-            raise HTTPException(400, f"invalid boundaries for {cand.id}")
+            raise HTTPException(400, f"Ongeldig begin of einde bij fragment {cand.id}")
     service.candidates = candidates
     save_service(service)
     return service.candidates
@@ -333,16 +333,16 @@ def process_selected(service_id: str):
     """Hand every selected candidate to the existing clip pipeline (clips.create_clip)."""
     service = get_service(service_id)
     if not service.sourceVideo:
-        raise HTTPException(400, "upload a video first")
+        raise HTTPException(400, "Upload eerst een video")
     selected = [c for c in service.candidates if c.selected]
     if not selected:
-        raise HTTPException(400, "no candidates selected")
+        raise HTTPException(400, "Er zijn geen fragmenten gekozen")
     source = service_dir(service.id) / service.sourceVideo
     transcript = load_service_transcript(service)
 
     def work(job: Job, service: Service) -> None:
         for n, cand in enumerate(selected, start=1):
-            job.progress, job.message = (n - 1) / len(selected), f"Processing clip {n} of {len(selected)}"
+            job.progress, job.message = (n - 1) / len(selected), f"Fragment {n} van {len(selected)} wordt geknipt"
             project = clips.create_clip(
                 source, cand.start, cand.end, transcript, title=cand.title,
                 origin=ClipOrigin(serviceId=service.id, candidateId=cand.id, start=cand.start, end=cand.end),

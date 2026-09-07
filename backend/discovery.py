@@ -230,11 +230,11 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
         return out
 
     if on_progress:
-        on_progress(0.0, f"Analyzing transcript · Section 1 of {total}")
+        on_progress(0.0, f"Tekst wordt doorgelezen · deel 1 van {total}")
     with ThreadPoolExecutor(max_workers=max(1, LLM_CONCURRENCY)) as pool:
         for result in pool.map(work, windows):
             raw.extend(result)
             done += 1
             if on_progress:
-                on_progress(done / total, f"Analyzing transcript · Section {min(done + 1, total)} of {total}")
+                on_progress(done / total, f"Tekst wordt doorgelezen · deel {min(done + 1, total)} van {total}")
     return dedupe_and_rank(raw)
