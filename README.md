@@ -164,6 +164,8 @@ The interface between discovery and production is one function, `create_clip(sou
   | `lines[].uppercase` | render the text in capitals |
   | `lines[].delay` | seconds before this line appears |
 
+A line that is too wide is wrapped over two lines automatically, inside a 60 px margin on each side, so long church names and service times stay in frame. Move a line with its `y` when the wrapped text ends up too close to the next one.
+
 The end screen is rebuilt automatically whenever `outro.json` or `church.json` is newer than `outro.mp4`: on start and before every render. In the Clip tab, the **Afsluiter** panel shows the result and has a **Vernieuwen** button, so you can try colours without restarting. `python templates/make_outro.py` does the same from the command line.
 
 Prefer your own video? Put it in `templates/outro.mp4`. Because its file date is then newer than the config, nothing overwrites it; set `"generate": false` to be certain.
