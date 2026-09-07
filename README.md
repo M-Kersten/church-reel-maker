@@ -14,6 +14,19 @@ There are two entry points on the page:
 - **Full service**: upload a complete recording (60–120 minutes), let the AI suggest clip-worthy moments, review and adjust them, and send the ones you pick into the clip editor. See "Full service clip discovery" below.
 - **Clip**: the single-clip editor described above.
 
+## Quick start (no technical knowledge needed)
+
+1. Download this project as a folder (green **Code** button → **Download ZIP** on GitHub, then unzip) or clone it.
+2. Start it:
+   - **Windows**: double-click `start.bat`.
+   - **macOS**: double-click `start.command`. If macOS says the file cannot be opened, right-click it, choose **Open**, and confirm once.
+3. The first start takes a few minutes: it installs Python packages and downloads FFmpeg into `tools/`. Python itself is installed automatically on Windows (through winget) and through Homebrew on macOS when available; otherwise the window tells you where to get it.
+4. The browser opens at http://localhost:8000. Close the black window to stop the app.
+
+Settings live in `config.env` next to `start.bat` (created on first start). Put your Claude API key there for the "Full service" clip suggestions, or set `LLM_PROVIDER=ollama` to keep everything local. The speech model (about 460 MB) is downloaded on the first transcription.
+
+The built web interface is committed in `frontend/dist`, so Node.js is not needed to run the app. Developers who change the frontend run `npm run build` in `frontend/` and commit the result.
+
 ## Requirements
 
 - Python 3.11+
@@ -25,7 +38,7 @@ There are two entry points on the page:
 
 The first transcription downloads the faster-whisper model (default `small`, roughly 460 MB) into the Hugging Face cache. After that no network access is needed.
 
-## Setup
+## Developer setup
 
 ```bash
 # backend
@@ -186,6 +199,9 @@ frontend/src/
   components/ProgressIndicator.tsx
 templates/
   outro.mp4, church.json, make_outro.py, fonts/
+launcher.py         loads config.env, fetches FFmpeg when missing, starts the server, opens the browser
+start.bat / start.command   one-click launchers for Windows and macOS (create .venv, install, run launcher.py)
+config.example.env  template for config.env (API key, LLM provider, whisper model)
 projects/           one directory per clip project (ignored by git)
 services/           one directory per full service (ignored by git)
 ```

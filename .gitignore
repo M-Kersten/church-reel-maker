@@ -9,7 +9,6 @@ __pycache__/
 
 # frontend
 frontend/node_modules/
-frontend/dist/
 frontend/node_modules/.tmp/
 
 # editor / os
@@ -18,3 +17,7 @@ frontend/node_modules/.tmp/
 
 # service recordings and their transcripts
 services/
+
+# launcher: downloaded FFmpeg and personal settings
+tools/
+config.env
