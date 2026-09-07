@@ -20,7 +20,7 @@ There are two entry points on the page:
 2. Start it:
    - **Windows**: double-click `start.bat`.
    - **macOS**: double-click `start.command`. If macOS says the file cannot be opened, right-click it, choose **Open**, and confirm once.
-3. The first start takes a few minutes: it installs Python packages and downloads FFmpeg into `tools/`. Python itself is installed automatically on Windows (through winget) and through Homebrew on macOS when available; otherwise the window tells you where to get it.
+3. The first start takes a few minutes: it installs Python packages and downloads FFmpeg into `tools/`. After an update, the next start installs any new packages by itself. Python itself is installed automatically on Windows (through winget) and through Homebrew on macOS when available; otherwise the window tells you where to get it.
 4. The browser opens at http://localhost:8000. Close the black window to stop the app.
 
 Settings live in `config.env` next to `start.bat` (created on first start). Put your Claude API key there for the "Full service" clip suggestions, or set `LLM_PROVIDER=ollama` to keep everything local. The speech model (about 460 MB) is downloaded on the first transcription.

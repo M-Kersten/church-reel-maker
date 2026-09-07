@@ -132,11 +132,44 @@ def analyze_window(window: Window) -> list[LlmCandidate]:
     return _anthropic(user).candidates
 
 
+NO_KEY_MESSAGE = ("Er is geen Claude API-sleutel ingesteld. Zet ANTHROPIC_API_KEY=... in config.env en start de app "
+                  "opnieuw, of kies LLM_PROVIDER=ollama voor een lokaal model.")
+
+
+def check_provider() -> None:
+    """Fail early with a readable message instead of after the first window."""
+    if LLM_PROVIDER == "ollama":
+        return
+    try:
+        import anthropic  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError("Het onderdeel 'anthropic' ontbreekt. Sluit de app en start opnieuw met start.bat of "
+                           "start.command; de ontbrekende onderdelen worden dan geïnstalleerd.") from exc
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        raise RuntimeError(NO_KEY_MESSAGE)
+
+
 def _anthropic(user: str) -> LlmAnalysis:
     import anthropic
 
     client = anthropic.Anthropic()
-    response = client.messages.parse(
+    try:
+        response = _anthropic_request(client, user)
+    except anthropic.AuthenticationError as exc:
+        raise RuntimeError("De Claude API-sleutel wordt niet geaccepteerd. Controleer ANTHROPIC_API_KEY in config.env.") from exc
+    except anthropic.RateLimitError as exc:
+        raise RuntimeError("De Claude API geeft aan dat de limiet is bereikt. Wacht even en probeer het opnieuw.") from exc
+    except anthropic.APIStatusError as exc:
+        raise RuntimeError(f"De Claude API gaf een fout ({exc.status_code}): {exc.message}") from exc
+    except anthropic.APIConnectionError as exc:
+        raise RuntimeError("Geen verbinding met de Claude API. Controleer de internetverbinding.") from exc
+    if response.stop_reason == "refusal" or response.parsed_output is None:
+        return LlmAnalysis(candidates=[])
+    return response.parsed_output
+
+
+def _anthropic_request(client, user: str):
+    return client.messages.parse(
         model=LLM_MODEL or "claude-opus-5",
         max_tokens=16000,
         system=SYSTEM_PROMPT,
@@ -144,9 +177,6 @@ def _anthropic(user: str) -> LlmAnalysis:
         messages=[{"role": "user", "content": user}],
         output_format=LlmAnalysis,
     )
-    if response.stop_reason == "refusal" or response.parsed_output is None:
-        return LlmAnalysis(candidates=[])
-    return response.parsed_output
 
 
 def _ollama(user: str) -> LlmAnalysis:
@@ -209,6 +239,7 @@ def dedupe_and_rank(raw: list[ClipCandidate]) -> list[ClipCandidate]:
 
 
 def discover(transcript: Transcript, on_progress: ProgressCallback | None = None) -> list[ClipCandidate]:
+    check_provider()
     windows = build_windows(transcript.segments)
     total = len(windows)
     if total == 0:

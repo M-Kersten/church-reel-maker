@@ -33,8 +33,7 @@ if [ ! -x ".venv/bin/python" ]; then
   echo "Setting up the app for the first time, this takes a few minutes ..."
   "$PY" -m venv .venv || fail
   .venv/bin/python -m pip install --upgrade pip >/dev/null
-  .venv/bin/python -m pip install -r backend/requirements.txt || fail
 fi
 
-# --- 3. Start (downloads FFmpeg on first run, opens the browser) --------------------
+# --- 3. Start (installs/updates packages and FFmpeg when needed, opens the browser) ---
 .venv/bin/python launcher.py || fail

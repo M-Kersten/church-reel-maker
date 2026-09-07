@@ -27,10 +27,9 @@ if not exist ".venv\Scripts\python.exe" (
     echo Setting up the app for the first time, this takes a few minutes ...
     %PY% -m venv .venv || goto :fail
     ".venv\Scripts\python.exe" -m pip install --upgrade pip >nul
-    ".venv\Scripts\python.exe" -m pip install -r backend\requirements.txt || goto :fail
 )
 
-rem --- 3. Start (downloads FFmpeg on first run, opens the browser) ---------------
+rem --- 3. Start (installs/updates packages and FFmpeg when needed, opens the browser) ---
 ".venv\Scripts\python.exe" launcher.py
 if errorlevel 1 goto :fail
 exit /b 0

@@ -3,9 +3,10 @@
 Started by start.bat (Windows) or start.command (macOS) after those scripts
 have created the Python environment. This script:
 
-  1. loads config.env (API key, model choices),
-  2. makes sure ffmpeg/ffprobe are available (downloads a build into tools/ if not),
-  3. starts the web server and opens the browser.
+  1. installs or updates the Python packages when backend/requirements.txt changed,
+  2. loads config.env (API key, model choices),
+  3. makes sure ffmpeg/ffprobe are available (downloads a build into tools/ if not),
+  4. starts the web server and opens the browser.
 
 It can also be run by hand:  python launcher.py
 """
@@ -42,6 +43,25 @@ FFMPEG_DOWNLOADS = {
 
 def say(message: str) -> None:
     print(f"[Church Reel Maker] {message}", flush=True)
+
+
+# --- python packages ----------------------------------------------------------
+
+REQUIREMENTS = ROOT / "backend" / "requirements.txt"
+INSTALLED_STAMP = Path(sys.prefix) / "requirements.installed"
+
+
+def ensure_requirements() -> None:
+    """Install the packages from requirements.txt whenever that file changed since the last install."""
+    wanted = REQUIREMENTS.read_text(encoding="utf-8")
+    if INSTALLED_STAMP.exists() and INSTALLED_STAMP.read_text(encoding="utf-8") == wanted:
+        return
+    say("Onderdelen worden geïnstalleerd of bijgewerkt, dit kan een paar minuten duren …")
+    result = subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(REQUIREMENTS)])
+    if result.returncode != 0:
+        raise SystemExit("Het installeren van de onderdelen is mislukt. Controleer de internetverbinding en start opnieuw.")
+    INSTALLED_STAMP.write_text(wanted, encoding="utf-8")
+    say("Onderdelen zijn up-to-date.")
 
 
 # --- config.env ---------------------------------------------------------------
@@ -157,6 +177,7 @@ def open_browser_when_ready(url: str) -> None:
 
 def main() -> None:
     os.chdir(ROOT)
+    ensure_requirements()
     load_config()
     # The speech model cache falls back to copies on Windows without developer mode; that is fine.
     os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
