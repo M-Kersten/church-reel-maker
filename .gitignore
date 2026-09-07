@@ -1,0 +1,17 @@
+# project data (uploads, transcripts, renders)
+projects/*
+!projects/.gitkeep
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/node_modules/.tmp/
+
+# editor / os
+.DS_Store
+*.log
