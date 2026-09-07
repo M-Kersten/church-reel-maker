@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from . import clips, discovery, renderer, transcription
 from .jobs import Job, JobManager
-from .models import (FONTS, ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, ProcessedClip, Project,
+from .models import (FONTS, ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, ProcessedClip, Project,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
                      save_project, save_service, save_service_transcript, save_transcript, service_dir)
@@ -36,6 +36,8 @@ def get_project(project_id: str) -> Project:
 
 
 def detail(project: Project) -> ProjectDetail:
+    if project.crop is None and project.sourceInfo is not None:
+        project.crop = renderer.default_crop(project.sourceInfo, project.output)
     return ProjectDetail(**project.model_dump(), transcriptData=load_transcript(project))
 
 
@@ -67,6 +69,7 @@ def upload_video(project_id: str, file: UploadFile):
         raise HTTPException(400, f"could not read video: {exc}") from exc
     project.sourceVideo = target.name
     project.sourceInfo = info
+    project.crop = renderer.default_crop(info, project.output)
     save_project(project)
     return detail(project)
 
@@ -109,6 +112,14 @@ def update_style(project_id: str, style: Style):
     return detail(project)
 
 
+@app.put("/projects/{project_id}/crop", response_model=ProjectDetail)
+def update_crop(project_id: str, crop: CropWindow):
+    project = get_project(project_id)
+    project.crop = crop
+    save_project(project)
+    return detail(project)
+
+
 @app.post("/projects/{project_id}/render")
 def render_project(project_id: str):
     project = get_project(project_id)
@@ -134,7 +145,8 @@ def render_project(project_id: str):
         renderer.render_video(
             source, info, subtitles, project.output, output_dir / "final.mp4",
             outro=outro if outro.is_file() else None,
-            crop_strategy=project.cropStrategy, tracking=project.tracking, on_progress=on_progress,
+            crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop,
+            on_progress=on_progress,
         )
 
     return jobs.start(project.id, work_fn).to_dict()

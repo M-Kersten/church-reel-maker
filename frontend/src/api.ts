@@ -46,6 +46,14 @@ export interface ClipOrigin {
   end: number
 }
 
+export interface CropWindow {
+  /** Centre of the 9:16 frame as a fraction of the scaled source (0.5 = centred). */
+  x: number
+  y: number
+  /** 1 fills the frame, smaller letterboxes, larger crops in further. */
+  zoom: number
+}
+
 export interface Project {
   id: string
   createdAt: string
@@ -58,6 +66,7 @@ export interface Project {
   output: Output
   outro: string
   cropStrategy: 'static' | 'tracked'
+  crop: CropWindow
   tracking: string | null
   transcriptData: Transcript | null
 }
@@ -107,6 +116,7 @@ export const api = {
   saveTranscript: (id: string, transcript: Transcript) =>
     request<Transcript>(`/projects/${id}/transcript`, json('PUT', transcript)),
   saveStyle: (id: string, style: Style) => request<Project>(`/projects/${id}/style`, json('PUT', style)),
+  saveCrop: (id: string, crop: CropWindow) => request<Project>(`/projects/${id}/crop`, json('PUT', crop)),
   render: (id: string) => request<RenderStatus>(`/projects/${id}/render`, { method: 'POST' }),
   renderStatus: (id: string) => request<RenderStatus>(`/projects/${id}/render-status`),
   church: () => request<ChurchInfo>('/church'),

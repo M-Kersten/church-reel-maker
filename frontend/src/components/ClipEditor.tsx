@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, type ChurchInfo, type Project, type RenderStatus, type Segment, type Style } from '../api'
+import { api, type ChurchInfo, type CropWindow, type Project, type RenderStatus, type Segment, type Style } from '../api'
+import FramingPanel from './FramingPanel'
 import RenderControls from './RenderControls'
 import StylePanel from './StylePanel'
 import SubtitleEditor from './SubtitleEditor'
@@ -19,6 +20,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [project, setProject] = useState<Project | null>(null)
   const [segments, setSegments] = useState<Segment[]>([])
   const [style, setStyle] = useState<Style | null>(null)
+  const [crop, setCrop] = useState<CropWindow | null>(null)
+  const [playing, setPlaying] = useState(false)
   const [church, setChurch] = useState<ChurchInfo | null>(null)
   const [renderStatus, setRenderStatus] = useState<RenderStatus>(IDLE)
   const [uploading, setUploading] = useState(false)
@@ -28,13 +31,14 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [currentTime, setCurrentTime] = useState(0)
   const [outputVersion, setOutputVersion] = useState(0)
   const previewRef = useRef<PreviewHandle>(null)
-  const dirty = useRef({ transcript: false, style: false })
+  const dirty = useRef({ transcript: false, style: false, crop: false })
 
   const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
 
   const adopt = useCallback((p: Project) => {
     setProject(p)
     setStyle(p.style)
+    setCrop(p.crop)
     setSegments(p.transcriptData?.segments ?? [])
     localStorage.setItem(STORAGE_KEY, p.id)
     onProjectChange(p.id)
@@ -52,7 +56,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       .getProject(wanted)
       .then((p) => {
         adopt(p)
-        dirty.current = { transcript: false, style: false }
+        dirty.current = { transcript: false, style: false, crop: false }
         return api.renderStatus(p.id)
       })
       .then(setRenderStatus)
@@ -93,6 +97,20 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     return () => clearTimeout(handle)
   }, [style, project])
 
+  useEffect(() => {
+    if (!project || !crop || !dirty.current.crop) return
+    const handle = setTimeout(() => {
+      dirty.current.crop = false
+      api.saveCrop(project.id, crop).catch(fail)
+    }, 400)
+    return () => clearTimeout(handle)
+  }, [crop, project])
+
+  const changeCrop = (next: CropWindow) => {
+    dirty.current.crop = true
+    setCrop(next)
+  }
+
   const changeSegments = (next: Segment[]) => {
     dirty.current.transcript = true
     setSegments(next)
@@ -124,7 +142,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       // Flush pending edits before rendering.
       await api.saveTranscript(project.id, { language: 'nl', segments })
       await api.saveStyle(project.id, style)
-      dirty.current = { transcript: false, style: false }
+      if (crop) await api.saveCrop(project.id, crop)
+      dirty.current = { transcript: false, style: false, crop: false }
       setRenderStatus(await api.render(project.id))
     } catch (e) {
       fail(e)
@@ -179,7 +198,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
         {uploading ? 'Uploading…' : hasVideo ? 'Drop another clip here to start a new project' : 'Drop a video clip here or click to choose one'}
       </label>
 
-      {project && style && hasVideo && (
+      {project && style && crop && hasVideo && (
         <div className="layout">
           <div className="sticky">
             <VideoPreview
@@ -191,11 +210,23 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               segments={segments}
               style={style}
               output={project.output}
+              crop={crop}
+              onCropChange={changeCrop}
               onTime={setCurrentTime}
+              onPlayState={setPlaying}
             />
           </div>
           <div>
             <SubtitleEditor segments={segments} currentTime={currentTime} onChange={changeSegments} onSeek={(t) => previewRef.current?.seek(t)} />
+            <FramingPanel
+              sourceUrl={api.sourceUrl(project.id)}
+              sourceInfo={project.sourceInfo!}
+              output={project.output}
+              crop={crop}
+              currentTime={currentTime}
+              playing={playing}
+              onChange={changeCrop}
+            />
             <StylePanel style={style} onChange={changeStyle} />
             <RenderControls
               canTranscribe={Boolean(project.sourceInfo?.hasAudio)}

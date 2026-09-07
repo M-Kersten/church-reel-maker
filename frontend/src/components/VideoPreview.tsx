@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { ChurchInfo, Output, Segment, Style, VideoInfo } from '../api'
+import type { ChurchInfo, CropWindow, Output, Segment, Style, VideoInfo } from '../api'
+import { canPan, clampCrop, cropGeometry } from '../crop'
 import { BACKGROUND_ALPHA, SAFE_MARGIN_BOTTOM, SAFE_MARGIN_SIDE, cssWeight, formatTime, layoutText } from '../subtitleLayout'
 
 export interface PreviewHandle {
@@ -14,7 +15,10 @@ interface Props {
   segments: Segment[]
   style: Style
   output: Output
+  crop: CropWindow
+  onCropChange?: (crop: CropWindow) => void
   onTime: (time: number) => void
+  onPlayState?: (playing: boolean) => void
 }
 
 /**
@@ -23,7 +27,7 @@ interface Props {
  * the same layout rules as the ASS file. When the clip ends the outro plays.
  */
 const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(props, ref) {
-  const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, onTime } = props
+  const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, crop, onCropChange, onTime, onPlayState } = props
   const boxRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLVideoElement>(null)
   const outroRef = useRef<HTMLVideoElement>(null)
@@ -31,6 +35,7 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
   const [playing, setPlaying] = useState(false)
   const [time, setTime] = useState(0)
   const [scale, setScale] = useState(360 / output.width)
+  const drag = useRef<{ x: number; y: number; crop: CropWindow; moved: boolean } | null>(null)
 
   useImperativeHandle(ref, () => ({
     seek: (t: number) => {
@@ -54,6 +59,10 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
   }, [output.width])
 
   // Smooth time updates while playing.
+  useEffect(() => {
+    onPlayState?.(playing)
+  }, [playing, onPlayState])
+
   useEffect(() => {
     let frame = 0
     const tick = () => {
@@ -98,6 +107,45 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
   const fontSize = layout ? layout.fontSize * scale : 0
   const outline = style.outline * scale
 
+  // Place the source inside the 9:16 frame exactly like the renderer's scale/crop/pad chain.
+  const g = cropGeometry(sourceInfo, output, crop)
+  const padX = (output.width - g.cropW) / 2
+  const padY = (output.height - g.cropH) / 2
+  const videoStyle: React.CSSProperties = {
+    width: g.scaledW * scale,
+    height: g.scaledH * scale,
+    left: (padX - g.left) * scale,
+    top: (padY - g.top) * scale,
+    display: phase === 'main' ? 'block' : 'none',
+    cursor: onCropChange ? 'grab' : 'pointer',
+  }
+  const pan = canPan(sourceInfo, output, crop)
+
+  // Drag the video to move the crop window; a click without movement toggles playback.
+  const onPointerDown = (e: React.PointerEvent<HTMLVideoElement>) => {
+    if (!onCropChange) return
+    drag.current = { x: e.clientX, y: e.clientY, crop, moved: false }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLVideoElement>) => {
+    const d = drag.current
+    if (!d || !onCropChange) return
+    const dx = e.clientX - d.x
+    const dy = e.clientY - d.y
+    if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return
+    d.moved = true
+    onCropChange(clampCrop({
+      x: pan.x ? d.crop.x - dx / (g.scaledW * scale) : d.crop.x,
+      y: pan.y ? d.crop.y - dy / (g.scaledH * scale) : d.crop.y,
+      zoom: d.crop.zoom,
+    }, sourceInfo, output))
+  }
+  const onPointerUp = () => {
+    const moved = drag.current?.moved
+    drag.current = null
+    if (!moved) togglePlay()
+  }
+
   return (
     <div>
       <div className="preview" ref={boxRef}>
@@ -106,12 +154,17 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
           src={sourceUrl}
           playsInline
           preload="auto"
-          style={{ objectFit: portrait ? 'contain' : 'cover', display: phase === 'main' ? 'block' : 'none' }}
+          style={videoStyle}
+          draggable={false}
           onPlay={() => setPlaying(true)}
           onPause={() => phase === 'main' && setPlaying(false)}
           onEnded={onMainEnded}
           onSeeked={() => mainRef.current && (setTime(mainRef.current.currentTime), onTime(mainRef.current.currentTime))}
-          onClick={togglePlay}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => (drag.current = null)}
+          onClick={onCropChange ? undefined : togglePlay}
         />
         <video
           ref={outroRef}
@@ -155,7 +208,7 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
             ))}
           </div>
         )}
-        <span className="badge">{phase === 'main' ? `9:16 · static ${portrait ? 'fit' : 'center crop'}` : `Outro · ${church?.churchName ?? ''}`}</span>
+        <span className="badge">{phase === 'main' ? `9:16 · ${portrait ? 'portrait' : 'landscape'} · zoom ${crop.zoom.toFixed(2)}` : `Outro · ${church?.churchName ?? ''}`}</span>
       </div>
       <div className="controls">
         <button className="small" onClick={togglePlay}>{playing ? 'Pause' : 'Play'}</button>

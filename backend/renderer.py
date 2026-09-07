@@ -7,11 +7,12 @@ without touching the rest of the pipeline.
 
 import json
 import subprocess
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from typing import Callable
 
-from .models import FONTS_DIR, Output, VideoInfo
+from .models import FONTS_DIR, CropWindow, Output, VideoInfo
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -56,23 +57,60 @@ def _rotation(stream: dict) -> int:
 # --- crop strategies ----------------------------------------------------------
 
 
-def build_crop_filter(info: VideoInfo, output: Output, crop_strategy: str = "static", tracking=None) -> str:
+def build_crop_filter(info: VideoInfo, output: Output, crop_strategy: str = "static", tracking=None,
+                      crop: CropWindow | None = None) -> str:
     """Return the FFmpeg filter chain that turns the source frame into output.width x output.height."""
     if crop_strategy == "static":
-        return static_crop_filter(info, output)
+        return static_crop_filter(info, output, crop)
     if crop_strategy == "tracked":
         raise NotImplementedError("tracked crop arrives in Part 2")
     raise ValueError(f"unknown crop strategy: {crop_strategy}")
 
 
-def static_crop_filter(info: VideoInfo, output: Output) -> str:
-    w, h = output.width, output.height
+def cover_scale(info: VideoInfo, output: Output) -> float:
+    return max(output.width / info.width, output.height / info.height)
+
+
+def min_zoom(info: VideoInfo, output: Output) -> float:
+    """Zoom at which the whole source fits inside the frame (letterboxed)."""
+    return min(output.width / info.width, output.height / info.height) / cover_scale(info, output)
+
+
+def default_crop(info: VideoInfo, output: Output) -> CropWindow:
+    """Landscape: fill the frame and centre. Portrait: keep the whole frame, padded."""
     if info.height > info.width:
-        # Portrait: keep the whole frame, scale to fit and pad the remainder.
-        return (f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
-                f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black")
-    # Landscape or square: scale to the output height, then crop the centre.
-    return f"scale=-2:{h},crop={w}:{h}"
+        return CropWindow(zoom=round(min_zoom(info, output), 4))
+    return CropWindow()
+
+
+@dataclass
+class CropGeometry:
+    scaled_w: int  # source size after scaling
+    scaled_h: int
+    crop_w: int  # part of the scaled source that ends up in the frame
+    crop_h: int
+    left: int
+    top: int
+
+
+def crop_geometry(info: VideoInfo, output: Output, crop: CropWindow | None) -> CropGeometry:
+    """Pixel geometry for a crop window (mirrored in frontend/src/crop.ts)."""
+    crop = crop or default_crop(info, output)
+    zoom = max(min_zoom(info, output), min(4.0, crop.zoom))
+    scale = cover_scale(info, output) * zoom
+    scaled_w = max(2, int(round(info.width * scale / 2)) * 2)
+    scaled_h = max(2, int(round(info.height * scale / 2)) * 2)
+    crop_w = min(scaled_w, output.width)
+    crop_h = min(scaled_h, output.height)
+    left = int(round(min(max(crop.x * scaled_w - crop_w / 2, 0), scaled_w - crop_w)))
+    top = int(round(min(max(crop.y * scaled_h - crop_h / 2, 0), scaled_h - crop_h)))
+    return CropGeometry(scaled_w, scaled_h, crop_w, crop_h, left, top)
+
+
+def static_crop_filter(info: VideoInfo, output: Output, crop: CropWindow | None = None) -> str:
+    g = crop_geometry(info, output, crop)
+    return (f"scale={g.scaled_w}:{g.scaled_h},crop={g.crop_w}:{g.crop_h}:{g.left}:{g.top},"
+            f"pad={output.width}:{output.height}:(ow-iw)/2:(oh-ih)/2:color=black")
 
 
 # --- rendering ----------------------------------------------------------------
@@ -93,6 +131,7 @@ def build_command(
     destination: Path,
     crop_strategy: str = "static",
     tracking=None,
+    crop: CropWindow | None = None,
 ) -> tuple[list[str], float]:
     """Build the ffmpeg command line. Returns (argv, total output duration)."""
     w, h, fps = output.width, output.height, output.fps
@@ -101,9 +140,9 @@ def build_command(
     filters: list[str] = []
     audio_norm = "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo"
 
-    crop = build_crop_filter(source_info, output, crop_strategy, tracking)
+    crop_chain = build_crop_filter(source_info, output, crop_strategy, tracking, crop)
     filters.append(
-        f"[0:v]{crop},fps={fps},setsar=1,format=yuv420p,"
+        f"[0:v]{crop_chain},fps={fps},setsar=1,format=yuv420p,"
         f"ass=filename='{_ffpath(subtitles)}':fontsdir='{_ffpath(FONTS_DIR)}'[v0]"
     )
     filters.append(_audio_filter(0, source_info, audio_norm, inputs, filters, "a0"))
@@ -151,13 +190,14 @@ def render_video(
     outro: Path | None = None,
     crop_strategy: str = "static",
     tracking=None,
+    crop: CropWindow | None = None,
     on_progress: ProgressCallback | None = None,
 ) -> Path:
     outro_info = probe(outro) if outro is not None and outro.is_file() else None
     if outro_info is None:
         outro = None
     cmd, total = build_command(
-        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking
+        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop
     )
     tmp = destination.with_suffix(".part.mp4")
     cmd[-1] = str(tmp)

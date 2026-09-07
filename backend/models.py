@@ -74,6 +74,19 @@ class ClipOrigin(BaseModel):
     end: float
 
 
+class CropWindow(BaseModel):
+    """Where the 9:16 output frame sits on the source.
+
+    x, y: centre of the frame as a fraction of the scaled source (0.5 = centred).
+    zoom: relative to the scale that exactly fills the frame; 1.0 fills it, smaller values
+          letterbox the source, larger values crop in further. Part 2 can animate these.
+    """
+
+    x: float = Field(default=0.5, ge=0.0, le=1.0)
+    y: float = Field(default=0.5, ge=0.0, le=1.0)
+    zoom: float = Field(default=1.0, gt=0.0, le=4.0)
+
+
 class Project(BaseModel):
     id: str
     createdAt: str
@@ -86,6 +99,7 @@ class Project(BaseModel):
     output: Output = Output()
     outro: str = "templates/outro.mp4"  # relative to the repository root
     cropStrategy: CropStrategy = "static"
+    crop: CropWindow | None = None  # None = default framing for the source (see renderer.default_crop)
     tracking: str | None = None  # Part 2: file with the tracked crop path
 
 

@@ -79,8 +79,9 @@ Environment variables for transcription:
 1. Drop a clip on the page. The original is stored under `projects/<id>/` and its metadata (size, duration, frame rate, audio) is read with ffprobe. The 9:16 preview appears right away.
 2. Click **Transcribe**. Audio is extracted with FFmpeg and transcribed with faster-whisper, language forced to `nl`. Words are grouped into short caption-sized segments.
 3. Correct the subtitles. Each segment has editable start/end times (`mm:ss.s`) and text, plus **Split**, **Merge ↓** and delete. Click ▶ on a segment to jump the preview there. Edits are saved automatically.
-4. Pick a style: font (Inter, Montserrat, Poppins, Arial), weight, size, text colour, outline size and colour, optional dark translucent background. Subtitles always sit bottom-centre, above the safe margin that Reels and Shorts overlay with UI. Text wraps to at most two lines; longer segments are scaled down to fit.
-5. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
+4. Set the framing. The **Framing** panel shows the whole source with the 9:16 output frame drawn on it: drag the frame (or drag the preview itself) to choose which part of the picture ends up in the reel, and use the zoom slider to crop in further or, at the low end, to fit the whole picture with black bars. Landscape clips start centred and filling the frame; portrait clips start with the whole picture visible. **Reset** returns to that default.
+5. Pick a style: font (Inter, Montserrat, Poppins, Arial), weight, size, text colour, outline size and colour, optional dark translucent background. Subtitles always sit bottom-centre, above the safe margin that Reels and Shorts overlay with UI. Text wraps to at most two lines; longer segments are scaled down to fit.
+6. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
 
 The preview is an HTML `<video>` with `object-fit` mimicking the static crop and an HTML overlay for subtitles; it uses the same fonts and layout rules as the renderer. When the clip ends, the outro plays in the preview as well. Nothing is rendered until you click **Render video**.
 
@@ -153,6 +154,7 @@ POST /projects/{id}/transcribe      Dutch transcription, returns the segments
 GET  /projects/{id}                 project + transcript
 PUT  /projects/{id}/transcript      save edited segments
 PUT  /projects/{id}/style           save subtitle style
+PUT  /projects/{id}/crop            save the crop window {x, y, zoom}
 POST /projects/{id}/render          start the background render job
 GET  /projects/{id}/render-status   {status, progress, message, error}
 GET  /projects/{id}/output          the rendered final.mp4
@@ -223,10 +225,10 @@ projects/project-3d25a7a1/
 source.mp4 → static 9:16 crop → fps 30 → burn subtitles.ass (libass) → concat outro → libx264 crf 20 + AAC 160k → final.mp4
 ```
 
-Landscape and square sources are scaled to 1920 px high and centre-cropped to 1080 px wide. Portrait sources are scaled to fit inside 1080×1920 and padded, so nothing is cropped away. The outro is normalised the same way. Output is `yuv420p`, High profile, `+faststart`, which uploads directly to Instagram and YouTube.
+The crop window `{x, y, zoom}` on the project decides the framing: `x`/`y` are the frame centre as fractions of the scaled source, `zoom` is relative to the scale that exactly fills the frame (1 fills, smaller letterboxes, larger crops in). The renderer scales the source, crops the part inside the frame and pads whatever is left. Defaults: landscape sources fill the frame centred, portrait sources keep the whole picture. The outro is always scaled to fit. Output is `yuv420p`, High profile, `+faststart`, which uploads directly to Instagram and YouTube.
 
 ## Part 2 hooks
 
-- `renderer.build_crop_filter(info, output, crop_strategy, tracking)` is the only place that decides how the source frame becomes 9:16. `crop_strategy="static"` is implemented; `"tracked"` raises `NotImplementedError` and is where a tracking-driven crop path goes.
+- `renderer.build_crop_filter(info, output, crop_strategy, tracking, crop)` is the only place that decides how the source frame becomes 9:16. `crop_strategy="static"` is implemented; `"tracked"` raises `NotImplementedError` and is where a tracking-driven crop path goes. `renderer.crop_geometry` turns one `{x, y, zoom}` window into pixel coordinates, so a tracked strategy can emit a window per keyframe and reuse the same maths (mirrored in `frontend/src/crop.ts` for the preview).
 - `render_video(..., crop_strategy=project.cropStrategy, tracking=project.tracking)` already passes the strategy and tracking data through from the project.
 - `Project.cropStrategy` and `Project.tracking` exist in the project model, so tracking results can be stored per project without changing the API shape.

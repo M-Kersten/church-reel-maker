@@ -55,6 +55,7 @@ def create_clip(
         extract_range(source, start, end, target)
         project.sourceVideo = target.name
         project.sourceInfo = renderer.probe(target)
+        project.crop = renderer.default_crop(project.sourceInfo, project.output)
         project.title = title
         project.origin = origin
         save_project(project)

@@ -142,3 +142,11 @@ input[type='range'] { padding: 0; }
 .timecodes { max-height: 16rem; overflow-y: auto; font-size: 0.9rem; display: flex; flex-direction: column; gap: 0.2rem; }
 .timecode .meta { display: inline-block; width: 4.2rem; font-variant-numeric: tabular-nums; }
 .process-bar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); }
+
+/* framing */
+.framing-stage { padding: 12% 10%; background: #e9ecf0; border-radius: 8px; overflow: hidden; }
+.framing-source { position: relative; width: 100%; background: #000; touch-action: none; user-select: none; }
+.framing-source video { display: block; width: 100%; height: 100%; pointer-events: none; }
+.framing-frame { position: absolute; box-sizing: border-box; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(20, 24, 30, 0.55); pointer-events: none; }
+.framing-frame span { position: absolute; top: 4px; left: 6px; font-size: 0.7rem; color: #fff; text-shadow: 0 0 4px #000; }
+.preview video:active { cursor: grabbing; }
