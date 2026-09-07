@@ -78,6 +78,28 @@ export interface RenderStatus {
   error: string | null
 }
 
+export interface OutroLine {
+  text: string
+  y: number
+  size: number
+  weight: FontWeight
+  color: string
+  font: string
+  spacing: number
+  uppercase: boolean
+  delay: number
+}
+
+export interface OutroConfig {
+  generate: boolean
+  duration: number
+  font: string
+  fade: number
+  background: { type: 'solid' | 'gradient' | 'image'; color: string; colors: string[]; angle: number; image: string; darken: number }
+  logo: { file: string; width: number; y: number }
+  lines: OutroLine[]
+}
+
 export interface ChurchInfo {
   churchName: string
   serviceTimes: string[]
@@ -120,9 +142,11 @@ export const api = {
   render: (id: string) => request<RenderStatus>(`/projects/${id}/render`, { method: 'POST' }),
   renderStatus: (id: string) => request<RenderStatus>(`/projects/${id}/render-status`),
   church: () => request<ChurchInfo>('/church'),
+  outroConfig: () => request<OutroConfig>('/outro'),
+  rebuildOutro: () => request<OutroConfig>('/outro/rebuild', { method: 'POST' }),
   sourceUrl: (id: string) => `/projects/${id}/source`,
   outputUrl: (id: string) => `/projects/${id}/output`,
-  outroUrl: () => '/templates/outro.mp4',
+  outroUrl: (version = 0) => `/templates/outro.mp4?v=${version}`,
 }
 
 // --- full-service clip discovery ---------------------------------------------

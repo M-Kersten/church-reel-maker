@@ -11,9 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import clips, discovery, renderer, transcription
+from . import clips, discovery, outro, renderer, transcription
 from .jobs import Job, JobManager
 from .models import (FONTS, ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, ProcessedClip, Project,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
@@ -21,7 +22,17 @@ from .models import (FONTS, ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, Clip
                      save_project, save_service, save_service_transcript, save_transcript, service_dir)
 from .subtitles import write_ass
 
-app = FastAPI(title="Church Reel Maker")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Rebuild the end screen when templates/outro.json or church.json changed.
+    try:
+        outro.ensure_outro()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[outro] {exc}")
+    yield
+
+
+app = FastAPI(title="Church Reel Maker", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 jobs = JobManager()
 
@@ -136,6 +147,11 @@ def render_project(project_id: str):
     outro = ROOT / project.outro
 
     def work_fn(job: Job) -> None:
+        job.message = "Afsluiter wordt voorbereid"
+        try:
+            outro.ensure_outro()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[outro] {exc}")  # keep the existing outro.mp4 and carry on
         job.message = "Ondertitels worden voorbereid"
         subtitles = write_ass(transcript, project.style, project.output, work / "subtitles.ass")
 
@@ -173,6 +189,26 @@ def read_output(project_id: str):
 @app.get("/church", response_model=ChurchInfo)
 def read_church():
     return load_church_info()
+
+
+@app.get("/outro", response_model=outro.OutroConfig)
+def read_outro():
+    """The look of the end screen, from templates/outro.json."""
+    outro.save_default_config()
+    return outro.load_config()
+
+
+@app.post("/outro/rebuild", response_model=outro.OutroConfig)
+def rebuild_outro():
+    """Rebuild templates/outro.mp4 from the config after the user edited it."""
+    config = outro.load_config()
+    if not config.generate:
+        raise HTTPException(400, 'In templates/outro.json staat "generate": false, dus de afsluiter blijft zoals hij is.')
+    try:
+        outro.build(config)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(400, str(exc)) from exc
+    return config
 
 
 

@@ -21,3 +21,8 @@ services/
 # launcher: downloaded FFmpeg and personal settings
 tools/
 config.env
+
+# end screen: your own settings and the generated video (see templates/outro.example.json)
+templates/outro.json
+templates/outro.mp4
+templates/outro.ass

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type ChurchInfo, type CropWindow, type Project, type RenderStatus, type Segment, type Style } from '../api'
 import FramingPanel from './FramingPanel'
+import OutroPanel from './OutroPanel'
 import RenderControls from './RenderControls'
 import Section from './Section'
 import Steps from './Steps'
@@ -33,6 +34,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [outputVersion, setOutputVersion] = useState(0)
+  const [outroVersion, setOutroVersion] = useState(0)
   const previewRef = useRef<PreviewHandle>(null)
   const dirty = useRef({ transcript: false, style: false, crop: false })
 
@@ -222,7 +224,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
                 ref={previewRef}
                 sourceUrl={api.sourceUrl(project.id)}
                 sourceInfo={project.sourceInfo!}
-                outroUrl={api.outroUrl()}
+                outroUrl={api.outroUrl(outroVersion)}
                 church={church}
                 segments={segments}
                 style={style}
@@ -256,6 +258,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               onTranscribe={transcribe}
               onRender={render}
             />
+            <OutroPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>
       )}

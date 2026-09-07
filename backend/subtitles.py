@@ -19,11 +19,16 @@ BACKGROUND_ALPHA = 0x80  # 50% translucent box
 WEIGHT_SUFFIX = {"regular": "", "medium": " Medium", "semibold": " SemiBold", "bold": "", "extrabold": " ExtraBold"}
 
 
+def family_for(font: str, weight: str) -> tuple[str, bool]:
+    """Return (ASS Fontname, bold flag) for a font family and weight."""
+    if font == "Arial":
+        return "Arial", weight in ("semibold", "bold", "extrabold")
+    return font + WEIGHT_SUFFIX.get(weight, ""), weight == "bold"
+
+
 def font_name(style: Style) -> tuple[str, bool]:
-    """Return (ASS Fontname, bold flag) for a style."""
-    if style.font == "Arial":
-        return "Arial", style.fontWeight in ("semibold", "bold", "extrabold")
-    return style.font + WEIGHT_SUFFIX[style.fontWeight], style.fontWeight == "bold"
+    """Return (ASS Fontname, bold flag) for a subtitle style."""
+    return family_for(style.font, style.fontWeight)
 
 
 def layout_text(text: str, style: Style, output: Output) -> tuple[list[str], int]:

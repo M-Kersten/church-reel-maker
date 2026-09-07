@@ -1,0 +1,69 @@
+{
+  "generate": true,
+  "duration": 5.0,
+  "font": "Poppins",
+  "fade": 0.4,
+  "background": {
+    "type": "gradient",
+    "color": "#4B1E78",
+    "colors": [
+      "#C8801B",
+      "#9B1B3A",
+      "#5B1B6E"
+    ],
+    "angle": 115,
+    "image": "",
+    "darken": 0.35
+  },
+  "logo": {
+    "file": "",
+    "width": 420,
+    "y": 600
+  },
+  "lines": [
+    {
+      "text": "Welkom",
+      "y": 760,
+      "size": 34,
+      "weight": "bold",
+      "color": "#F0C862",
+      "font": "",
+      "spacing": 8.0,
+      "uppercase": true,
+      "delay": 0.0
+    },
+    {
+      "text": "{churchName}",
+      "y": 860,
+      "size": 92,
+      "weight": "extrabold",
+      "color": "#FFFFFF",
+      "font": "",
+      "spacing": 0,
+      "uppercase": false,
+      "delay": 0.1
+    },
+    {
+      "text": "Elke zondag {serviceTimes}",
+      "y": 1000,
+      "size": 46,
+      "weight": "medium",
+      "color": "#E7DEF2",
+      "font": "",
+      "spacing": 0,
+      "uppercase": false,
+      "delay": 0.25
+    },
+    {
+      "text": "{instagram}",
+      "y": 1180,
+      "size": 52,
+      "weight": "bold",
+      "color": "#FFFFFF",
+      "font": "",
+      "spacing": 0,
+      "uppercase": false,
+      "delay": 0.4
+    }
+  ]
+}

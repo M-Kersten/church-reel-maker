@@ -125,21 +125,48 @@ A **candidate** means "the AI thinks this range could work"; a **processed clip*
 
 The interface between discovery and production is one function, `create_clip(source, start, end)` in `backend/clips.py`, which builds a standard project for the existing pipeline. The candidate model has room for future fields (category, hook, keywords, thumbnail time) without changing the workflow.
 
-## Church outro
+## Church outro (end screen)
 
-`templates/outro.mp4` is appended after every clip. It is a static video template, normalised to 1080×1920 during rendering, so any 9:16 (or other) clip works: replace the file to use your own outro.
+`templates/outro.mp4` is appended after every clip, normalised to 1080×1920 during rendering. It is generated with FFmpeg (no AI) from two files:
 
-The bundled outro is generated from `templates/church.json` with FFmpeg (no AI):
+- `templates/church.json` holds the church data. The `churchName` is also the small label above the wordmark in the interface.
 
-```json
-{
-  "churchName": "Example Church",
-  "serviceTimes": ["09:30", "11:30"],
-  "instagram": "@examplechurch"
-}
-```
+  ```json
+  {
+    "churchName": "Example Church",
+    "serviceTimes": ["09:30", "11:30"],
+    "instagram": "@examplechurch"
+  }
+  ```
 
-Edit that file and run `python templates/make_outro.py` to regenerate `outro.mp4`. The `churchName` is also shown as the small label above the wordmark in the interface.
+- `templates/outro.json` holds the look. It is created on the first start from the defaults; `templates/outro.example.json` is the copy in the repository. Every field:
+
+  | Field | Meaning |
+  | --- | --- |
+  | `generate` | `false` keeps your own `outro.mp4` and never regenerates it |
+  | `duration` | length in seconds (1–30) |
+  | `font` | `Inter`, `Montserrat`, `Poppins` or `Arial`, used by every line without its own `font` |
+  | `fade` | fade in and out, in seconds |
+  | `background.type` | `solid`, `gradient` or `image` |
+  | `background.color` | the colour for `solid` |
+  | `background.colors` | 2 to 8 hex colours for `gradient` |
+  | `background.angle` | gradient direction in degrees; 0 is left to right, 90 top to bottom |
+  | `background.image` | file name in `templates/` for `image` |
+  | `background.darken` | 0–1, a black veil over the image so text stays readable |
+  | `logo.file` | optional PNG in `templates/` (transparency supported) |
+  | `logo.width`, `logo.y` | logo width and its vertical centre, in pixels of the 1080×1920 frame |
+  | `lines[]` | the text lines, top to bottom |
+  | `lines[].text` | the text; `{churchName}`, `{serviceTimes}` and `{instagram}` are filled in from `church.json` |
+  | `lines[].y` | vertical centre in pixels (0 is the top, 1920 the bottom) |
+  | `lines[].size`, `weight`, `color` | font size, `regular`…`extrabold`, hex colour |
+  | `lines[].font` | override the main font for this line |
+  | `lines[].spacing` | extra letter spacing, for small uppercase labels |
+  | `lines[].uppercase` | render the text in capitals |
+  | `lines[].delay` | seconds before this line appears |
+
+The end screen is rebuilt automatically whenever `outro.json` or `church.json` is newer than `outro.mp4`: on start and before every render. In the Clip tab, the **Afsluiter** panel shows the result and has a **Vernieuwen** button, so you can try colours without restarting. `python templates/make_outro.py` does the same from the command line.
+
+Prefer your own video? Put it in `templates/outro.mp4`. Because its file date is then newer than the config, nothing overwrites it; set `"generate": false` to be certain.
 
 The interface is in Dutch and styled after the Nieuwe Kerk Utrecht identity (deep purple, gold labels, Poppins, rounded arch motifs). The colour tokens live at the top of `frontend/src/index.css`.
 
@@ -162,6 +189,8 @@ GET  /projects/{id}/render-status   {status, progress, message, error}
 GET  /projects/{id}/output          the rendered final.mp4
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
+GET  /outro                         the end-screen config from templates/outro.json
+POST /outro/rebuild                 rebuild templates/outro.mp4 from that config
 GET  /templates/...                 fonts and outro.mp4 (for the preview)
 
 POST /services                      create an empty service
@@ -188,6 +217,7 @@ backend/
   renderer.py       ffprobe metadata, crop strategies, FFmpeg render with progress
   jobs.py           in-process background jobs
   discovery.py      transcript windows -> LLM analysis -> deduplicated, ranked ClipCandidates
+  outro.py          end-screen config -> ASS + FFmpeg, rebuilt when the config changes
   clips.py          create_clip(source, start, end): cuts a range into a regular clip project
 frontend/src/
   App.tsx                      tab switch between Full service and Clip
@@ -196,13 +226,14 @@ frontend/src/
   components/ClipEditor.tsx    single-clip editor: project state, API calls, auto-save, render polling
   components/ServiceView.tsx   full-service upload, states, progress, processed clips
   components/ClipSuggestions.tsx  ranked candidate list: preview, select, adjust boundaries
+  components/OutroPanel.tsx    end-screen preview and rebuild button
   components/VideoPreview.tsx  9:16 preview with subtitle overlay and outro
   components/SubtitleEditor.tsx
   components/StylePanel.tsx
   components/RenderControls.tsx
   components/ProgressIndicator.tsx
 templates/
-  outro.mp4, church.json, make_outro.py, fonts/
+  church.json, outro.json (created on first start), outro.example.json, make_outro.py, outro.mp4, fonts/
 launcher.py         loads config.env, fetches FFmpeg when missing, starts the server, opens the browser
 start.bat / start.command   one-click launchers for Windows and macOS (create .venv, install, run launcher.py)
 config.example.env  template for config.env (API key, LLM provider, whisper model)
