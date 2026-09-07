@@ -145,10 +145,10 @@ export default function ServiceView({ onOpenClip }: Props) {
 
   return (
     <div>
-      <p className="lede">
-        <strong>Hele dienst.</strong> Upload de opname. De computer schrijft de dienst uit en zoekt de momenten die als
-        korte video werken. Jij luistert ze na en kiest.
-      </p>
+      <header className="page-head">
+        <h1>Hele dienst</h1>
+        <p>Upload de opname. De computer schrijft de dienst uit en zoekt de momenten die als korte video werken. Jij luistert ze na en kiest.</p>
+      </header>
 
       <Steps steps={STEPS} current={service && hasVideo ? STEP_FOR_STATUS[service.status] : 0} />
 
@@ -182,7 +182,7 @@ export default function ServiceView({ onOpenClip }: Props) {
       {service && hasVideo && (
         <>
           <section className="card">
-            <div className="service-head">
+            <header className="service-head">
               <div>
                 <h2>{service.title}</h2>
                 <span className="meta">{formatTime(service.sourceInfo!.duration)} · {service.sourceInfo!.width}×{service.sourceInfo!.height}</span>
@@ -192,7 +192,7 @@ export default function ServiceView({ onOpenClip }: Props) {
                 {STATUS_LABEL[service.status]}
                 {saving ? ' · opslaan' : ''}
               </div>
-            </div>
+            </header>
             <p className="say">{STATUS_TEXT[service.status]}</p>
             {service.status === 'error' && <div className="error" style={{ marginTop: '0.8rem', marginBottom: 0 }}>{service.error}</div>}
             {busy && (

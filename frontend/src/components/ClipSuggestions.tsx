@@ -71,14 +71,16 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
     >
       <div className="timeline">
         <div className="rail">
-          {service.candidates.map((cand) => (
+          {service.candidates.map((cand, i) => (
             <button
               key={cand.id}
               className={`mark ${cand.selected ? 'on' : ''} ${previewing === cand.id ? 'now' : ''}`}
-              style={{ left: `${(cand.start / duration) * 100}%`, width: `${Math.max(0.6, ((cand.end - cand.start) / duration) * 100)}%` }}
+              style={{ left: `${(cand.start / duration) * 100}%`, width: `${Math.max(1.4, ((cand.end - cand.start) / duration) * 100)}%` }}
               onClick={() => jump(cand)}
               title={`${cand.title} · ${formatTime(cand.start)} tot ${formatTime(cand.end)}`}
-            />
+            >
+              {i + 1}
+            </button>
           ))}
           <span className="head" style={{ left: `${(time / duration) * 100}%` }} />
         </div>

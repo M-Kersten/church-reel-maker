@@ -177,10 +177,10 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
 
   return (
     <div>
-      <p className="lede">
-        <strong>Losse clip.</strong> Kies een fragment, verbeter de ondertitels, bepaal het beeldkader en maak de video.
-        Links zie je steeds hoe het resultaat eruitziet.
-      </p>
+      <header className="page-head">
+        <h1>Losse clip</h1>
+        <p>Kies een fragment, verbeter de ondertitels, bepaal het beeldkader en maak de video. Links zie je steeds hoe het resultaat eruitziet.</p>
+      </header>
 
       {error && <div className="error">{error}</div>}
 
