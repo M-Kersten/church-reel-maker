@@ -10,6 +10,7 @@ have created the Python environment. This script:
 It can also be run by hand:  python launcher.py
 """
 
+import asyncio
 import os
 import platform
 import shutil
@@ -157,6 +158,8 @@ def open_browser_when_ready(url: str) -> None:
 def main() -> None:
     os.chdir(ROOT)
     load_config()
+    # The speech model cache falls back to copies on Windows without developer mode; that is fine.
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
     ensure_ffmpeg()
     ensure_frontend()
     url = f"http://localhost:{PORT}"
@@ -166,9 +169,23 @@ def main() -> None:
         return
     say(f"Starting the app at {url}  (close this window to stop it)")
     threading.Thread(target=open_browser_when_ready, args=(url,), daemon=True).start()
+    asyncio.run(serve())
+
+
+def _ignore_dropped_connections(loop: asyncio.AbstractEventLoop, context: dict) -> None:
+    """Browsers open spare connections and drop them unused; on Windows the Proactor loop
+    reports each one as a ConnectionResetError. Those are harmless, so keep them out of the log."""
+    if isinstance(context.get("exception"), (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)):
+        return
+    loop.default_exception_handler(context)
+
+
+async def serve() -> None:
     import uvicorn
 
-    uvicorn.run("backend.main:app", host="127.0.0.1", port=PORT, log_level="warning")
+    asyncio.get_running_loop().set_exception_handler(_ignore_dropped_connections)
+    config = uvicorn.Config("backend.main:app", host=os.environ.get("HOST", "127.0.0.1"), port=PORT, log_level="warning")
+    await uvicorn.Server(config).serve()
 
 
 if __name__ == "__main__":
