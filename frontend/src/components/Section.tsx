@@ -14,7 +14,7 @@ export default function Section({ step, title, intro, aside, className, children
   return (
     <section className={`card ${className ?? ''}`}>
       <header>
-        {step !== undefined && <span className="step">{step}</span>}
+        {step !== undefined && <span className="step">{String(step).padStart(2, '0')}</span>}
         <div style={{ flex: 1 }}>
           <h2>{title}</h2>
           {intro && <p className="intro">{intro}</p>}
