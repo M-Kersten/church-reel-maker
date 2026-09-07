@@ -5,12 +5,29 @@ Replace outro.mp4 with your own clip any time; the renderer normalises it to 108
 """
 
 import json
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+TOOLS = HERE.parent / "tools" / "ffmpeg"
 DURATION = 5
 BG = "0x1b2432"
+
+
+def find_ffmpeg() -> str:
+    """ffmpeg from PATH, or the copy the launcher downloaded into tools/ffmpeg."""
+    for candidate in (shutil.which("ffmpeg"), TOOLS / "ffmpeg.exe", TOOLS / "ffmpeg"):
+        if candidate and Path(candidate).is_file():
+            return str(candidate)
+    sys.exit("FFmpeg is niet gevonden. Start de app eerst één keer met start.bat of start.command "
+             "(die haalt FFmpeg op), of installeer FFmpeg en zet het in PATH.")
+
+
+def filter_path(path: Path) -> str:
+    """Escape a path for use inside an FFmpeg filter option (drive-letter colons, backslashes)."""
+    return path.as_posix().replace(":", "\\:").replace("'", "\\'")
 
 church = json.loads((HERE / "church.json").read_text(encoding="utf-8"))
 times = "  ·  ".join(church["serviceTimes"])
@@ -35,10 +52,10 @@ Dialogue: 0,0:00:00.60,0:00:{DURATION:02d}.00,Handle,,0,0,0,,{{\\fad(400,400)\\p
 ass_path = HERE / "outro.ass"
 ass_path.write_text(ass, encoding="utf-8")
 subprocess.run([
-    "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+    find_ffmpeg(), "-y", "-hide_banner", "-loglevel", "error",
     "-f", "lavfi", "-i", f"color=c={BG}:s=1080x1920:r=30:d={DURATION}",
     "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-    "-vf", f"ass=filename='{ass_path.as_posix()}':fontsdir='{(HERE / 'fonts').as_posix()}',format=yuv420p",
+    "-vf", f"ass=filename='{filter_path(ass_path)}':fontsdir='{filter_path(HERE / 'fonts')}',format=yuv420p",
     "-t", str(DURATION), "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac", "-b:a", "96k",
     "-movflags", "+faststart", str(HERE / "outro.mp4"),
 ], check=True)
