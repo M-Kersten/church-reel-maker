@@ -3,6 +3,7 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Callable
 
 from .models import Segment, Transcript
 
@@ -36,7 +37,9 @@ def extract_audio(source: Path, wav_path: Path) -> None:
     )
 
 
-def transcribe(source: Path, work_dir: Path) -> Transcript:
+def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None] | None = None,
+               duration: float | None = None) -> Transcript:
+    """Transcribe `source`. `on_progress(fraction)` is called as segments come in when `duration` is known."""
     wav_path = work_dir / "audio.wav"
     extract_audio(source, wav_path)
 
@@ -52,6 +55,8 @@ def transcribe(source: Path, work_dir: Path) -> Transcript:
     words = []
     fallback: list[Segment] = []
     for seg in whisper_segments:
+        if on_progress and duration:
+            on_progress(min(0.99, seg.end / duration))
         fallback.append(Segment(start=round(seg.start, 2), end=round(seg.end, 2), text=seg.text.strip()))
         if seg.words:
             words.extend(seg.words)

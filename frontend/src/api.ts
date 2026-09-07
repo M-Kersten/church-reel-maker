@@ -39,9 +39,18 @@ export interface VideoInfo {
   audioChannels: number | null
 }
 
+export interface ClipOrigin {
+  serviceId: string
+  candidateId: string | null
+  start: number
+  end: number
+}
+
 export interface Project {
   id: string
   createdAt: string
+  title: string | null
+  origin: ClipOrigin | null
   sourceVideo: string | null
   sourceInfo: VideoInfo | null
   transcript: string | null
@@ -104,4 +113,67 @@ export const api = {
   sourceUrl: (id: string) => `/projects/${id}/source`,
   outputUrl: (id: string) => `/projects/${id}/output`,
   outroUrl: () => '/templates/outro.mp4',
+}
+
+// --- full-service clip discovery ---------------------------------------------
+
+export type ServiceStatus =
+  | 'created' | 'uploaded' | 'transcribing' | 'transcribed' | 'analyzing' | 'ready' | 'processing' | 'complete' | 'error'
+
+export interface TimeRange {
+  start: number
+  end: number
+}
+
+export interface ClipCandidate {
+  id: string
+  start: number
+  end: number
+  title: string
+  summary: string
+  reason: string
+  confidence: number
+  selected: boolean
+  score: number
+  alternateBoundaries: TimeRange[]
+}
+
+export interface ProcessedClip {
+  candidateId: string
+  projectId: string
+  title: string
+  start: number
+  end: number
+  createdAt: string
+}
+
+export interface Service {
+  id: string
+  createdAt: string
+  title: string
+  sourceVideo: string | null
+  sourceInfo: VideoInfo | null
+  transcript: string | null
+  status: ServiceStatus
+  error: string | null
+  candidates: ClipCandidate[]
+  clips: ProcessedClip[]
+  transcriptData: Transcript | null
+  job: RenderStatus | null
+}
+
+export const serviceApi = {
+  create: () => request<Service>('/services', { method: 'POST' }),
+  get: (id: string) => request<Service>(`/services/${id}`),
+  upload: (id: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<Service>(`/services/${id}/upload`, { method: 'POST', body: form })
+  },
+  transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),
+  analyze: (id: string) => request<Service>(`/services/${id}/analyze`, { method: 'POST' }),
+  saveCandidates: (id: string, candidates: ClipCandidate[]) =>
+    request<ClipCandidate[]>(`/services/${id}/candidates`, json('PUT', candidates)),
+  processSelected: (id: string) => request<Service>(`/services/${id}/process-selected`, { method: 'POST' }),
+  sourceUrl: (id: string) => `/services/${id}/source`,
 }

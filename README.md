@@ -9,6 +9,11 @@ Upload video → Transcribe Dutch speech → Edit subtitles → Choose subtitle 
 
 Part 1 uses a **static** centre crop. Person tracking and animated camera movement are reserved for Part 2 (see "Part 2 hooks" below).
 
+There are two entry points on the page:
+
+- **Full service**: upload a complete recording (60–120 minutes), let the AI suggest clip-worthy moments, review and adjust them, and send the ones you pick into the clip editor. See "Full service clip discovery" below.
+- **Clip**: the single-clip editor described above.
+
 ## Requirements
 
 - Python 3.11+
@@ -66,6 +71,46 @@ Environment variables for transcription:
 
 The preview is an HTML `<video>` with `object-fit` mimicking the static crop and an HTML overlay for subtitles; it uses the same fonts and layout rules as the renderer. When the clip ends, the outro plays in the preview as well. Nothing is rendered until you click **Render video**.
 
+## Full service clip discovery
+
+```text
+Upload service → Transcribing → Analyzing service → Suggestions ready → Review & select → Process selected clips → Clip editor
+```
+
+1. Open the **Full service** tab and drop the complete recording. Transcription starts automatically (the same faster-whisper setup as for clips, forced to `nl`) and shows progress; a 90-minute service takes roughly its own length on a laptop CPU with the `small` model.
+2. Analysis starts when the transcript is ready. The transcript is cut into overlapping windows of about three minutes; each window goes to the LLM with per-sentence timecodes and comes back as structured JSON candidates (start, end, title, summary, reason, confidence). Progress shows "Analyzing transcript · Section 8 of 24".
+3. Candidate boundaries are snapped to sentence boundaries, proposals that cover the same moment are merged (the extra boundaries stay available as alternatives), and the list is ranked with an internal score (confidence plus a preference for 30–60 seconds).
+4. **Clip Suggestions** lists the ranked candidates with title, timecodes, duration, transcript excerpt, summary and reason. **Preview** plays just that range of the original recording; **Transcript & timecodes** opens the full excerpt and the boundary editor with direct `mm:ss.s` input and -5 / -1 / +1 / +5 second nudges. Selections and edits are saved automatically.
+5. **Process selected clips** cuts each selected range out of the recording (frame-accurate, original resolution), creates a normal clip project with the matching part of the transcript already filled in, and lists them under "Processed clips". **Open in editor** switches to the Clip tab for subtitles, styling, framing and rendering. Nothing about rendering lives in the discovery layer.
+
+### LLM configuration
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `LLM_PROVIDER` | `anthropic` | `anthropic` uses the Claude API (set `ANTHROPIC_API_KEY`); `ollama` uses a local Ollama server, so the whole pipeline stays on your machine. |
+| `LLM_MODEL` | `claude-opus-5` / `llama3.1` | Model per provider. |
+| `LLM_EFFORT` | `high` | Claude effort level (`low` … `max`). |
+| `LLM_CONCURRENCY` | `3` | Windows analysed in parallel. |
+| `OLLAMA_URL` | `http://localhost:11434` | |
+
+Only transcript text is sent to the model, never video or audio. A 90-minute service is about 25 windows of roughly 2,000 tokens each.
+
+### Discovery data
+
+Services live in `services/<id>/` (ignored by git) next to the clip projects:
+
+```text
+services/service-954de789/
+  service.json      title, status, candidates[], clips[]
+  source.mp4        the full recording, never modified
+  transcript.json   {"segments": [{"start", "end", "text"}, ...]}
+  work/audio.wav
+```
+
+A **candidate** means "the AI thinks this range could work"; a **processed clip** means "the user approved it and a clip project was created". Both are kept on the service. Clip projects created this way carry `title` and `origin` (service id, candidate id, start, end) so later parts can trace a reel back to the recording.
+
+The interface between discovery and production is one function, `create_clip(source, start, end)` in `backend/clips.py`, which builds a standard project for the existing pipeline. The candidate model has room for future fields (category, hook, keywords, thumbnail time) without changing the workflow.
+
 ## Church outro
 
 `templates/outro.mp4` is appended after every clip. It is a static video template, normalised to 1080×1920 during rendering, so any 9:16 (or other) clip works: replace the file to use your own outro.
@@ -101,6 +146,16 @@ GET  /projects/{id}/output          the rendered final.mp4
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
 GET  /templates/...                 fonts and outro.mp4 (for the preview)
+
+POST /services                      create an empty service
+POST /services/{id}/upload          multipart upload of the full recording
+POST /services/{id}/transcribe      background transcription (status: transcribing -> transcribed)
+POST /services/{id}/analyze         background LLM analysis (status: analyzing -> ready)
+GET  /services/{id}                 service + transcript + running job progress
+GET  /services/{id}/candidates      ranked candidates
+PUT  /services/{id}/candidates      save selection and boundary edits
+POST /services/{id}/process-selected  cut each selected candidate into a clip project (status: processing -> complete)
+GET  /services/{id}/source          the recording (for candidate preview)
 ```
 
 Rendering uses an in-process job manager (`backend/jobs.py`), one thread per render. There is no Redis or Celery.
@@ -115,10 +170,15 @@ backend/
   subtitles.py      transcript → ASS (fonts, outline, box, margins, two-line wrapping)
   renderer.py       ffprobe metadata, crop strategies, FFmpeg render with progress
   jobs.py           in-process background jobs
+  discovery.py      transcript windows -> LLM analysis -> deduplicated, ranked ClipCandidates
+  clips.py          create_clip(source, start, end): cuts a range into a regular clip project
 frontend/src/
-  App.tsx                      page state, API calls, auto-save, render polling
-  api.ts                       typed API client
+  App.tsx                      tab switch between Full service and Clip
+  api.ts                       typed API client (projects + services)
   subtitleLayout.ts            layout constants shared with subtitles.py
+  components/ClipEditor.tsx    single-clip editor: project state, API calls, auto-save, render polling
+  components/ServiceView.tsx   full-service upload, states, progress, processed clips
+  components/ClipSuggestions.tsx  ranked candidate list: preview, select, adjust boundaries
   components/VideoPreview.tsx  9:16 preview with subtitle overlay and outro
   components/SubtitleEditor.tsx
   components/StylePanel.tsx
@@ -126,7 +186,8 @@ frontend/src/
   components/ProgressIndicator.tsx
 templates/
   outro.mp4, church.json, make_outro.py, fonts/
-projects/           one directory per project (ignored by git)
+projects/           one directory per clip project (ignored by git)
+services/           one directory per full service (ignored by git)
 ```
 
 A project directory keeps the source clip untouched next to derived data:

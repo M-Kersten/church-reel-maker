@@ -15,3 +15,6 @@ frontend/node_modules/.tmp/
 # editor / os
 .DS_Store
 *.log
+
+# service recordings and their transcripts
+services/
