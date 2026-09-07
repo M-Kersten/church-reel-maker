@@ -10,19 +10,25 @@ interface Props {
   onChange: (candidates: ClipCandidate[]) => void
 }
 
-/** Ranked list of AI-suggested moments with preview, selection and boundary adjustment. */
+/** Minutes:seconds, for the timeline scale. */
+function clock(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  return `${m}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
+}
+
+/** The suggestions, with a timeline showing where each fragment sits in the service. */
 export default function ClipSuggestions({ service, sourceUrl, disabled, onChange }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [time, setTime] = useState(0)
-  const duration = service.sourceInfo?.duration ?? 0
+  const duration = service.sourceInfo?.duration ?? 1
   const segments = service.transcriptData?.segments ?? []
 
   const update = (id: string, patch: Partial<ClipCandidate>) =>
     onChange(service.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)))
 
-  // Play only the candidate's range of the original recording.
+  // Play only the candidate's own range of the recording.
   const preview = (cand: ClipCandidate) => {
     const v = videoRef.current
     if (!v) return
@@ -50,109 +56,131 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
     return () => v.removeEventListener('timeupdate', onTime)
   }, [previewing, service.candidates])
 
+  const jump = (cand: ClipCandidate) => {
+    preview(cand)
+    document.getElementById(`f-${cand.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   const active = service.candidates.find((c) => c.id === previewing)
-  const count = service.candidates.length
 
   return (
     <Section
-      className="suggestions"
-      eyebrow="Suggesties"
       title="Voorgestelde fragmenten"
-      intro={`${count === 1 ? 'Eén fragment' : `${count} fragmenten`} gevonden in ${service.title} (${formatTime(duration)}), het beste bovenaan. Klik op Beluister om het stukje te horen, vink Kiezen aan bij wat je wilt gebruiken. Klopt het begin of einde niet helemaal? Open Tekst en tijden en schuif ze een paar seconden.`}
+      intro="De balk laat zien waar elk voorstel in de dienst zit; klik erop om het te horen. Vink aan wat je wilt gebruiken en schuif begin of einde bij als dat nodig is."
+      aside={<span className="meta">{service.candidates.length} voorstellen</span>}
     >
-      <div className="player">
-        <video ref={videoRef} src={sourceUrl} preload="metadata" playsInline controls />
-        <div className="meta">
-          {active
-            ? `Je hoort fragment ${active.id.replace('candidate-', '')} · ${formatTime(time)} · stopt bij ${formatTime(active.end)}`
-            : 'Klik bij een fragment op ▶ Beluister; de speler stopt vanzelf aan het einde van het fragment.'}
+      <div className="timeline">
+        <div className="rail">
+          {service.candidates.map((cand) => (
+            <button
+              key={cand.id}
+              className={`mark ${cand.selected ? 'on' : ''} ${previewing === cand.id ? 'now' : ''}`}
+              style={{ left: `${(cand.start / duration) * 100}%`, width: `${Math.max(0.6, ((cand.end - cand.start) / duration) * 100)}%` }}
+              onClick={() => jump(cand)}
+              title={`${cand.title} · ${formatTime(cand.start)} tot ${formatTime(cand.end)}`}
+            />
+          ))}
+          <span className="head" style={{ left: `${(time / duration) * 100}%` }} />
+        </div>
+        <div className="ticks">
+          {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+            <span key={f} className="tc muted">{clock(duration * f)}</span>
+          ))}
         </div>
       </div>
 
-      <ol className="candidates">
+      <div className="player">
+        <video ref={videoRef} src={sourceUrl} preload="metadata" playsInline controls />
+        <p className="meta" style={{ marginTop: '0.35rem' }}>
+          {active
+            ? `Fragment ${active.id.replace('candidate-', '')} speelt · stopt om ${formatTime(active.end)}`
+            : 'Klik op een balkje hierboven of op Beluister bij een fragment.'}
+        </p>
+      </div>
+
+      <div>
         {service.candidates.map((cand, index) => {
           const excerpt = segments.filter((s) => s.end > cand.start && s.start < cand.end)
           const open = expanded === cand.id
           return (
-            <li key={cand.id} className={`candidate ${cand.selected ? 'selected' : ''} ${previewing === cand.id ? 'previewing' : ''}`}>
-              <div className="candidate-head">
-                <span className="rank">{String(index + 1).padStart(2, '0')}</span>
-                <div className="candidate-main">
+            <article
+              key={cand.id}
+              id={`f-${cand.id}`}
+              className={`suggestion ${cand.selected ? 'chosen' : ''} ${previewing === cand.id ? 'playing' : ''}`}
+            >
+              <header>
+                <span className="no">{String(index + 1).padStart(2, '0')}</span>
+                <div className="head-main">
                   <h3>{cand.title}</h3>
-                  <div className="meta">
-                    {formatTime(cand.start)} tot {formatTime(cand.end)} · {Math.round(cand.end - cand.start)} seconden
-                    {cand.alternateBoundaries.length > 0 ? ` · ${cand.alternateBoundaries.length === 1 ? '1 alternatief begin/einde' : `${cand.alternateBoundaries.length} alternatieve begin/eindes`}` : ''}
-                  </div>
+                  <span className="meta tc">{formatTime(cand.start)} – {formatTime(cand.end)}</span>
+                  <span className="meta"> · {Math.round(cand.end - cand.start)} sec</span>
                 </div>
-                <label className="select">
-                  <input type="checkbox" checked={cand.selected} disabled={disabled} onChange={(e) => update(cand.id, { selected: e.target.checked })} />
-                  {cand.selected ? 'Gekozen' : 'Kiezen'}
-                </label>
-              </div>
+                <button
+                  className={`pick ${cand.selected ? 'on' : ''}`}
+                  aria-pressed={cand.selected}
+                  disabled={disabled}
+                  onClick={() => update(cand.id, { selected: !cand.selected })}
+                >
+                  {cand.selected ? '✓ Gekozen' : 'Kies dit'}
+                </button>
+              </header>
 
               {excerpt.length > 0 && (
-                <blockquote className="excerpt">
-                  “{open ? excerpt.map((s) => s.text.trim()).join(' ') : shorten(excerpt, 180)}”
+                <blockquote className="quote">
+                  {open ? excerpt.map((s) => s.text.trim()).join(' ') : shorten(excerpt, 190)}
                 </blockquote>
               )}
-              {cand.summary && <p className="summary">{cand.summary}</p>}
-              {cand.reason && <p className="reason">Waarom dit werkt: {cand.reason}</p>}
+              {cand.summary && <p>{cand.summary}</p>}
+              {cand.reason && <p className="why">{cand.reason}</p>}
 
-              <div className="candidate-actions">
+              <div className="acts">
                 <button className="small" onClick={() => preview(cand)}>{previewing === cand.id ? '■ Stop' : '▶ Beluister'}</button>
-                <button className="small" onClick={() => setExpanded(open ? null : cand.id)}>{open ? 'Verberg tekst en tijden' : 'Tekst en tijden'}</button>
+                <button className="small" onClick={() => setExpanded(open ? null : cand.id)}>
+                  {open ? 'Verberg tekst en tijden' : 'Tekst en tijden'}
+                </button>
               </div>
 
               {open && (
-                <div className="boundaries">
-                  <BoundaryEditor
+                <div className="trim">
+                  <Boundary
                     label="Begin"
                     value={cand.start}
                     min={0}
                     max={cand.end - 1}
                     disabled={disabled}
                     onChange={(t) => update(cand.id, { start: t })}
-                    onJump={() => {
-                      const v = videoRef.current
-                      if (v) v.currentTime = cand.start
-                    }}
+                    onJump={() => videoRef.current && (videoRef.current.currentTime = cand.start)}
                   />
-                  <BoundaryEditor
+                  <Boundary
                     label="Einde"
                     value={cand.end}
                     min={cand.start + 1}
                     max={duration}
                     disabled={disabled}
                     onChange={(t) => update(cand.id, { end: t })}
-                    onJump={() => {
-                      const v = videoRef.current
-                      if (v) v.currentTime = Math.max(cand.start, cand.end - 3)
-                    }}
+                    onJump={() => videoRef.current && (videoRef.current.currentTime = Math.max(cand.start, cand.end - 3))}
                   />
-                  <p className="hint">Met -5, -1, +1 en +5 schuif je het begin of einde een paar seconden. De ▶ springt in de speler naar dat punt.</p>
                   {cand.alternateBoundaries.length > 0 && (
-                    <div className="alternates">
-                      Andere mogelijkheid:
+                    <div className="row">
+                      <span>Anders</span>
                       {cand.alternateBoundaries.map((alt, i) => (
                         <button key={i} className="small" disabled={disabled} onClick={() => update(cand.id, { start: alt.start, end: alt.end })}>
-                          {formatTime(alt.start)} tot {formatTime(alt.end)}
+                          {formatTime(alt.start)} – {formatTime(alt.end)}
                         </button>
                       ))}
                     </div>
                   )}
-                  <div className="timecodes">
+                  <div className="lines">
                     {excerpt.map((s, i) => (
-                      <div key={i} className="timecode">
-                        <span className="meta">{formatTime(s.start)}</span> {s.text}
-                      </div>
+                      <div key={i}><span className="tc">{formatTime(s.start)}</span> {s.text}</div>
                     ))}
                   </div>
                 </div>
               )}
-            </li>
+            </article>
           )
         })}
-      </ol>
+      </div>
     </Section>
   )
 }
@@ -172,7 +200,7 @@ interface BoundaryProps {
   onJump: () => void
 }
 
-function BoundaryEditor({ label, value, min, max, disabled, onChange, onJump }: BoundaryProps) {
+function Boundary({ label, value, min, max, disabled, onChange, onJump }: BoundaryProps) {
   const [text, setText] = useState(formatTime(value))
   const [lastValue, setLastValue] = useState(value)
   if (value !== lastValue) {
@@ -185,16 +213,15 @@ function BoundaryEditor({ label, value, min, max, disabled, onChange, onJump }: 
     if (parsed === null) setText(formatTime(value))
     else onChange(clamp(parsed))
   }
-  const nudge = (d: number) => onChange(clamp(value + d))
   return (
-    <div className="boundary">
-      <span className="boundary-label">{label}</span>
-      <button className="small" disabled={disabled} onClick={() => nudge(-5)}>-5</button>
-      <button className="small" disabled={disabled} onClick={() => nudge(-1)}>-1</button>
-      <input value={text} disabled={disabled} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} title="minuten:seconden, bijvoorbeeld 34:12.4" />
-      <button className="small" disabled={disabled} onClick={() => nudge(1)}>+1</button>
-      <button className="small" disabled={disabled} onClick={() => nudge(5)}>+5</button>
-      <button className="small" onClick={onJump} title="Spring in de speler naar dit punt">▶</button>
+    <div className="row">
+      <span>{label}</span>
+      <button className="small" disabled={disabled} onClick={() => onChange(clamp(value - 5))}>−5</button>
+      <button className="small" disabled={disabled} onClick={() => onChange(clamp(value - 1))}>−1</button>
+      <input value={text} disabled={disabled} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} title="minuten:seconden" />
+      <button className="small" disabled={disabled} onClick={() => onChange(clamp(value + 1))}>+1</button>
+      <button className="small" disabled={disabled} onClick={() => onChange(clamp(value + 5))}>+5</button>
+      <button className="small bare" onClick={onJump} title="Spring hierheen in de speler">▶</button>
     </div>
   )
 }

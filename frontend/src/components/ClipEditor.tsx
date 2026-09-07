@@ -3,15 +3,12 @@ import { api, type ChurchInfo, type CropWindow, type Project, type RenderStatus,
 import FramingPanel from './FramingPanel'
 import OutroPanel from './OutroPanel'
 import RenderControls from './RenderControls'
-import Section from './Section'
-import Steps from './Steps'
 import StylePanel from './StylePanel'
 import SubtitleEditor from './SubtitleEditor'
 import VideoPreview, { type PreviewHandle } from './VideoPreview'
 
 const IDLE: RenderStatus = { status: 'idle', progress: 0, message: '', error: null }
 const STORAGE_KEY = 'church-reel-maker.project'
-const STEPS = ['Video kiezen', 'Ondertitels maken', 'Nakijken en instellen', 'Video maken']
 
 interface Props {
   /** Project to open (for example a clip cut from a full service). */
@@ -177,16 +174,18 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   }
 
   const hasVideo = Boolean(project?.sourceVideo && project.sourceInfo)
-  const step = !hasVideo ? 0 : segments.length === 0 ? 1 : renderStatus.status === 'done' ? STEPS.length : 2
 
   return (
     <div>
-      <Steps steps={STEPS} current={step} />
+      <p className="lede">
+        <strong>Losse clip.</strong> Kies een fragment, verbeter de ondertitels, bepaal het beeldkader en maak de video.
+        Links zie je steeds hoe het resultaat eruitziet.
+      </p>
 
       {error && <div className="error">{error}</div>}
 
       <label
-        className={`dropzone ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
+        className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           setDragging(true)
@@ -198,43 +197,60 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
         {uploading ? (
           <strong>Bezig met uploaden…</strong>
         ) : hasVideo ? (
-          <span>
-            <strong>{project?.title ?? 'Je fragment staat klaar'}</strong>
-            <span className="meta">
-              {project?.origin ? `Geknipt uit de dienst · ` : ''}Sleep hier een ander fragment naartoe om een nieuwe clip te beginnen.
-            </span>
-          </span>
+          <>
+            <strong style={{ flex: 1 }}>{project?.title ?? 'Fragment'}</strong>
+            <span className="meta">{project?.origin ? 'Geknipt uit de dienst. ' : ''}Sleep hier een ander fragment om opnieuw te beginnen.</span>
+          </>
         ) : (
-          <span>
-            <strong>Sleep hier een videofragment naartoe, of klik om een bestand te kiezen</strong>
-            <span className="hint">Een fragment van ongeveer 20 tot 90 seconden werkt het best. Mp4- en mov-bestanden zijn prima.</span>
-          </span>
+          <>
+            <strong>Sleep hier een videofragment, of klik om een bestand te kiezen</strong>
+            <span className="hint">Twintig tot negentig seconden werkt het best. Mp4 en mov zijn prima.</span>
+          </>
         )}
       </label>
 
+      {!hasVideo && (
+        <div className="card start">
+          <div className="ghost">9:16</div>
+          <div>
+            <h2>Van fragment naar reel</h2>
+            <ol className="how">
+              <li><b>Ondertitels</b> worden automatisch uitgeschreven; jij verbetert wat er misging.</li>
+              <li><b>Beeldkader</b> bepaalt welk deel van het brede beeld in de staande video komt.</li>
+              <li><b>Stijl</b> regelt lettertype, grootte en kleur van de ondertitels.</li>
+              <li><b>Afsluiter</b> plakt het eindscherm van de kerk achter je clip.</li>
+            </ol>
+          </div>
+        </div>
+      )}
+
       {project && style && crop && hasVideo && (
-        <div className="layout">
-          <div className="sticky">
-            <Section
-              eyebrow="Voorvertoning"
-              title="Zo wordt je video"
-              intro="Klik op het beeld om af te spelen. Na het fragment volgt automatisch de afsluiter van de kerk."
-            >
-              <VideoPreview
-                ref={previewRef}
-                sourceUrl={api.sourceUrl(project.id)}
-                sourceInfo={project.sourceInfo!}
-                outroUrl={api.outroUrl(outroVersion)}
-                church={church}
-                segments={segments}
-                style={style}
-                output={project.output}
-                crop={crop}
-                onCropChange={changeCrop}
-                onTime={setCurrentTime}
-                onPlayState={setPlaying}
-              />
-            </Section>
+        <div className="workbench">
+          <div className="stage card">
+            <VideoPreview
+              ref={previewRef}
+              sourceUrl={api.sourceUrl(project.id)}
+              sourceInfo={project.sourceInfo!}
+              outroUrl={api.outroUrl(outroVersion)}
+              church={church}
+              segments={segments}
+              style={style}
+              output={project.output}
+              crop={crop}
+              onCropChange={changeCrop}
+              onTime={setCurrentTime}
+              onPlayState={setPlaying}
+            />
+            <RenderControls
+              hasAudio={Boolean(project.sourceInfo?.hasAudio)}
+              hasSubtitles={segments.length > 0}
+              transcribing={transcribing}
+              canRender={hasVideo}
+              renderStatus={renderStatus}
+              outputUrl={renderStatus.status === 'done' ? `${api.outputUrl(project.id)}?v=${outputVersion}` : null}
+              onTranscribe={transcribe}
+              onRender={render}
+            />
           </div>
           <div>
             <SubtitleEditor segments={segments} currentTime={currentTime} onChange={changeSegments} onSeek={(t) => previewRef.current?.seek(t)} />
@@ -248,16 +264,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               onChange={changeCrop}
             />
             <StylePanel style={style} onChange={changeStyle} />
-            <RenderControls
-              hasAudio={Boolean(project.sourceInfo?.hasAudio)}
-              hasSubtitles={segments.length > 0}
-              transcribing={transcribing}
-              canRender={hasVideo}
-              renderStatus={renderStatus}
-              outputUrl={renderStatus.status === 'done' ? `${api.outputUrl(project.id)}?v=${outputVersion}` : null}
-              onTranscribe={transcribe}
-              onRender={render}
-            />
             <OutroPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>

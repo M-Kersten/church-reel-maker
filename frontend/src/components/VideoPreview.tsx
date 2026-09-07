@@ -148,6 +148,7 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
 
   return (
     <div>
+      <div className="phone">
       <div className="preview" ref={boxRef}>
         <video
           ref={mainRef}
@@ -210,9 +211,10 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
         )}
         <span className="badge">{phase === 'main' ? `9:16 · ${portrait ? 'staand' : 'liggend'} · zoom ${crop.zoom.toFixed(2)}` : `Afsluiter · ${church?.churchName ?? ''}`}</span>
       </div>
-      <div className="controls">
+      </div>
+      <div className="transport">
         <button className="small" onClick={togglePlay}>{playing ? 'Pauze' : 'Afspelen'}</button>
-        <span>{phase === 'main' ? formatTime(time) : 'afsluiter'}</span>
+        <span className="tc">{phase === 'main' ? formatTime(time) : 'afsluiter'}</span>
         <input
           type="range"
           min={0}
@@ -230,9 +232,9 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
             onTime(t)
           }}
         />
-        <span>{formatTime(sourceInfo.duration)}</span>
+        <span className="tc">{formatTime(sourceInfo.duration)}</span>
       </div>
-      <p className="info">
+      <p className="facts">
         Bron {sourceInfo.width}×{sourceInfo.height} · {sourceInfo.duration.toFixed(1).replace('.', ',')} s ·{' '}
         {sourceInfo.hasAudio ? 'met geluid' : 'zonder geluid'} → video {output.width}×{output.height}, {output.fps} beelden per seconde
       </p>

@@ -10,6 +10,7 @@ interface Props {
   onSeek: (time: number) => void
 }
 
+/** The transcript as a script: timecodes in the left rail, the text reads as one document. */
 export default function SubtitleEditor({ segments, currentTime, onChange, onSeek }: Props) {
   const update = (index: number, patch: Partial<Segment>) =>
     onChange(segments.map((s, i) => (i === index ? { ...s, ...patch } : s)))
@@ -30,13 +31,10 @@ export default function SubtitleEditor({ segments, currentTime, onChange, onSeek
   const merge = (index: number) => {
     const a = segments[index]
     const b = segments[index + 1]
-    const merged = { start: Math.min(a.start, b.start), end: Math.max(a.end, b.end), text: `${a.text.trim()} ${b.text.trim()}`.trim() }
     const next = [...segments]
-    next.splice(index, 2, merged)
+    next.splice(index, 2, { start: Math.min(a.start, b.start), end: Math.max(a.end, b.end), text: `${a.text.trim()} ${b.text.trim()}`.trim() })
     onChange(next)
   }
-
-  const remove = (index: number) => onChange(segments.filter((_, i) => i !== index))
 
   const add = () => {
     const last = segments[segments.length - 1]
@@ -46,32 +44,38 @@ export default function SubtitleEditor({ segments, currentTime, onChange, onSeek
 
   return (
     <Section
-      eyebrow="Ondertitels"
-      title="Lees de tekst na"
-      intro="De computer heeft de gesproken tekst uitgeschreven, maar maakt soms fouten in namen en Bijbelteksten. Klik in een regel om de tekst te verbeteren. Met ▶ hoor je precies dat stukje. Splitsen maakt een lange regel korter, Samenvoegen plakt twee regels aan elkaar."
+      step={1}
+      title="Ondertitels"
+      intro="De computer verstaat namen en Bijbelteksten niet altijd goed. Klik in een regel om de tekst te verbeteren; met ▶ hoor je precies dat stukje terug."
+      aside={<span className="meta">{segments.length} regels</span>}
     >
-      {segments.length === 0 && <p className="empty">Nog geen ondertitels. Klik onderaan op Ondertitels maken, of voeg zelf een regel toe.</p>}
-      <div className="segments">
-        {segments.map((seg, i) => (
-          <div key={i} className={`segment ${currentTime >= seg.start && currentTime < seg.end ? 'active' : ''}`}>
-            <div className="times">
-              <TimeInput value={seg.start} onCommit={(t) => update(i, { start: t })} />
-              <span>tot</span>
-              <TimeInput value={seg.end} onCommit={(t) => update(i, { end: t })} />
-              <button className="small" title="Speel dit stukje af" onClick={() => onSeek(seg.start)}>▶</button>
-              <div className="actions">
-                <button className="small" onClick={() => split(i)} disabled={seg.text.trim().split(/\s+/).length < 2} title="Verdeel deze regel in twee regels">Splitsen</button>
-                <button className="small" onClick={() => merge(i)} disabled={i >= segments.length - 1} title="Voeg samen met de volgende regel">Samenvoegen ↓</button>
-                <button className="small" onClick={() => remove(i)} title="Verwijder deze regel">✕</button>
+      {segments.length === 0 ? (
+        <p className="empty">Nog geen ondertitels. Klik links op Ondertitels maken, of voeg hieronder zelf een regel toe.</p>
+      ) : (
+        <div className="script">
+          {segments.map((seg, i) => (
+            <div key={i} className={`take ${currentTime >= seg.start && currentTime < seg.end ? 'active' : ''}`}>
+              <div className="when">
+                <TimeInput value={seg.start} onCommit={(t) => update(i, { start: t })} />
+                <span className="to">tot</span>
+                <TimeInput value={seg.end} onCommit={(t) => update(i, { end: t })} />
+              </div>
+              <div className="body">
+                <textarea value={seg.text} rows={1} onChange={(e) => update(i, { text: e.target.value })} lang="nl" spellCheck placeholder="Tekst van deze regel" />
+                <div className="tools">
+                  <button className="bare small" onClick={() => onSeek(seg.start)} title="Speel dit stukje af">▶ Beluister</button>
+                  <button className="bare small" onClick={() => split(i)} disabled={seg.text.trim().split(/\s+/).length < 2} title="Verdeel in twee regels">Splitsen</button>
+                  <button className="bare small" onClick={() => merge(i)} disabled={i >= segments.length - 1} title="Plak aan de volgende regel">Samenvoegen</button>
+                  <button className="bare small" onClick={() => onChange(segments.filter((_, n) => n !== i))} title="Verwijder deze regel">Verwijderen</button>
+                </div>
               </div>
             </div>
-            <textarea value={seg.text} rows={2} onChange={(e) => update(i, { text: e.target.value })} lang="nl" spellCheck placeholder="Tekst van deze regel" />
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: '0.8rem' }}>
-        <button className="small" onClick={add}>+ Regel toevoegen</button>
-      </div>
+          ))}
+        </div>
+      )}
+      <p style={{ marginTop: '0.7rem' }}>
+        <button className="small" onClick={add}>Regel toevoegen</button>
+      </p>
     </Section>
   )
 }
@@ -81,7 +85,7 @@ function TimeInput({ value, onCommit }: { value: number; onCommit: (t: number) =
   const [invalid, setInvalid] = useState(false)
   const [lastValue, setLastValue] = useState(value)
   if (value !== lastValue) {
-    // Reset the draft when the segment time changes from outside (split, merge, reload).
+    // Reset the draft when the time changes from outside (split, merge, reload).
     setLastValue(value)
     setText(formatTime(value))
     setInvalid(false)

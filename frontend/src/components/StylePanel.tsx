@@ -1,5 +1,5 @@
 import type { Style } from '../api'
-import { FONTS, WEIGHTS } from '../subtitleLayout'
+import { FONTS, WEIGHTS, cssWeight } from '../subtitleLayout'
 import Section from './Section'
 
 interface Props {
@@ -17,12 +17,25 @@ const WEIGHT_LABELS: Record<Style['fontWeight'], string> = {
 
 export default function StylePanel({ style, onChange }: Props) {
   const set = <K extends keyof Style>(key: K, value: Style[K]) => onChange({ ...style, [key]: value })
+  const outline = style.outline * 0.45
   return (
-    <Section
-      eyebrow="Stijl"
-      title="Zo zien de ondertitels eruit"
-      intro="Kies lettertype, grootte en kleur. De voorvertoning laat elke wijziging meteen zien. Wit met een donkere rand is bijna altijd goed leesbaar."
-    >
+    <Section step={3} title="Stijl van de ondertitels" intro="Wit met een donkere rand leest bijna altijd het best.">
+      <div className="specimen">
+        <span
+          style={{
+            fontFamily: `'${style.font}', sans-serif`,
+            fontWeight: cssWeight(style.fontWeight),
+            fontSize: `${style.fontSize * 0.4}px`,
+            color: style.color,
+            WebkitTextStroke: outline > 0 ? `${outline * 2}px ${style.outlineColor}` : undefined,
+            paintOrder: 'stroke fill',
+            background: style.background ? 'rgba(0,0,0,0.5)' : undefined,
+            padding: style.background ? `0 ${outline}px` : undefined,
+          }}
+        >
+          God is op zoek naar jou
+        </span>
+      </div>
       <div className="fields">
         <label htmlFor="font">Lettertype</label>
         <select id="font" value={style.font} onChange={(e) => set('font', e.target.value)}>
@@ -44,20 +57,24 @@ export default function StylePanel({ style, onChange }: Props) {
           <output>{style.fontSize}</output>
         </div>
 
-        <label htmlFor="color">Tekstkleur</label>
-        <input id="color" type="color" value={style.color} onChange={(e) => set('color', e.target.value.toUpperCase())} />
+        <label htmlFor="color">Kleur</label>
+        <div className="inline">
+          <input id="color" type="color" value={style.color} onChange={(e) => set('color', e.target.value.toUpperCase())} />
+          <span className="meta">tekst</span>
+          <input type="color" aria-label="Kleur van de rand" value={style.outlineColor} onChange={(e) => set('outlineColor', e.target.value.toUpperCase())} />
+          <span className="meta">rand</span>
+        </div>
 
         <label htmlFor="outline">Rand</label>
         <div className="inline">
           <input id="outline" type="range" min={0} max={12} step={1} value={style.outline} onChange={(e) => set('outline', Number(e.target.value))} />
           <output>{style.outline}</output>
-          <input type="color" aria-label="Kleur van de rand" value={style.outlineColor} onChange={(e) => set('outlineColor', e.target.value.toUpperCase())} />
         </div>
 
-        <label htmlFor="background">Achtergrond</label>
+        <label htmlFor="background">Vlak</label>
         <div className="inline">
           <input id="background" type="checkbox" checked={style.background} onChange={(e) => set('background', e.target.checked)} />
-          <span>Donker vlak achter de tekst (handig bij druk beeld)</span>
+          <label htmlFor="background">Donker vlak achter de tekst, bij druk beeld</label>
         </div>
       </div>
     </Section>

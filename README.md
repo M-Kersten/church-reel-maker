@@ -170,7 +170,7 @@ The end screen is rebuilt automatically whenever `outro.json` or `church.json` i
 
 Prefer your own video? Put it in `templates/outro.mp4`. Because its file date is then newer than the config, nothing overwrites it; set `"generate": false` to be certain.
 
-The interface is in Dutch and styled after the Nieuwe Kerk Utrecht identity (deep purple, gold labels, Poppins, rounded arch motifs). The colour tokens live at the top of `frontend/src/index.css`.
+The interface is in Dutch and carries the Nieuwe Kerk Utrecht colours: deep purple for headings and actions, gold as a single accent (the active tab, the crop frame, the playing fragment), flat surfaces with hairline borders, Poppins throughout. No gradients. The colour tokens live at the top of `frontend/src/index.css`.
 
 ## Fonts
 

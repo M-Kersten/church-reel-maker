@@ -145,12 +145,17 @@ export default function ServiceView({ onOpenClip }: Props) {
 
   return (
     <div>
+      <p className="lede">
+        <strong>Hele dienst.</strong> Upload de opname. De computer schrijft de dienst uit en zoekt de momenten die als
+        korte video werken. Jij luistert ze na en kiest.
+      </p>
+
       <Steps steps={STEPS} current={service && hasVideo ? STEP_FOR_STATUS[service.status] : 0} />
 
       {error && <div className="error">{error}</div>}
 
       <label
-        className={`dropzone ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
+        className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           setDragging(true)
@@ -160,36 +165,35 @@ export default function ServiceView({ onOpenClip }: Props) {
       >
         <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" disabled={uploading || busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         {uploading ? (
-          <span>
+          <>
             <strong>Bezig met uploaden…</strong>
-            <span className="hint">Een opname van een hele dienst is groot; dit kan een paar minuten duren.</span>
-          </span>
+            <span className="hint">De opname van een hele dienst is groot; dit duurt een paar minuten.</span>
+          </>
         ) : hasVideo ? (
-          <span className="meta">Sleep hier een andere opname naartoe om met een nieuwe dienst te beginnen.</span>
+          <span className="meta">Sleep hier een andere opname om met een nieuwe dienst te beginnen.</span>
         ) : (
-          <span>
-            <strong>Sleep hier de opname van de hele dienst naartoe, of klik om een bestand te kiezen</strong>
-            <span className="hint">Daarna gebeurt alles vanzelf: eerst wordt de dienst uitgeschreven, dan zoekt de computer de beste momenten. Je hoeft niet zelf door anderhalf uur video te zoeken.</span>
-          </span>
+          <>
+            <strong>Sleep hier de opname van de hele dienst, of klik om een bestand te kiezen</strong>
+            <span className="hint">Daarna loopt het vanzelf door: uitschrijven, en dan zoeken naar bruikbare momenten.</span>
+          </>
         )}
       </label>
 
       {service && hasVideo && (
         <>
-          <section className={`panel status ${service.status}`}>
-            <div className="status-row">
+          <section className="card">
+            <div className="service-head">
               <div>
-                <span className="eyebrow">Dienst</span>
                 <h2>{service.title}</h2>
                 <span className="meta">{formatTime(service.sourceInfo!.duration)} · {service.sourceInfo!.width}×{service.sourceInfo!.height}</span>
               </div>
-              <div className="status-label">
+              <div className={`state ${service.status === 'ready' || service.status === 'complete' ? 'ok' : ''} ${service.status === 'error' ? 'bad' : ''}`}>
                 {busy && <span className="spinner" />}
                 {STATUS_LABEL[service.status]}
-                {saving ? ' · wordt opgeslagen' : ''}
+                {saving ? ' · opslaan' : ''}
               </div>
             </div>
-            <p className="status-text">{STATUS_TEXT[service.status]}</p>
+            <p className="say">{STATUS_TEXT[service.status]}</p>
             {service.status === 'error' && <div className="error" style={{ marginTop: '0.8rem', marginBottom: 0 }}>{service.error}</div>}
             {busy && (
               <div className="progress">
@@ -201,7 +205,7 @@ export default function ServiceView({ onOpenClip }: Props) {
               </div>
             )}
             {!busy && (
-              <div className="render-actions" style={{ marginTop: '1rem' }}>
+              <div className="acts" style={{ marginTop: '1rem' }}>
                 {!service.transcript && <button className="primary" onClick={() => run(serviceApi.transcribe)}>Uitschrijven</button>}
                 {service.transcript && service.candidates.length === 0 && (
                   <button className="primary" onClick={() => run(serviceApi.analyze)}>Beste momenten zoeken</button>
@@ -216,16 +220,15 @@ export default function ServiceView({ onOpenClip }: Props) {
 
           {service.clips.length > 0 && (
             <Section
-              eyebrow="Resultaat"
               title="Gemaakte clips"
-              intro="Deze fragmenten zijn uit de opname geknipt. Open een clip om de ondertitels na te kijken, het beeldkader te kiezen en de video te maken."
+              intro="Deze fragmenten zijn uit de opname geknipt. Open er een om de ondertitels na te kijken, het beeldkader te kiezen en de video te maken."
             >
               <ul className="clips">
                 {service.clips.map((clip) => (
                   <li key={clip.projectId}>
                     <span>
                       <strong>{clip.title}</strong>
-                      <span className="meta"> · {formatTime(clip.start)} tot {formatTime(clip.end)}</span>
+                      <span className="meta tc"> {formatTime(clip.start)} – {formatTime(clip.end)}</span>
                     </span>
                     <button className="small" onClick={() => onOpenClip(clip.projectId)}>Open in de editor →</button>
                   </li>
@@ -244,7 +247,7 @@ export default function ServiceView({ onOpenClip }: Props) {
           )}
 
           {service.candidates.length > 0 && (
-            <div className="process-bar">
+            <div className="dock">
               <span>{selectedCount === 0 ? 'Nog geen fragment gekozen' : selectedCount === 1 ? '1 fragment gekozen' : `${selectedCount} fragmenten gekozen`}</span>
               <button className="primary" disabled={busy || selectedCount === 0} onClick={processSelected}>
                 {service.status === 'processing' ? 'Bezig…' : 'Gekozen fragmenten verwerken'}

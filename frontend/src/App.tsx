@@ -6,12 +6,6 @@ import ServiceView from './components/ServiceView'
 type Mode = 'clip' | 'service'
 const MODE_KEY = 'church-reel-maker.mode'
 
-/**
- * Two entry points on one page:
- *  - Hele dienst: upload a complete recording, let the AI suggest clips, pick some.
- *  - Losse clip: the single-clip editor (subtitles, framing, style, preview, render).
- * Processing a suggestion creates a clip project and opens it in the editor.
- */
 export default function App() {
   const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) === 'clip' ? 'clip' : 'service'))
   const [projectId, setProjectId] = useState<string | null>(null)
@@ -32,30 +26,26 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="hero">
-        <span className="arch a1" />
-        <span className="arch a2" />
-        <span className="arch a3" />
-        <span className="arch a4" />
-        <span className="eyebrow">{church?.churchName ?? 'Kerk'}</span>
-        <h1 className="wordmark">Church Reel Maker</h1>
-        <p className="tagline">Maak van een preekmoment een staande video voor Instagram Reels en YouTube Shorts, met ondertitels en de afsluiter van de kerk.</p>
-        <nav className="tabs" aria-label="Kies wat je wilt doen">
+    <>
+      <header className="bar">
+        <div className="brand">
+          <svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true">
+            <path d="M12 1C6.2 1 1.5 5.7 1.5 11.5V27h21V11.5C22.5 5.7 17.8 1 12 1Z" fill="#4B1E78" />
+            <path d="M9.6 10.4 17 14.7l-7.4 4.3z" fill="#FFFFFF" />
+          </svg>
+          <div>
+            <div className="name">Church Reel Maker</div>
+            <div className="church">{church?.churchName ?? 'Kerk'}</div>
+          </div>
+        </div>
+        <nav aria-label="Wat wil je doen">
           <button className={mode === 'service' ? 'active' : ''} onClick={() => switchMode('service')}>Hele dienst</button>
           <button className={mode === 'clip' ? 'active' : ''} onClick={() => switchMode('clip')}>Losse clip</button>
         </nav>
-        <p className="mode-help">
-          {mode === 'service'
-            ? 'Upload de opname van een hele dienst. De computer schrijft alles uit en stelt de mooiste momenten voor. Jij kiest welke clips worden.'
-            : 'Heb je al een kort fragment? Upload het hier, kijk de ondertitels na, kies het beeldkader en maak de video.'}
-        </p>
       </header>
-      {mode === 'service' ? (
-        <ServiceView onOpenClip={openClip} />
-      ) : (
-        <ClipEditor projectId={projectId} onProjectChange={setProjectId} />
-      )}
-    </div>
+      <main className="page">
+        {mode === 'service' ? <ServiceView onOpenClip={openClip} /> : <ClipEditor projectId={projectId} onProjectChange={setProjectId} />}
+      </main>
+    </>
   )
 }

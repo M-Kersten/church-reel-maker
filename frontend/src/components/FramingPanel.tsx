@@ -63,14 +63,14 @@ export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, curr
 
   return (
     <Section
-      eyebrow="Beeldkader"
-      title="Welk deel van het beeld gebruiken we?"
-      intro="Een staande video laat maar een deel van het brede beeld zien. Sleep het witte kader over het beeld tot de spreker er goed in staat. Je kunt ook de voorvertoning zelf verslepen."
+      step={2}
+      title="Beeldkader"
+      intro="Een staande video toont maar een deel van het brede beeld. Sleep het gouden kader tot de spreker er goed in staat; slepen in de voorvertoning links werkt ook."
     >
-      <div className="framing-stage">
+      <div className="frame-stage">
         <div
           ref={boxRef}
-          className="framing-source"
+          className="frame-source"
           style={{ aspectRatio: `${sourceInfo.width} / ${sourceInfo.height}` }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -79,7 +79,7 @@ export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, curr
         >
           <video ref={videoRef} src={sourceUrl} muted playsInline preload="auto" draggable={false} />
           <div
-            className="framing-frame"
+            className="frame-box"
             style={{
               left: `${frame.left * 100}%`,
               top: `${frame.top * 100}%`,
@@ -106,7 +106,7 @@ export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, curr
           <button className="small" onClick={() => setZoom(1)} title="Vul de staande video helemaal">Beeldvullend</button>
         </div>
       </div>
-      <p className="hint">Het donkere deel valt weg. Met de zoom-schuif snijd je verder in of laat je juist het hele beeld zien met zwarte balken.</p>
+      <p className="hint">Het donkere deel valt weg. Met de zoom-schuif snijd je verder in, of laat je het hele beeld zien met zwarte balken.</p>
     </Section>
   )
 }

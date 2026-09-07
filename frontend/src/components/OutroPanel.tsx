@@ -42,13 +42,12 @@ export default function OutroPanel({ outroUrl, onRebuilt }: Props) {
 
   return (
     <Section
-      eyebrow="Afsluiter"
-      title="Het eindscherm van elke video"
-      intro="Kleuren, lettertype en de teksten staan in het bestand templates/outro.json. Pas dat bestand aan, klik daarna op Vernieuwen en je ziet het resultaat meteen hieronder."
+      step={4}
+      title="Afsluiter"
+      intro="Elke video eindigt met dit scherm. Kleuren, lettertype en teksten staan in het bestand templates/outro.json; na een wijziging klik je op Vernieuwen."
     >
       <div className="outro-row">
         <video
-          className="outro-preview"
           src={outroUrl}
           muted
           playsInline
@@ -59,12 +58,12 @@ export default function OutroPanel({ outroUrl, onRebuilt }: Props) {
         />
         <div className="outro-facts">
           {config && (
-            <ul>
-              <li><span className="meta">Achtergrond</span> {BACKGROUND_LABEL[config.background.type]}</li>
-              <li><span className="meta">Lettertype</span> {config.font}</li>
-              <li><span className="meta">Duur</span> {String(config.duration).replace('.', ',')} seconden</li>
-              <li><span className="meta">Regels</span> {config.lines.length}</li>
-            </ul>
+            <dl>
+              <dt>Achtergrond</dt><dd>{BACKGROUND_LABEL[config.background.type]}</dd>
+              <dt>Lettertype</dt><dd>{config.font}</dd>
+              <dt>Duur</dt><dd>{String(config.duration).replace('.', ',')} seconden</dd>
+              <dt>Regels</dt><dd>{config.lines.length}</dd>
+            </dl>
           )}
           <button onClick={rebuild} disabled={busy || (config !== null && !config.generate)}>
             {busy ? 'Bezig…' : 'Vernieuwen'}
@@ -74,10 +73,7 @@ export default function OutroPanel({ outroUrl, onRebuilt }: Props) {
           {error && <div className="error" style={{ marginTop: '0.7rem', marginBottom: 0 }}>{error}</div>}
         </div>
       </div>
-      <p className="hint">
-        Liever je eigen filmpje? Zet het als outro.mp4 in de map templates. Dat blijft staan; de app maakt alleen een
-        nieuwe afsluiter als je het configuratiebestand aanpast.
-      </p>
+      <p className="hint">Liever je eigen filmpje? Zet het als outro.mp4 in de map templates. Dat blijft staan.</p>
     </Section>
   )
 }
