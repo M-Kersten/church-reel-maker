@@ -1,0 +1,1539 @@
+{
+ "output": {
+  "width": 1080,
+  "height": 1920,
+  "fps": 30
+ },
+ "layout": [
+  {
+   "text": "Genade",
+   "size": 24,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Genade",
+   "size": 40,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "Genade",
+   "size": 48,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "Genade",
+   "size": 64,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "Genade",
+   "size": 80,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 80
+  },
+  {
+   "text": "Genade",
+   "size": 100,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 100
+  },
+  {
+   "text": "Genade",
+   "size": 140,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 140
+  },
+  {
+   "text": "Genade",
+   "size": 200,
+   "lines": [
+    "Genade"
+   ],
+   "fontSize": 200
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 24,
+   "lines": [
+    "God is op zoek naar jou"
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 40,
+   "lines": [
+    "God is op zoek naar jou"
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 48,
+   "lines": [
+    "God is op zoek naar jou"
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 64,
+   "lines": [
+    "God is op zoek naar jou"
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 80,
+   "lines": [
+    "God is op",
+    "zoek naar jou"
+   ],
+   "fontSize": 80
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 100,
+   "lines": [
+    "God is op",
+    "zoek naar jou"
+   ],
+   "fontSize": 100
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 140,
+   "lines": [
+    "God is",
+    "op zoek",
+    "naar jou"
+   ],
+   "fontSize": 140
+  },
+  {
+   "text": "God is op zoek naar jou",
+   "size": 200,
+   "lines": [
+    "God is",
+    "op zoek",
+    "naar jou"
+   ],
+   "fontSize": 200
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 24,
+   "lines": [
+    "Hij wil dat je dichter bij hem komt."
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 40,
+   "lines": [
+    "Hij wil dat je dichter bij hem komt."
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 48,
+   "lines": [
+    "Hij wil dat je",
+    "dichter bij hem komt."
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 64,
+   "lines": [
+    "Hij wil dat je",
+    "dichter bij hem komt."
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 80,
+   "lines": [
+    "Hij wil dat",
+    "je dichter",
+    "bij hem komt."
+   ],
+   "fontSize": 80
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 100,
+   "lines": [
+    "Hij wil dat",
+    "je dichter",
+    "bij hem komt."
+   ],
+   "fontSize": 100
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 140,
+   "lines": [
+    "Hij wil dat",
+    "je dichter",
+    "bij hem komt."
+   ],
+   "fontSize": 119
+  },
+  {
+   "text": "Hij wil dat je dichter bij hem komt.",
+   "size": 200,
+   "lines": [
+    "Hij wil dat",
+    "je dichter",
+    "bij hem komt."
+   ],
+   "fontSize": 120
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 24,
+   "lines": [
+    "Niet omdat je perfect bent, maar omdat hij van je houdt."
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 40,
+   "lines": [
+    "Niet omdat je perfect bent,",
+    "maar omdat hij van je houdt."
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 48,
+   "lines": [
+    "Niet omdat je perfect bent,",
+    "maar omdat hij van je houdt."
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 64,
+   "lines": [
+    "Niet omdat je perfect",
+    "bent, maar omdat hij",
+    "van je houdt."
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 80,
+   "lines": [
+    "Niet omdat je perfect",
+    "bent, maar omdat hij",
+    "van je houdt."
+   ],
+   "fontSize": 73
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 100,
+   "lines": [
+    "Niet omdat je perfect",
+    "bent, maar omdat hij",
+    "van je houdt."
+   ],
+   "fontSize": 73
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 140,
+   "lines": [
+    "Niet omdat je perfect",
+    "bent, maar omdat hij",
+    "van je houdt."
+   ],
+   "fontSize": 84
+  },
+  {
+   "text": "Niet omdat je perfect bent, maar omdat hij van je houdt.",
+   "size": 200,
+   "lines": [
+    "Niet omdat je perfect",
+    "bent, maar omdat hij",
+    "van je houdt."
+   ],
+   "fontSize": 120
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 24,
+   "lines": [
+    "Wat is God vandaag aan het doen in jouw leven, denk je?"
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 40,
+   "lines": [
+    "Wat is God vandaag aan het",
+    "doen in jouw leven, denk je?"
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 48,
+   "lines": [
+    "Wat is God vandaag aan het",
+    "doen in jouw leven, denk je?"
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 64,
+   "lines": [
+    "Wat is God vandaag",
+    "aan het doen in jouw",
+    "leven, denk je?"
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 80,
+   "lines": [
+    "Wat is God vandaag",
+    "aan het doen in jouw",
+    "leven, denk je?"
+   ],
+   "fontSize": 77
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 100,
+   "lines": [
+    "Wat is God vandaag",
+    "aan het doen in jouw",
+    "leven, denk je?"
+   ],
+   "fontSize": 77
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 140,
+   "lines": [
+    "Wat is God vandaag",
+    "aan het doen in jouw",
+    "leven, denk je?"
+   ],
+   "fontSize": 84
+  },
+  {
+   "text": "Wat is God vandaag aan het doen in jouw leven, denk je?",
+   "size": 200,
+   "lines": [
+    "Wat is God vandaag",
+    "aan het doen in jouw",
+    "leven, denk je?"
+   ],
+   "fontSize": 120
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 24,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 40,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 48,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 64,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 80,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 80
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 100,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 100
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 140,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 140
+  },
+  {
+   "text": "Onvoorstelbaarheid",
+   "size": 200,
+   "lines": [
+    "Onvoorstelbaarheid"
+   ],
+   "fontSize": 200
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 24,
+   "lines": [
+    "ruimte rondom en dubbele spaties"
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 40,
+   "lines": [
+    "ruimte rondom en dubbele spaties"
+   ],
+   "fontSize": 40
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 48,
+   "lines": [
+    "ruimte rondom en dubbele spaties"
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 64,
+   "lines": [
+    "ruimte rondom en",
+    "dubbele spaties"
+   ],
+   "fontSize": 64
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 80,
+   "lines": [
+    "ruimte rondom en",
+    "dubbele spaties"
+   ],
+   "fontSize": 80
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 100,
+   "lines": [
+    "ruimte rondom",
+    "en dubbele",
+    "spaties"
+   ],
+   "fontSize": 100
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 140,
+   "lines": [
+    "ruimte rondom",
+    "en dubbele",
+    "spaties"
+   ],
+   "fontSize": 119
+  },
+  {
+   "text": "   ruimte   rondom   en   dubbele   spaties   ",
+   "size": 200,
+   "lines": [
+    "ruimte rondom",
+    "en dubbele",
+    "spaties"
+   ],
+   "fontSize": 120
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 24,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 40,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 24
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 48,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 28
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 64,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 38
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 80,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 48
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 100,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 60
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 140,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 84
+  },
+  {
+   "text": "Een hele lange zin die op geen enkele manier binnen drie regels past zonder dat het lettertype kleiner wordt gemaakt door de layoutfunctie, wat precies is wat we hier willen controleren.",
+   "size": 200,
+   "lines": [
+    "Een hele lange zin die op geen enkele manier binnen drie regels",
+    "past zonder dat het lettertype kleiner wordt gemaakt door de",
+    "layoutfunctie, wat precies is wat we hier willen controleren."
+   ],
+   "fontSize": 120
+  }
+ ],
+ "crop": [
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1167,
+   "top": 0
+  },
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2334,
+   "top": 0
+  },
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 5462,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 826,
+   "top": 1152
+  },
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 608,
+   "cropW": 1080,
+   "cropH": 608,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 10240,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 4580,
+   "top": 1920
+  },
+  {
+   "source": [
+    1920,
+    1080
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 8192,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2163,
+   "top": 2081
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1167,
+   "top": 0
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2334,
+   "top": 0
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 5462,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 826,
+   "top": 1152
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 608,
+   "cropW": 1080,
+   "cropH": 608,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 10240,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 4580,
+   "top": 1920
+  },
+  {
+   "source": [
+    1280,
+    720
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 8192,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2163,
+   "top": 2081
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 1728,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 1152
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 3240,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1080,
+   "top": 1920
+  },
+  {
+   "source": [
+    1080,
+    1920
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 2592,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 315,
+   "top": 2081
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 1728,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 1152
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 3240,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1080,
+   "top": 1920
+  },
+  {
+   "source": [
+    720,
+    1280
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 2592,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 315,
+   "top": 2081
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 2560,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 740,
+   "top": 0
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 2560,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 2560,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1480,
+   "top": 0
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 4096,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 484,
+   "top": 1152
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 810,
+   "cropW": 1080,
+   "cropH": 810,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 7680,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 3300,
+   "top": 1920
+  },
+  {
+   "source": [
+    1440,
+    1080
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 6144,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1488,
+   "top": 2081
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1167,
+   "top": 0
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 3414,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2334,
+   "top": 0
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 5462,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 826,
+   "top": 1152
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 608,
+   "cropW": 1080,
+   "cropH": 608,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 10240,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 4580,
+   "top": 1920
+  },
+  {
+   "source": [
+    3840,
+    2160
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 8192,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2163,
+   "top": 2081
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 1920,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 420,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 1920,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 1920,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 840,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 3072,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 228,
+   "top": 1152
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1080,
+   "scaledH": 1080,
+   "cropW": 1080,
+   "cropH": 1080,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 5760,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 2340,
+   "top": 1920
+  },
+  {
+   "source": [
+    1080,
+    1080
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 4608,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 981,
+   "top": 2081
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    1.0
+   ],
+   "scaledW": 4552,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1736,
+   "top": 0
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "scaledW": 4552,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 0,
+   "top": 0
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "scaledW": 4552,
+   "scaledH": 1920,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 3472,
+   "top": 0
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    0.25,
+    0.75,
+    1.6
+   ],
+   "scaledW": 7282,
+   "scaledH": 3072,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 1281,
+   "top": 1152
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    0.3
+   ],
+   "scaledW": 1366,
+   "scaledH": 576,
+   "cropW": 1080,
+   "cropH": 576,
+   "left": 143,
+   "top": 0
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    0.5,
+    0.5,
+    3.0
+   ],
+   "scaledW": 13654,
+   "scaledH": 5760,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 6287,
+   "top": 1920
+  },
+  {
+   "source": [
+    2560,
+    1080
+   ],
+   "window": [
+    0.33,
+    0.66,
+    2.4
+   ],
+   "scaledW": 10922,
+   "scaledH": 4608,
+   "cropW": 1080,
+   "cropH": 1920,
+   "left": 3064,
+   "top": 2081
+  }
+ ]
+}

@@ -1,0 +1,3 @@
+# Only needed to run the tests; the launcher does not install these.
+-r requirements.txt
+pytest>=8.0

@@ -6,6 +6,7 @@ without touching the rest of the pipeline.
 """
 
 import json
+import math
 import subprocess
 from dataclasses import dataclass
 from fractions import Fraction
@@ -106,17 +107,26 @@ class CropGeometry:
     top: int
 
 
+def half_up(value: float) -> int:
+    """Round .5 upwards, the way JavaScript's Math.round does.
+
+    Python's round() sends .5 to the nearest even number, so the two languages disagree
+    by a pixel on exact halves. The preview and the render have to land on the same one.
+    """
+    return math.floor(value + 0.5)
+
+
 def crop_geometry(info: VideoInfo, output: Output, crop: CropWindow | None) -> CropGeometry:
     """Pixel geometry for a crop window (mirrored in frontend/src/crop.ts)."""
     crop = crop or default_crop(info, output)
     zoom = max(min_zoom(info, output), min(4.0, crop.zoom))
     scale = cover_scale(info, output) * zoom
-    scaled_w = max(2, int(round(info.width * scale / 2)) * 2)
-    scaled_h = max(2, int(round(info.height * scale / 2)) * 2)
+    scaled_w = max(2, half_up(info.width * scale / 2) * 2)
+    scaled_h = max(2, half_up(info.height * scale / 2) * 2)
     crop_w = min(scaled_w, output.width)
     crop_h = min(scaled_h, output.height)
-    left = int(round(min(max(crop.x * scaled_w - crop_w / 2, 0), scaled_w - crop_w)))
-    top = int(round(min(max(crop.y * scaled_h - crop_h / 2, 0), scaled_h - crop_h)))
+    left = half_up(min(max(crop.x * scaled_w - crop_w / 2, 0), scaled_w - crop_w))
+    top = half_up(min(max(crop.y * scaled_h - crop_h / 2, 0), scaled_h - crop_h))
     return CropGeometry(scaled_w, scaled_h, crop_w, crop_h, left, top)
 
 

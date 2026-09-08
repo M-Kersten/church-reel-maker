@@ -90,11 +90,13 @@ def layout_text(text: str, style: Style, output: Output) -> tuple[list[str], int
         if lines is not None:
             return lines, style.fontSize
 
-    # Still too wide: use MAX_LINES lines and shrink the font until they fit.
+    # Still too wide: use MAX_LINES lines at the largest size those lines fit at.
+    # Sizing from the lines rather than from a fraction of the asked-for size keeps this
+    # monotonic, so turning the size up never renders the text smaller than before.
     lines = fit_lines(words, MAX_LINES, len(text)) or [text]
     longest = max(len(line) for line in lines)
-    scale = max(MIN_FONT_SCALE, min(1.0, max_chars / longest))
-    return lines, int(round(style.fontSize * scale))
+    fitted = int(available / (longest * CHAR_WIDTH_RATIO))
+    return lines, max(int(style.fontSize * MIN_FONT_SCALE), min(style.fontSize, fitted))
 
 
 def ass_color(hex_color: str, alpha: int = 0) -> str:

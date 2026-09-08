@@ -68,8 +68,8 @@ export function layoutText(text: string, style: Style, output: Output): { lines:
 
   const lines = fitLines(words, MAX_LINES, text.length) ?? [text]
   const longest = Math.max(...lines.map((l) => l.length))
-  const scale = Math.max(MIN_FONT_SCALE, Math.min(1, maxChars / longest))
-  return { lines, fontSize: Math.round(style.fontSize * scale) }
+  const fitted = Math.floor(available / (longest * CHAR_WIDTH_RATIO))
+  return { lines, fontSize: Math.max(Math.trunc(style.fontSize * MIN_FONT_SCALE), Math.min(style.fontSize, fitted)) }
 }
 
 export function formatTime(seconds: number): string {
