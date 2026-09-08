@@ -1,14 +1,17 @@
 """Dutch speech-to-text with faster-whisper."""
 
+import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
 from typing import Callable
 
-from .models import Segment, Transcript
+from .models import TEMPLATES_DIR, Segment, Transcript
 
 LANGUAGE = "nl"
+VOCABULARY_PATH = TEMPLATES_DIR / "woordenlijst.json"
 MODEL_SIZE = os.environ.get("WHISPER_MODEL", "small")
 DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")
 COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8" if DEVICE == "cpu" else "float16")
@@ -19,6 +22,60 @@ MAX_DURATION = 6.0  # seconds
 PAUSE_SPLIT = 0.7  # a pause longer than this starts a new segment
 
 _model = None
+
+DEFAULT_VOCABULARY = {
+    "initialPrompt": (
+        "Opname van een Nederlandse kerkdienst. Er komen woorden in voor als: gemeente, genade, geloof, "
+        "vertrouwen, gebed, zegen, Heer, Here, HEER, Jezus Christus, Heilige Geest, Vader, discipelen, "
+        "evangelie, psalm, lied, Opwekking, Bijbel, Mattheüs, Marcus, Lucas, Johannes, Handelingen, Romeinen, "
+        "Korinthiërs, Galaten, Efeziërs, Filippenzen, Kolossenzen, Hebreeën, Openbaring, avondmaal, doop, "
+        "voorganger, dominee, kerkenraad, collecte, halleluja, amen."
+    ),
+    "corrections": {
+        "lee": "Lied",
+        "here jezus": "Here Jezus",
+        "heilige geest": "Heilige Geest",
+    },
+}
+
+
+def load_vocabulary() -> dict:
+    """Words that help the speech model, and fixes for the mistakes it keeps making.
+
+    Lives in templates/woordenlijst.json so every church can add its own names.
+    """
+    if not VOCABULARY_PATH.is_file():
+        VOCABULARY_PATH.write_text(json.dumps(DEFAULT_VOCABULARY, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return dict(DEFAULT_VOCABULARY)
+    try:
+        data = json.loads(VOCABULARY_PATH.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001  a broken file should not stop a transcription
+        return dict(DEFAULT_VOCABULARY)
+    return {"initialPrompt": data.get("initialPrompt", ""), "corrections": data.get("corrections", {})}
+
+
+def initial_prompt() -> str:
+    """The vocabulary plus the name of the church, which the model would not guess by itself."""
+    prompt = load_vocabulary().get("initialPrompt", "")
+    try:
+        from . import brands
+
+        name = brands.active().church.churchName
+        if name and name.lower() not in prompt.lower():
+            prompt = f"{prompt} De kerk heet {name}."
+    except Exception:  # noqa: BLE001
+        pass
+    return prompt.strip()
+
+
+def apply_corrections(text: str, corrections: dict[str, str]) -> str:
+    """Replace known mishearings, whole words only, keeping the sentence's capital."""
+    for wrong, right in corrections.items():
+        if not wrong.strip():
+            continue
+        pattern = re.compile(rf"\b{re.escape(wrong)}\b", re.IGNORECASE)
+        text = pattern.sub(right, text)
+    return text
 
 
 def get_model():
@@ -71,12 +128,14 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None
     model = get_model()
     if should_stop:
         should_stop()
+    vocabulary = load_vocabulary()
     whisper_segments, _info = model.transcribe(
         str(wav_path),
         language=LANGUAGE,
         beam_size=5,
         vad_filter=True,
         word_timestamps=True,
+        initial_prompt=initial_prompt() or None,
     )
 
     words = []
@@ -91,6 +150,9 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None
             words.extend(seg.words)
 
     segments = chunk_words(words) if words else fallback
+    corrections = vocabulary.get("corrections", {})
+    for seg in segments:
+        seg.text = apply_corrections(seg.text, corrections)
     return Transcript(language=LANGUAGE, segments=[s for s in segments if s.text])
 
 

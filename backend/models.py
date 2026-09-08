@@ -25,6 +25,15 @@ FontWeight = Literal["regular", "medium", "semibold", "bold", "extrabold"]
 CropStrategy = Literal["static", "tracked"]  # "tracked" is reserved for Part 2
 
 
+class MusicSettings(BaseModel):
+    """Background music under the clip. Files live in templates/music."""
+
+    file: str = ""  # empty means no music
+    volume: float = Field(default=0.15, ge=0.0, le=1.0)
+    duck: bool = True  # turn the music down while someone is speaking
+    fadeOut: float = Field(default=2.0, ge=0.0, le=10.0)
+
+
 class Style(BaseModel):
     font: str = "Montserrat"
     fontSize: int = Field(default=64, ge=24, le=120)
@@ -97,6 +106,7 @@ class Project(BaseModel):
     style: Style = Style()
     output: Output = Output()
     outro: str = "templates/outro.mp4"  # relative to the repository root
+    music: MusicSettings = MusicSettings()
     cropStrategy: CropStrategy = "static"
     crop: CropWindow | None = None  # None = default framing for the source (see renderer.default_crop)
     tracking: str | None = None  # Part 2: file with the tracked crop path
@@ -173,6 +183,50 @@ def load_church_info() -> ChurchInfo:
     return ChurchInfo()
 
 
+class OutroBackground(BaseModel):
+    type: Literal["solid", "gradient", "image"] = "gradient"
+    color: str = "#4B1E78"  # used when type is "solid"
+    colors: list[str] = ["#C8801B", "#9B1B3A", "#5B1B6E"]  # used when type is "gradient", 2 to 8 colours
+    angle: float = 115  # gradient direction in degrees; 0 = left to right, 90 = top to bottom
+    image: str = ""  # file name in templates/, used when type is "image"
+    darken: float = Field(default=0.35, ge=0.0, le=1.0)  # black veil over the image, for readable text
+
+
+class OutroLogo(BaseModel):
+    file: str = ""  # png (transparency supported) in templates/
+    width: int = 420
+    y: int = 600  # centre of the logo, in pixels from the top of the 1080x1920 frame
+
+
+class OutroLine(BaseModel):
+    text: str
+    y: int = 960  # centre of the line, in pixels from the top
+    align: Literal["left", "center", "right"] = "center"
+    size: int = 56
+    weight: FontWeight = "bold"
+    color: str = "#FFFFFF"
+    font: str = ""  # empty = the config's main font
+    spacing: float = 0  # extra letter spacing in pixels
+    uppercase: bool = False
+    delay: float = 0.0  # seconds before this line appears
+
+
+class OutroConfig(BaseModel):
+    generate: bool = True  # false: never touch outro.mp4 (you supply your own video)
+    duration: float = Field(default=5.0, ge=1.0, le=30.0)
+    font: str = "Poppins"  # Inter, Montserrat, Poppins or Arial
+    fade: float = Field(default=0.4, ge=0.0, le=3.0)  # fade in and out, in seconds
+    background: OutroBackground = OutroBackground()
+    logo: OutroLogo = OutroLogo()
+    lines: list[OutroLine] = [
+        OutroLine(text="Welkom", y=760, size=34, weight="bold", color="#F0C862", spacing=8, uppercase=True),
+        OutroLine(text="{churchName}", y=860, size=92, weight="extrabold", delay=0.1),
+        OutroLine(text="Elke zondag {serviceTimes}", y=1000, size=46, weight="medium", color="#E7DEF2", delay=0.25),
+        OutroLine(text="{instagram}", y=1180, size=52, weight="bold", delay=0.4),
+    ]
+
+
+
 # --- full-service discovery -------------------------------------------------
 #
 # A Service is a complete recording. Discovery produces ClipCandidates (the AI
@@ -222,6 +276,7 @@ class Service(BaseModel):
     transcript: str | None = None
     status: ServiceStatus = "created"
     error: str | None = None
+    warning: str | None = None  # analysis finished, but not every part of the text worked
     candidates: list[ClipCandidate] = []
     clips: list[ProcessedClip] = []
 

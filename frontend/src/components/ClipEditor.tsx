@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, api, type ChurchInfo, type CropWindow, type Project, type RenderStatus, type Segment, type Style } from '../api'
+import { ApiError, api, type CropWindow, type MusicSettings, type Project, type RenderStatus, type Segment, type Style } from '../api'
+import { useChurch } from '../church'
 import FramingPanel from './FramingPanel'
-import OutroPanel from './OutroPanel'
+import MusicPanel from './MusicPanel'
+import BrandPanel from './BrandPanel'
 import RenderControls from './RenderControls'
 import StylePanel from './StylePanel'
 import SubtitleEditor from './SubtitleEditor'
@@ -22,8 +24,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [segments, setSegments] = useState<Segment[]>([])
   const [style, setStyle] = useState<Style | null>(null)
   const [crop, setCrop] = useState<CropWindow | null>(null)
+  const [music, setMusic] = useState<MusicSettings | null>(null)
   const [playing, setPlaying] = useState(false)
-  const [church, setChurch] = useState<ChurchInfo | null>(null)
+  const church = useChurch()
   const [renderStatus, setRenderStatus] = useState<RenderStatus>(IDLE)
   const [uploading, setUploading] = useState<number | null>(null)
   const [offline, setOffline] = useState(false)
@@ -34,7 +37,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [outputVersion, setOutputVersion] = useState(0)
   const [outroVersion, setOutroVersion] = useState(0)
   const previewRef = useRef<PreviewHandle>(null)
-  const dirty = useRef({ transcript: false, style: false, crop: false })
+  const dirty = useRef({ transcript: false, style: false, crop: false, music: false })
 
   const fail = (e: unknown) => {
     if (e instanceof ApiError && e.offline) {
@@ -49,14 +52,11 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     setProject(p)
     setStyle(p.style)
     setCrop(p.crop)
+    setMusic(p.music)
     setSegments(p.transcriptData?.segments ?? [])
     localStorage.setItem(STORAGE_KEY, p.id)
     onProjectChange(p.id)
   }, [onProjectChange])
-
-  useEffect(() => {
-    api.church().then(setChurch).catch(() => setChurch(null))
-  }, [])
 
   // Open the requested project (or the last one after a page reload).
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       .getProject(wanted)
       .then((p) => {
         adopt(p)
-        dirty.current = { transcript: false, style: false, crop: false }
+        dirty.current = { transcript: false, style: false, crop: false, music: false }
         return api.renderStatus(p.id)
       })
       .then(setRenderStatus)
@@ -116,6 +116,20 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     return () => clearTimeout(handle)
   }, [crop, project])
 
+  useEffect(() => {
+    if (!project || !music || !dirty.current.music) return
+    const handle = setTimeout(() => {
+      dirty.current.music = false
+      api.saveMusic(project.id, music).catch(fail)
+    }, 400)
+    return () => clearTimeout(handle)
+  }, [music, project])
+
+  const changeMusic = (next: MusicSettings) => {
+    dirty.current.music = true
+    setMusic(next)
+  }
+
   const changeCrop = (next: CropWindow) => {
     dirty.current.crop = true
     setCrop(next)
@@ -152,7 +166,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       await api.saveTranscript(project.id, { language: 'nl', segments })
       await api.saveStyle(project.id, style)
       if (crop) await api.saveCrop(project.id, crop)
-      dirty.current = { transcript: false, style: false, crop: false }
+      if (music) await api.saveMusic(project.id, music)
+      dirty.current = { transcript: false, style: false, crop: false, music: false }
       setRenderStatus(await api.render(project.id))
     } catch (e) {
       fail(e)
@@ -246,7 +261,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
         </div>
       )}
 
-      {project && style && crop && hasVideo && (
+      {project && style && crop && music && hasVideo && (
         <div className="workbench">
           <div className="stage card">
             <VideoPreview
@@ -287,7 +302,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               onChange={changeCrop}
             />
             <StylePanel style={style} onChange={changeStyle} />
-            <OutroPanel church={church} outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
+            <MusicPanel music={music} onChange={changeMusic} />
+            <BrandPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>
       )}

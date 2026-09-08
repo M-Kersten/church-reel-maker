@@ -65,6 +65,7 @@ export interface Project {
   style: Style
   output: Output
   outro: string
+  music: MusicSettings
   cropStrategy: 'static' | 'tracked'
   crop: CropWindow
   tracking: string | null
@@ -127,6 +128,43 @@ export interface FontFamily {
   /** File-name prefix in /templates/fonts; empty for the system font. */
   stem: string
   weights: FontWeight[]
+}
+
+export interface MusicSettings {
+  file: string
+  volume: number
+  duck: boolean
+  fadeOut: number
+}
+
+export interface MusicFile {
+  file: string
+  sizeMb: number
+}
+
+export interface Brand {
+  id: string
+  name: string
+  church: ChurchInfo
+  outro: OutroConfig
+  subtitleStyle: Style
+  music: MusicSettings
+}
+
+export interface BrandSummary {
+  id: string
+  name: string
+  active: boolean
+}
+
+/** Small payload used while polling a running job; the transcript is left out on purpose. */
+export interface ServiceProgress {
+  status: Service['status']
+  error: string | null
+  warning: string | null
+  job: RenderStatus | null
+  candidates: number
+  clips: number
 }
 
 export interface ChurchInfo {
@@ -207,6 +245,15 @@ export const api = {
     request<Transcript>(`/projects/${id}/transcript`, json('PUT', transcript)),
   saveStyle: (id: string, style: Style) => request<Project>(`/projects/${id}/style`, json('PUT', style)),
   saveCrop: (id: string, crop: CropWindow) => request<Project>(`/projects/${id}/crop`, json('PUT', crop)),
+  saveMusic: (id: string, music: MusicSettings) => request<Project>(`/projects/${id}/music`, json('PUT', music)),
+  music: () => request<MusicFile[]>('/music'),
+  uploadMusic: (file: File, onProgress?: (f: number) => void) => upload<{ file: string }>('/music', file, onProgress),
+  brands: () => request<BrandSummary[]>('/brands'),
+  brand: (id: string) => request<Brand>(`/brands/${id}`),
+  saveBrand: (brand: Brand) => request<Brand>(`/brands/${brand.id}`, json('PUT', brand)),
+  createBrand: (name: string, copyFrom?: string) => request<Brand>('/brands', json('POST', { name, copyFrom })),
+  activateBrand: (id: string) => request<Brand>(`/brands/${id}/activate`, { method: 'POST' }),
+  deleteBrand: (id: string) => request<BrandSummary[]>(`/brands/${id}`, { method: 'DELETE' }),
   render: (id: string) => request<RenderStatus>(`/projects/${id}/render`, { method: 'POST' }),
   stopRender: (id: string) => request<RenderStatus>(`/projects/${id}/render/stop`, { method: 'POST' }),
   health: () => request<Health>('/health'),
@@ -263,6 +310,7 @@ export interface Service {
   transcript: string | null
   status: ServiceStatus
   error: string | null
+  warning: string | null
   candidates: ClipCandidate[]
   clips: ProcessedClip[]
   transcriptData: Transcript | null
@@ -273,6 +321,7 @@ export interface Service {
 export const serviceApi = {
   create: () => request<Service>('/services', { method: 'POST' }),
   get: (id: string) => request<Service>(`/services/${id}`),
+  status: (id: string) => request<ServiceProgress>(`/services/${id}/status`),
   upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>
     upload<Service>(`/services/${id}/upload`, file, onProgress),
   transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),

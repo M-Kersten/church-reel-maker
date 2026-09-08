@@ -26,3 +26,10 @@ config.env
 templates/outro.json
 templates/outro.mp4
 templates/outro.ass
+
+# brands, music and the word list: your own content (see the .example.json files)
+templates/brands/
+templates/music/*
+!templates/music/.gitkeep
+templates/woordenlijst.json
+templates/outro-achtergrond.*

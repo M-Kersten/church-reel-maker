@@ -7,6 +7,8 @@ the existing clip-production pipeline.
 
 import json
 import os
+import random
+import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -14,12 +16,15 @@ from typing import Callable
 
 from pydantic import BaseModel
 
+from .jobs import Cancelled
 from .models import ClipCandidate, Segment, TimeRange, Transcript
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic")  # anthropic | ollama
 LLM_MODEL = os.environ.get("LLM_MODEL")  # defaults per provider below
 LLM_EFFORT = os.environ.get("LLM_EFFORT", "high")
 LLM_CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "3"))
+LLM_ATTEMPTS = int(os.environ.get("LLM_ATTEMPTS", "3"))  # tries per window before giving up on it
+LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "180"))
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
 WINDOW_SECONDS = 180.0  # analysis window length (2-5 minutes gives enough context)
@@ -122,14 +127,27 @@ def format_window(window: Window) -> str:
 # --- LLM call ----------------------------------------------------------------
 
 
+class Retryable(RuntimeError):
+    """A failure that is worth trying again: rate limit, server error, network hiccup."""
+
+
 def analyze_window(window: Window) -> list[LlmCandidate]:
     user = (
         f"Fragment {window.index + 1}, van {window.start:.1f}s tot {window.end:.1f}s in de dienst.\n\n"
         f"{format_window(window)}"
     )
-    if LLM_PROVIDER == "ollama":
-        return _ollama(user).candidates
-    return _anthropic(user).candidates
+    last: Exception | None = None
+    for attempt in range(LLM_ATTEMPTS):
+        try:
+            return _ollama(user).candidates if LLM_PROVIDER == "ollama" else _anthropic(user).candidates
+        except Retryable as exc:
+            last = exc
+            if attempt < LLM_ATTEMPTS - 1:
+                # Wait a bit longer every time, with a little spread so parallel windows do not sync up.
+                time.sleep((2 ** attempt) * 3 + random.uniform(0, 1.5))
+        except Exception as exc:  # noqa: BLE001  a bad answer for one window should not stop the rest
+            raise
+    raise last if last else RuntimeError("Onbekende fout bij het analyseren")
 
 
 NO_KEY_MESSAGE = ("Er is geen Claude API-sleutel ingesteld. Zet ANTHROPIC_API_KEY=... in config.env en start de app "
@@ -152,17 +170,19 @@ def check_provider() -> None:
 def _anthropic(user: str) -> LlmAnalysis:
     import anthropic
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=LLM_TIMEOUT, max_retries=0)  # retries are handled per window
     try:
         response = _anthropic_request(client, user)
     except anthropic.AuthenticationError as exc:
         raise RuntimeError("De Claude API-sleutel wordt niet geaccepteerd. Controleer ANTHROPIC_API_KEY in config.env.") from exc
     except anthropic.RateLimitError as exc:
-        raise RuntimeError("De Claude API geeft aan dat de limiet is bereikt. Wacht even en probeer het opnieuw.") from exc
+        raise Retryable("De Claude API is even vol (limiet bereikt).") from exc
     except anthropic.APIStatusError as exc:
+        if exc.status_code >= 500:
+            raise Retryable(f"De Claude API gaf een serverfout ({exc.status_code}).") from exc
         raise RuntimeError(f"De Claude API gaf een fout ({exc.status_code}): {exc.message}") from exc
     except anthropic.APIConnectionError as exc:
-        raise RuntimeError("Geen verbinding met de Claude API. Controleer de internetverbinding.") from exc
+        raise Retryable("Geen verbinding met de Claude API.") from exc
     if response.stop_reason == "refusal" or response.parsed_output is None:
         return LlmAnalysis(candidates=[])
     return response.parsed_output
@@ -187,8 +207,11 @@ def _ollama(user: str) -> LlmAnalysis:
         "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
     }).encode("utf-8")
     req = urllib.request.Request(f"{OLLAMA_URL}/api/chat", data=body, headers={"content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=600) as res:
-        data = json.loads(res.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT * 4) as res:
+            data = json.loads(res.read().decode("utf-8"))
+    except OSError as exc:
+        raise Retryable(f"Ollama antwoordde niet op {OLLAMA_URL}.") from exc
     return LlmAnalysis.model_validate_json(data["message"]["content"])
 
 
@@ -258,14 +281,24 @@ def estimate(transcript: Transcript) -> dict:
             "tokens": input_tokens + output_tokens, "costUsd": cost}
 
 
+class Result(BaseModel):
+    """What one analysis run produced, including the windows that would not cooperate."""
+
+    candidates: list[ClipCandidate] = []
+    windows: int = 0
+    failed: int = 0
+    warning: str | None = None
+
+
 def discover(transcript: Transcript, on_progress: ProgressCallback | None = None,
-             should_stop: Callable[[], None] | None = None) -> list[ClipCandidate]:
+             should_stop: Callable[[], None] | None = None) -> Result:
     check_provider()
     windows = build_windows(transcript.segments)
     total = len(windows)
     if total == 0:
-        return []
+        return Result()
     raw: list[ClipCandidate] = []
+    failures: list[str] = []
     done = 0
 
     def work(window: Window) -> list[ClipCandidate]:
@@ -283,12 +316,30 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
             ))
         return out
 
+    def guarded(window: Window) -> list[ClipCandidate]:
+        """One difficult window must not throw away the work done on all the others."""
+        try:
+            return work(window)
+        except Cancelled:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            failures.append(str(exc))
+            return []
+
     if on_progress:
         on_progress(0.0, f"Tekst wordt doorgelezen · deel 1 van {total}")
     with ThreadPoolExecutor(max_workers=max(1, LLM_CONCURRENCY)) as pool:
-        for result in pool.map(work, windows):
+        for result in pool.map(guarded, windows):
             raw.extend(result)
             done += 1
             if on_progress:
-                on_progress(done / total, f"Tekst wordt doorgelezen · deel {min(done + 1, total)} van {total}")
-    return dedupe_and_rank(raw)
+                extra = f" · {len(failures)} niet gelukt" if failures else ""
+                on_progress(done / total, f"Tekst wordt doorgelezen · deel {min(done + 1, total)} van {total}{extra}")
+
+    if failures and len(failures) == total:
+        raise RuntimeError("Geen enkel deel van de tekst kon geanalyseerd worden. " + failures[0])
+    warning = None
+    if failures:
+        warning = (f"{len(failures)} van de {total} stukken tekst konden niet geanalyseerd worden, de rest wel. "
+                   f"Reden: {failures[0]} Je kunt opnieuw zoeken om ze alsnog te proberen.")
+    return Result(candidates=dedupe_and_rank(raw), windows=total, failed=len(failures), warning=warning)

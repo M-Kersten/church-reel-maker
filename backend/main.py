@@ -8,7 +8,7 @@ from pathlib import Path
 
 import traceback
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi import Body, FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,9 +16,9 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import clips, discovery, fonts, health, outro, renderer, transcription
+from . import brands, clips, discovery, fonts, health, outro, renderer, transcription
 from .jobs import Cancelled, Job, JobManager
-from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, ProcessedClip, Project,
+from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
                      recover_services, save_project, save_service, save_service_transcript, save_transcript, service_dir)
@@ -65,7 +65,13 @@ def detail(project: Project) -> ProjectDetail:
 
 @app.post("/projects", response_model=ProjectDetail)
 def create_project():
-    return detail(new_project())
+    """A new clip starts from the active brand: its subtitle style and its music."""
+    project = new_project()
+    brand = brands.active()
+    project.style = brand.subtitleStyle.model_copy(deep=True)
+    project.music = brand.music.model_copy(deep=True)
+    save_project(project)
+    return detail(project)
 
 
 @app.get("/projects/{project_id}", response_model=ProjectDetail)
@@ -172,7 +178,7 @@ def render_project(project_id: str):
         renderer.render_video(
             source, info, subtitles, project.output, output_dir / "final.mp4",
             outro=outro if outro.is_file() else None,
-            crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop,
+            crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop, music=project.music,
             on_progress=on_progress, should_stop=job.check,
         )
 
@@ -207,7 +213,109 @@ def read_output(project_id: str):
 
 @app.get("/church", response_model=ChurchInfo)
 def read_church():
-    return load_church_info()
+    """The church of the brand that is active."""
+    return brands.active().church
+
+
+@app.get("/brands", response_model=list[brands.BrandSummary])
+def read_brands():
+    return brands.summaries()
+
+
+@app.get("/brands/{brand_id}", response_model=brands.Brand)
+def read_brand(brand_id: str):
+    brand = brands.load(brand_id)
+    if brand is None:
+        raise HTTPException(404, "Merk niet gevonden")
+    return brand
+
+
+@app.put("/brands/{brand_id}", response_model=brands.Brand)
+def update_brand(brand_id: str, brand: brands.Brand):
+    if brands.load(brand_id) is None:
+        raise HTTPException(404, "Merk niet gevonden")
+    if brand.subtitleStyle.font not in fonts.names() or brand.outro.font not in fonts.names():
+        raise HTTPException(400, "Onbekend lettertype")
+    brand.id = brand_id
+    brands.save(brand)
+    if brands.active_id() == brand_id and brand.outro.generate:
+        try:
+            outro.build(brand.outro, brand.church)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, str(exc)) from exc
+    return brand
+
+
+@app.post("/brands", response_model=brands.Brand)
+def create_brand(name: str = Body(embed=True), copyFrom: str | None = Body(default=None, embed=True)):
+    if not name.strip():
+        raise HTTPException(400, "Geef het merk een naam")
+    return brands.create(name.strip(), copyFrom)
+
+
+@app.post("/brands/{brand_id}/activate", response_model=brands.Brand)
+def activate_brand(brand_id: str):
+    if brands.load(brand_id) is None:
+        raise HTTPException(404, "Merk niet gevonden")
+    brand = brands.set_active(brand_id)
+    try:
+        outro.ensure_outro()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[outro] {exc}")
+    return brand
+
+
+@app.delete("/brands/{brand_id}", response_model=list[brands.BrandSummary])
+def delete_brand(brand_id: str):
+    if len(brands.all_brands()) <= 1:
+        raise HTTPException(400, "Het laatste merk kan niet verwijderd worden")
+    brands.delete(brand_id)
+    return brands.summaries()
+
+
+# --- background music -----------------------------------------------------------
+
+MUSIC_DIR = TEMPLATES_DIR / "music"
+ALLOWED_MUSIC = {".mp3", ".m4a", ".wav", ".aac", ".ogg"}
+
+
+@app.get("/music")
+def read_music():
+    """The music files that can go under a clip."""
+    MUSIC_DIR.mkdir(parents=True, exist_ok=True)
+    return [{"file": p.name, "sizeMb": round(p.stat().st_size / 1e6, 1)}
+            for p in sorted(MUSIC_DIR.iterdir()) if p.suffix.lower() in ALLOWED_MUSIC]
+
+
+@app.post("/music")
+def upload_music(file: UploadFile):
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_MUSIC:
+        raise HTTPException(400, "Gebruik een mp3-, m4a-, wav-, aac- of ogg-bestand")
+    MUSIC_DIR.mkdir(parents=True, exist_ok=True)
+    target = MUSIC_DIR / Path(file.filename or f"muziek{ext}").name
+    with target.open("wb") as out:
+        shutil.copyfileobj(file.file, out, length=1024 * 1024)
+    return {"file": target.name}
+
+
+@app.delete("/music/{name}")
+def delete_music(name: str):
+    target = MUSIC_DIR / Path(name).name
+    if not target.is_file():
+        raise HTTPException(404, "Muziekbestand niet gevonden")
+    target.unlink()
+    return {"file": target.name}
+
+
+@app.put("/projects/{project_id}/music", response_model=ProjectDetail)
+def update_music(project_id: str, music: MusicSettings):
+    project = get_project(project_id)
+    if music.file and not (MUSIC_DIR / Path(music.file).name).is_file():
+        raise HTTPException(400, f"Het muziekbestand {music.file} staat niet in templates/music")
+    project.music = music
+    save_project(project)
+    return detail(project)
 
 
 @app.get("/health")
@@ -301,6 +409,8 @@ def service_detail(service: Service) -> ServiceDetail:
 def set_status(service: Service, status: str, error: str | None = None) -> None:
     service.status = status  # type: ignore[assignment]
     service.error = error
+    if status == "analyzing":
+        service.warning = None
     save_service(service)
 
 
@@ -406,10 +516,27 @@ def analyze_service(service_id: str):
         def on_progress(fraction: float, message: str) -> None:
             job.progress, job.message = fraction, message
 
-        service.candidates = discovery.discover(transcript, on_progress, should_stop=job.check)
+        result = discovery.discover(transcript, on_progress, should_stop=job.check)
+        service.candidates = result.candidates
+        service.warning = result.warning
         save_service(service)
 
     return run_service_job(service, "analyzing", "ready", work)
+
+
+@app.get("/services/{service_id}/status")
+def read_service_status(service_id: str):
+    """Small payload for polling: the transcript itself would be sent over and over."""
+    service = get_service(service_id)
+    job = jobs.get(service.id)
+    return {
+        "status": service.status,
+        "error": service.error,
+        "warning": service.warning,
+        "job": job.to_dict() if job.status == "running" else None,
+        "candidates": len(service.candidates),
+        "clips": len(service.clips),
+    }
 
 
 @app.post("/services/{service_id}/stop", response_model=ServiceDetail)

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { api, type ChurchInfo } from './api'
+import { useState } from 'react'
+import { useChurch } from './church'
 import ClipEditor from './components/ClipEditor'
 import ServiceView from './components/ServiceView'
 import SystemCheck from './components/SystemCheck'
@@ -10,11 +10,7 @@ const MODE_KEY = 'church-reel-maker.mode'
 export default function App() {
   const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) === 'clip' ? 'clip' : 'service'))
   const [projectId, setProjectId] = useState<string | null>(null)
-  const [church, setChurch] = useState<ChurchInfo | null>(null)
-
-  useEffect(() => {
-    api.church().then(setChurch).catch(() => setChurch(null))
-  }, [])
+  const church = useChurch()
 
   const switchMode = (next: Mode) => {
     setMode(next)

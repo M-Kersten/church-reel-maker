@@ -1,0 +1,8 @@
+{
+  "initialPrompt": "Opname van een Nederlandse kerkdienst. Er komen woorden in voor als: gemeente, genade, geloof, vertrouwen, gebed, zegen, Heer, Here, HEER, Jezus Christus, Heilige Geest, Vader, discipelen, evangelie, psalm, lied, Opwekking, Bijbel, Mattheüs, Marcus, Lucas, Johannes, Handelingen, Romeinen, Korinthiërs, Galaten, Efeziërs, Filippenzen, Kolossenzen, Hebreeën, Openbaring, avondmaal, doop, voorganger, dominee, kerkenraad, collecte, halleluja, amen.",
+  "corrections": {
+    "lee": "Lied",
+    "here jezus": "Here Jezus",
+    "heilige geest": "Heilige Geest"
+  }
+}

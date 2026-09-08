@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, type ChurchInfo, type FontWeight, type OutroConfig, type OutroLine } from '../api'
+import { api, type Brand, type BrandSummary, type ChurchInfo, type FontWeight, type OutroConfig, type OutroLine } from '../api'
+import { announceBrandChange } from '../church'
 import { WEIGHT_LABELS, resolveWeight, useFonts, weightsOf } from '../fonts'
 import { cssWeight } from '../subtitleLayout'
 import Section from './Section'
@@ -22,31 +23,109 @@ const newLine = (y: number, weight: FontWeight): OutroLine => ({
 })
 
 interface Props {
-  church: ChurchInfo | null
   outroUrl: string
   /** Called after saving, so the preview elsewhere reloads the new end screen. */
   onRebuilt: () => void
 }
 
-/** Edit the end screen: background, font, and where every line of text sits. */
-export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
+/**
+ * A brand holds everything that makes a video belong to one church: the details, the end
+ * screen, and the defaults for new clips. Several churches can live side by side here.
+ */
+export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
   const families = useFonts()
-  const [config, setConfig] = useState<OutroConfig | null>(null)
+  const [brands, setBrands] = useState<BrandSummary[]>([])
+  const [brand, setBrand] = useState<Brand | null>(null)
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [active, setActive] = useState<number | null>(null)
 
+  const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+  const config = brand?.outro ?? null
+  const church = brand?.church ?? null
+
+  const openBrand = (id: string) =>
+    api
+      .brand(id)
+      .then((b) => {
+        setBrand(b)
+        setDirty(false)
+        setSaved(false)
+      })
+      .catch(fail)
+
   useEffect(() => {
-    api.outroConfig().then(setConfig).catch((e) => setError(e instanceof Error ? e.message : String(e)))
+    api
+      .brands()
+      .then((list) => {
+        setBrands(list)
+        const current = list.find((b) => b.active) ?? list[0]
+        if (current) void openBrand(current.id)
+      })
+      .catch(fail)
   }, [])
 
   const edit = (patch: Partial<OutroConfig>) => {
-    if (!config) return
-    setConfig({ ...config, ...patch })
+    if (!brand) return
+    setBrand({ ...brand, outro: { ...brand.outro, ...patch } })
     setDirty(true)
     setSaved(false)
+  }
+
+  const editChurch = (patch: Partial<ChurchInfo>) => {
+    if (!brand) return
+    setBrand({ ...brand, church: { ...brand.church, ...patch } })
+    setDirty(true)
+    setSaved(false)
+  }
+
+  const switchBrand = async (id: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.activateBrand(id)
+      await openBrand(id)
+      setBrands(await api.brands())
+      announceBrandChange()
+      onRebuilt()
+    } catch (e) {
+      fail(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addBrand = async () => {
+    const name = window.prompt('Naam van het nieuwe merk (bijvoorbeeld de naam van de kerk of locatie)')
+    if (!name?.trim() || !brand) return
+    setBusy(true)
+    try {
+      const created = await api.createBrand(name.trim(), brand.id)
+      setBrands(await api.brands())
+      await switchBrand(created.id)
+    } catch (e) {
+      fail(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const removeBrand = async () => {
+    if (!brand || brands.length < 2) return
+    if (!window.confirm(`Merk "${brand.name}" verwijderen?`)) return
+    setBusy(true)
+    try {
+      const left = await api.deleteBrand(brand.id)
+      setBrands(left)
+      const next = left.find((b) => b.active) ?? left[0]
+      if (next) await switchBrand(next.id)
+    } catch (e) {
+      fail(e)
+    } finally {
+      setBusy(false)
+    }
   }
   const editLine = (index: number, patch: Partial<OutroLine>) =>
     edit({ lines: config!.lines.map((l, i) => (i === index ? { ...l, ...patch } : l)) })
@@ -62,16 +141,18 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
   }
 
   const save = async () => {
-    if (!config) return
+    if (!brand) return
     setBusy(true)
     setError(null)
     try {
-      setConfig(await api.saveOutro(config))
+      setBrand(await api.saveBrand(brand))
+      setBrands(await api.brands())
       setDirty(false)
       setSaved(true)
+      announceBrandChange()
       onRebuilt()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      fail(e)
     } finally {
       setBusy(false)
     }
@@ -85,15 +166,15 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
       const { image } = await api.uploadOutroBackground(file)
       edit({ background: { ...config.background, type: 'image', image } })
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      fail(e)
     } finally {
       setBusy(false)
     }
   }
 
-  if (!config) {
+  if (!brand || !config) {
     return (
-      <Section step={4} title="Afsluiter" intro="Het eindscherm dat achter elke video komt.">
+      <Section step={5} title="Merk en afsluiter" intro="De gegevens van de kerk en het eindscherm van elke video.">
         {error ? <div className="error">{error}</div> : <p className="empty">Bezig met laden…</p>}
       </Section>
     )
@@ -104,10 +185,37 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
 
   return (
     <Section
-      step={4}
-      title="Afsluiter"
-      intro="Elke video eindigt met dit scherm. Sleep de teksten in de voorvertoning naar de plek waar je ze wilt hebben. Met {churchName}, {serviceTimes} en {instagram} vul je de gegevens van de kerk automatisch in."
+      step={5}
+      title="Merk en afsluiter"
+      intro="Een merk bevat de gegevens van de kerk en het eindscherm dat achter elke video komt. Werk je voor meerdere kerken of locaties, maak dan per kerk een merk aan en wissel hier."
     >
+      <div className="brand-row">
+        <label htmlFor="brand">Merk</label>
+        <select id="brand" value={brand.id} disabled={busy} onChange={(e) => switchBrand(e.target.value)}>
+          {brands.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+        <button className="small" onClick={addBrand} disabled={busy}>Nieuw merk</button>
+        <button className="small" onClick={removeBrand} disabled={busy || brands.length < 2}>Verwijderen</button>
+      </div>
+
+      <div className="fields" style={{ marginBottom: '1.2rem' }}>
+        <label htmlFor="bname">Naam kerk</label>
+        <input id="bname" value={church?.churchName ?? ''} onChange={(e) => { editChurch({ churchName: e.target.value }); setBrand((b) => (b ? { ...b, name: e.target.value } : b)) }} />
+        <label htmlFor="btimes">Diensttijden</label>
+        <input
+          id="btimes"
+          value={(church?.serviceTimes ?? []).join(', ')}
+          onChange={(e) => editChurch({ serviceTimes: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })}
+          placeholder="10:00 Wittevrouwen, 11:30 Wilhelminapark"
+        />
+        <label htmlFor="binsta">Instagram</label>
+        <input id="binsta" value={church?.instagram ?? ''} onChange={(e) => editChurch({ instagram: e.target.value })} placeholder="@jouwkerk" />
+      </div>
+      <p className="hint" style={{ marginTop: '-0.6rem', marginBottom: '1rem' }}>
+        Sleep de teksten in de voorvertoning naar de plek waar je ze wilt hebben. Met {'{churchName}'}, {'{serviceTimes}'} en {'{instagram}'} vul je deze gegevens automatisch in.
+      </p>
       <div className="outro-edit">
         <div>
           <EndScreen
@@ -272,7 +380,7 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
             <button className="primary" onClick={save} disabled={busy || !dirty}>
               {busy ? 'Bezig…' : 'Opslaan en vernieuwen'}
             </button>
-            {saved && !dirty && <span className="meta">Opgeslagen en opnieuw gemaakt.</span>}
+            {saved && !dirty && <span className="meta">Opgeslagen; de afsluiter is opnieuw gemaakt.</span>}
             {dirty && <span className="meta">Nog niet opgeslagen.</span>}
           </div>
           {error && <div className="error" style={{ marginTop: '0.7rem', marginBottom: 0 }}>{error}</div>}

@@ -38,6 +38,8 @@ The built web interface is committed in `frontend/dist`, so Node.js is not neede
 
 The first transcription downloads the faster-whisper model (default `small`, roughly 460 MB) into the Hugging Face cache. After that no network access is needed.
 
+Dutch church words are fed to the speech model through `templates/woordenlijst.json`: an `initialPrompt` with the vocabulary (Bible books, "gemeente", "Opwekking", "avondmaal", and the name of the active church) and a `corrections` map that repairs mistakes the model keeps making, such as "Lee 302" for "Lied 302". Add your own preacher and hymn names there; `templates/woordenlijst.example.json` is the shipped copy.
+
 ## Developer setup
 
 ```bash
@@ -131,8 +133,25 @@ The interface between discovery and production is one function, `create_clip(sou
 - Long jobs can be stopped. Transcribing, analysing, cutting and rendering all have a **Stoppen** button; the job ends at its next checkpoint, which takes a few seconds for a render and up to half a minute for a transcription.
 - Interrupted work is picked up honestly. If the app is closed while a service is being transcribed or analysed, the next start marks that service so you know the step has to run again, rather than leaving a progress bar that never moves.
 - Project and service files are written through a temporary file and renamed, so a crash or a power cut cannot leave half a file behind.
+- One difficult piece of transcript no longer costs you the whole analysis. Each window is retried with growing pauses on a rate limit, server error or dropped connection, and a window that keeps failing is counted and skipped. You get the moments that were found plus a note saying how many pieces failed and why.
 - The interface tells the difference between "the app is not answering" and "this went wrong". Losing the connection shows a calm banner and keeps polling; the work in the black window carries on.
 - FFmpeg failures are translated: no space left, no permission, a damaged video file. A missing speech model or a rejected API key says which file to edit.
+
+## Brands: one setup per church
+
+Everything that makes a video belong to a church lives in a **brand**: the church details, the end screen, the default subtitle style and the default background music. Work for two locations or two churches and you make a brand for each, then switch between them in the **Merk en afsluiter** panel. New clips take the settings of the brand that is active, and the end screen is rebuilt when you switch.
+
+Brands are stored as `templates/brands/<id>.json`, with `templates/brands/actief.json` naming the active one. On the first start the old `church.json` and `outro.json` are folded into one brand automatically, so nothing is lost.
+
+## Background music
+
+The **Muziek** panel puts a track under the clip. Upload an mp3, m4a, wav, aac or ogg file once and it stays available for every clip; files live in `templates/music/`.
+
+- **Volume** sets the level of the bed.
+- **Onder de stem** turns on side-chain ducking: the music drops automatically while someone is speaking and comes back in the pauses. This is what makes a bed sound deliberate rather than loud.
+- **Uitfaden** fades the music out at the end. The music runs under the end screen as well.
+
+Speech is levelled to -14 LUFS with `loudnorm` before the music is mixed in, and the mix passes through a limiter, so clips from different services sound equally loud on Instagram and YouTube. You hear the music in the rendered video, not in the preview.
 
 ## Church outro (end screen)
 
@@ -208,6 +227,7 @@ GET  /projects/{id}                 project + transcript
 PUT  /projects/{id}/transcript      save edited segments
 PUT  /projects/{id}/style           save subtitle style
 PUT  /projects/{id}/crop            save the crop window {x, y, zoom}
+PUT  /projects/{id}/music           save the background music for this clip
 POST /projects/{id}/render          start the background render job
 POST /projects/{id}/render/stop     stop the render that is running
 GET  /projects/{id}/render-status   {status, progress, message, error, canStop}
@@ -215,6 +235,15 @@ GET  /projects/{id}/output          the rendered final.mp4
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
 GET  /health                        FFmpeg, speech model, analysis model, disk space, folders
+GET  /brands                        the brands, and which one is active
+GET  /brands/{id}                   one brand: church, end screen, subtitle style, music
+PUT  /brands/{id}                   save a brand (rebuilds the end screen when it is active)
+POST /brands                        create a brand, optionally copied from another
+POST /brands/{id}/activate          make a brand active
+DELETE /brands/{id}                 remove a brand (never the last one)
+GET  /music                         the music files that can go under a clip
+POST /music                         upload a music file
+DELETE /music/{name}                remove a music file
 GET  /fonts                         font families found in templates/fonts
 GET  /outro                         the end-screen config from templates/outro.json
 PUT  /outro                         save the end-screen config and rebuild the video
@@ -227,6 +256,7 @@ POST /services/{id}/upload          multipart upload of the full recording
 POST /services/{id}/transcribe      background transcription (status: transcribing -> transcribed)
 POST /services/{id}/analyze         background LLM analysis (status: analyzing -> ready)
 GET  /services/{id}                 service + transcript + running job progress
+GET  /services/{id}/status          small payload for polling (status, job, counts)
 GET  /services/{id}/candidates      ranked candidates
 PUT  /services/{id}/candidates      save selection and boundary edits
 POST /services/{id}/process-selected  cut each selected candidate into a clip project (status: processing -> complete)
@@ -249,6 +279,8 @@ backend/
   discovery.py      transcript windows -> LLM analysis -> deduplicated, ranked ClipCandidates
   outro.py          end-screen config -> ASS + FFmpeg, rebuilt when the config changes
   fonts.py          which font families and weights templates/fonts holds
+  brands.py         brand presets: church, end screen, subtitle style, music
+  health.py         the checks the interface shows
   clips.py          create_clip(source, start, end): cuts a range into a regular clip project
 frontend/src/
   App.tsx                      tab switch between Full service and Clip
@@ -257,7 +289,9 @@ frontend/src/
   components/ClipEditor.tsx    single-clip editor: project state, API calls, auto-save, render polling
   components/ServiceView.tsx   full-service upload, states, progress, processed clips
   components/ClipSuggestions.tsx  ranked candidate list: preview, select, adjust boundaries
-  components/OutroPanel.tsx    end-screen editor with a live preview
+  components/BrandPanel.tsx    brand switch, church details and the end-screen editor
+  components/MusicPanel.tsx    background music under the clip
+  components/SystemCheck.tsx   the readiness check in the app bar
   fonts.ts                     font catalogue: loads the faces and resolves weights
   components/VideoPreview.tsx  9:16 preview with subtitle overlay and outro
   components/SubtitleEditor.tsx
@@ -287,7 +321,9 @@ projects/project-3d25a7a1/
 ## Render pipeline
 
 ```text
-source.mp4 → static 9:16 crop → fps 30 → burn subtitles.ass (libass) → concat outro → libx264 crf 20 + AAC 160k → final.mp4
+source.mp4 → static 9:16 crop → fps 30 → burn subtitles.ass (libass) → concat outro
+speech → loudnorm -14 LUFS → (optional) mix with ducked music → limiter
+→ libx264 crf 20 + AAC 160k → final.mp4
 ```
 
 The crop window `{x, y, zoom}` on the project decides the framing: `x`/`y` are the frame centre as fractions of the scaled source, `zoom` is relative to the scale that exactly fills the frame (1 fills, smaller letterboxes, larger crops in). The renderer scales the source, crops the part inside the frame and pads whatever is left. Defaults: landscape sources fill the frame centred, portrait sources keep the whole picture. The outro is always scaled to fit. Output is `yuv420p`, High profile, `+faststart`, which uploads directly to Instagram and YouTube.

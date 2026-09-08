@@ -12,7 +12,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Callable
 
-from .models import FONTS_DIR, CropWindow, Output, VideoInfo
+from .models import FONTS_DIR, TEMPLATES_DIR, CropWindow, MusicSettings, Output, VideoInfo
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -145,13 +145,18 @@ def build_command(
     crop_strategy: str = "static",
     tracking=None,
     crop: CropWindow | None = None,
+    music: MusicSettings | None = None,
 ) -> tuple[list[str], float]:
     """Build the ffmpeg command line. Returns (argv, total output duration)."""
     w, h, fps = output.width, output.height, output.fps
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1"]
     inputs = [source]
     filters: list[str] = []
-    audio_norm = "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo"
+    # Speech is levelled to what social platforms expect, so clips from different services
+    # sound equally loud next to each other.
+    audio_norm = "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo"
+    music_path = music_file(music)
+    speech = "aall" if music_path else "a"
 
     crop_chain = build_crop_filter(source_info, output, crop_strategy, tracking, crop)
     filters.append(
@@ -169,14 +174,29 @@ def build_command(
             f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,fps={fps},setsar=1,format=yuv420p[v1]"
         )
         filters.append(_audio_filter(idx, outro_info, audio_norm, inputs, filters, "a1"))
-        filters.append("[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]")
+        filters.append(f"[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][{speech}]")
         total += outro_info.duration
     else:
         filters.append("[v0]null[v]")
-        filters.append("[a0]anull[a]")
+        filters.append(f"[a0]anull[{speech}]")
+
+    if music_path is not None and music is not None:
+        index = len(inputs)  # the music is the last input
+        filters.append(music_filter(music, total, index))
+        if music.duck:
+            # The speech is needed twice: once to mix, once to tell the music when to step back.
+            filters.append(f"[{speech}]asplit=2[sp_mix][sp_key]")
+            filters.append("[mus][sp_key]sidechaincompress=threshold=0.045:ratio=6:attack=15:release=350[bed]")
+            speech_mix = "sp_mix"
+        else:
+            filters.append("[mus]anull[bed]")
+            speech_mix = speech
+        filters.append(f"[{speech_mix}][bed]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]")
 
     for path in inputs:
         cmd += ["-i", str(path)]
+    if music_path is not None:
+        cmd += ["-stream_loop", "-1", "-i", str(music_path)]
     cmd += ["-filter_complex", ";".join(filters), "-map", "[v]", "-map", "[a]"]
     cmd += [
         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-profile:v", "high", "-level", "4.1",
@@ -185,6 +205,23 @@ def build_command(
         "-movflags", "+faststart", str(destination),
     ]
     return cmd, total
+
+
+def music_file(music: MusicSettings | None) -> Path | None:
+    """The music file to mix in, when one is chosen and still on disk."""
+    if music is None or not music.file:
+        return None
+    path = TEMPLATES_DIR / "music" / music.file
+    return path if path.is_file() else None
+
+
+def music_filter(music: MusicSettings, total: float, index: int) -> str:
+    """Cut the (looping) music to length, fade it in and out, and set its level."""
+    fade_out = min(music.fadeOut, max(0.5, total / 3))
+    start_out = max(0.0, total - fade_out)
+    return (f"[{index}:a]atrim=0:{total:.3f},asetpts=N/SR/TB,volume={music.volume:.3f},"
+            f"afade=t=in:st=0:d=1.2,afade=t=out:st={start_out:.3f}:d={fade_out:.3f},"
+            f"aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[mus]")
 
 
 def _audio_filter(idx: int, info: VideoInfo, norm: str, inputs: list, filters: list, label: str) -> str:
@@ -204,6 +241,7 @@ def render_video(
     crop_strategy: str = "static",
     tracking=None,
     crop: CropWindow | None = None,
+    music: MusicSettings | None = None,
     on_progress: ProgressCallback | None = None,
     should_stop: Callable[[], None] | None = None,
 ) -> Path:
@@ -211,7 +249,7 @@ def render_video(
     if outro_info is None:
         outro = None
     cmd, total = build_command(
-        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop
+        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop, music
     )
     tmp = destination.with_suffix(".part.mp4")
     cmd[-1] = str(tmp)

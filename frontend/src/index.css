@@ -341,3 +341,15 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 /* cost note under the analysis button */
 .cost { margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); max-width: 62ch; }
 .cost strong { color: var(--ink); font-weight: 600; }
+
+/* file pickers that look like the other buttons */
+.upload-link {
+  display: inline-block; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--purple);
+  border: 1px solid var(--line); border-radius: 8px; padding: 0.3rem 0.7rem;
+}
+.upload-link:hover { border-color: var(--purple); }
+.upload-link input { display: none; }
+/* brand row above the end screen editor */
+.brand-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.brand-row select { min-width: 12rem; }
+.warning { background: #FFF6E5; border: 1px solid #EAD5A8; color: #7A5A12; border-radius: 10px; padding: 0.7rem 0.9rem; margin-top: 0.8rem; font-size: 0.9rem; }

@@ -103,11 +103,16 @@ export default function ServiceView({ onOpenClip }: Props) {
       let misses = 0
       const handle = setInterval(() => {
         serviceApi
-          .get(service.id)
+          .status(service.id)
           .then((s) => {
             misses = 0
             setOffline(false)
-            setService(s)
+            // While a job runs the small payload is enough; when it is over, load everything once.
+            if (BUSY.has(s.status)) {
+              setService((prev) => (prev ? { ...prev, status: s.status, error: s.error, warning: s.warning, job: s.job } : prev))
+            } else {
+              serviceApi.get(service.id).then(setService).catch(fail)
+            }
           })
           .catch((e) => {
             misses += 1
@@ -240,6 +245,7 @@ export default function ServiceView({ onOpenClip }: Props) {
             </header>
             <p className="say">{STATUS_TEXT[service.status]}</p>
             {service.status === 'error' && <div className="error" style={{ marginTop: '0.8rem', marginBottom: 0 }}>{service.error}</div>}
+            {service.warning && <div className="warning">{service.warning}</div>}
             {busy && stopping && <p className="hint">Stoppen kan een halve minuut duren; de app maakt het huidige stukje eerst af.</p>}
             {busy && (
               <div className="progress">
