@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -25,25 +26,51 @@ def get_model():
     if _model is None:
         from faster_whisper import WhisperModel
 
-        _model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+        try:
+            _model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                f"Het spraakmodel '{MODEL_SIZE}' kon niet geladen worden. De eerste keer wordt het gedownload; "
+                f"controleer de internetverbinding en de vrije schijfruimte. ({exc})"
+            ) from exc
     return _model
 
 
-def extract_audio(source: Path, wav_path: Path) -> None:
-    subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(source), "-vn",
-         "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav_path)],
-        check=True,
-    )
+def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] | None = None) -> None:
+    """Pull the audio out of the video. Checks `should_stop` while running, so stopping feels immediate."""
+    command = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(source), "-vn",
+               "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav_path)]
+    try:
+        proc = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError("FFmpeg is niet gevonden. Sluit de app en start opnieuw met start.bat of start.command.") from exc
+    while proc.poll() is None:
+        if should_stop:
+            try:
+                should_stop()
+            except BaseException:
+                proc.terminate()
+                proc.wait(timeout=10)
+                wav_path.unlink(missing_ok=True)
+                raise
+        time.sleep(0.25)
+    if proc.returncode != 0:
+        stderr = proc.stderr.read() if proc.stderr else ""
+        raise RuntimeError("Het geluid kon niet uit de video gehaald worden: " + stderr.strip()[-400:])
 
 
 def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None] | None = None,
-               duration: float | None = None) -> Transcript:
-    """Transcribe `source`. `on_progress(fraction)` is called as segments come in when `duration` is known."""
+               duration: float | None = None, should_stop: Callable[[], None] | None = None) -> Transcript:
+    """Transcribe `source`. `on_progress(fraction)` is called as segments come in when `duration` is known.
+
+    `should_stop()` is called between segments and may raise to end the work early.
+    """
     wav_path = work_dir / "audio.wav"
-    extract_audio(source, wav_path)
+    extract_audio(source, wav_path, should_stop)
 
     model = get_model()
+    if should_stop:
+        should_stop()
     whisper_segments, _info = model.transcribe(
         str(wav_path),
         language=LANGUAGE,
@@ -55,6 +82,8 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None
     words = []
     fallback: list[Segment] = []
     for seg in whisper_segments:
+        if should_stop:
+            should_stop()
         if on_progress and duration:
             on_progress(min(0.99, seg.end / duration))
         fallback.append(Segment(start=round(seg.start, 2), end=round(seg.end, 2), text=seg.text.strip()))

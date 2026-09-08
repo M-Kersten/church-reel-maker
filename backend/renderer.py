@@ -17,6 +17,19 @@ from .models import FONTS_DIR, CropWindow, Output, VideoInfo
 ProgressCallback = Callable[[float, str], None]
 
 
+def ffmpeg_message(stderr: str) -> str:
+    """Turn FFmpeg output into something a user can act on."""
+    text = stderr.strip()
+    lowered = text.lower()
+    if "no space left" in lowered:
+        return "Er is geen ruimte meer op de schijf. Maak ruimte vrij en probeer het opnieuw."
+    if "permission denied" in lowered:
+        return "De app mag niet naar deze map schrijven. Controleer de rechten van de projectmap."
+    if "invalid data found" in lowered or "moov atom not found" in lowered:
+        return "Het videobestand lijkt beschadigd of onvolledig. Probeer het opnieuw te exporteren of te uploaden."
+    return "Het maken van de video is mislukt: " + text[-600:]
+
+
 def probe(path: Path) -> VideoInfo:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", str(path)],
@@ -192,6 +205,7 @@ def render_video(
     tracking=None,
     crop: CropWindow | None = None,
     on_progress: ProgressCallback | None = None,
+    should_stop: Callable[[], None] | None = None,
 ) -> Path:
     outro_info = probe(outro) if outro is not None and outro.is_file() else None
     if outro_info is None:
@@ -202,9 +216,20 @@ def render_video(
     tmp = destination.with_suffix(".part.mp4")
     cmd[-1] = str(tmp)
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError("FFmpeg is niet gevonden. Sluit de app en start opnieuw met start.bat of start.command.") from exc
     assert proc.stdout is not None
     for line in proc.stdout:
+        if should_stop:
+            try:
+                should_stop()
+            except BaseException:
+                proc.terminate()
+                proc.wait(timeout=10)
+                tmp.unlink(missing_ok=True)
+                raise
         key, _, value = line.strip().partition("=")
         if key in ("out_time_us", "out_time_ms") and value.lstrip("-").isdigit() and on_progress:
             done = int(value) / 1_000_000
@@ -212,6 +237,6 @@ def render_video(
     stderr = proc.stderr.read() if proc.stderr else ""
     if proc.wait() != 0:
         tmp.unlink(missing_ok=True)
-        raise RuntimeError("FFmpeg is mislukt: " + stderr.strip()[-2000:])
+        raise RuntimeError(ffmpeg_message(stderr))
     tmp.replace(destination)
     return destination

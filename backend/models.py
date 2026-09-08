@@ -117,6 +117,13 @@ class ChurchInfo(BaseModel):
 # --- storage -----------------------------------------------------------------
 
 
+def write_atomic(path: Path, text: str) -> None:
+    """Write through a temporary file, so a crash never leaves a half-written file behind."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
+
 def project_dir(project_id: str) -> Path:
     return PROJECTS_DIR / project_id
 
@@ -140,8 +147,7 @@ def load_project(project_id: str) -> Project | None:
 
 
 def save_project(project: Project) -> None:
-    path = project_dir(project.id) / "project.json"
-    path.write_text(project.model_dump_json(indent=2), encoding="utf-8")
+    write_atomic(project_dir(project.id) / "project.json", project.model_dump_json(indent=2))
 
 
 def load_transcript(project: Project) -> Transcript | None:
@@ -155,8 +161,8 @@ def load_transcript(project: Project) -> Transcript | None:
 
 def save_transcript(project: Project, transcript: Transcript) -> None:
     project.transcript = "transcript.json"
-    path = project_dir(project.id) / project.transcript
-    path.write_text(json.dumps(transcript.model_dump(), indent=2, ensure_ascii=False), encoding="utf-8")
+    write_atomic(project_dir(project.id) / project.transcript,
+                 json.dumps(transcript.model_dump(), indent=2, ensure_ascii=False))
     save_project(project)
 
 
@@ -222,6 +228,7 @@ class Service(BaseModel):
 
 class ServiceDetail(Service):
     transcriptData: Transcript | None = None
+    analysis: dict | None = None  # what an analysis run would send and cost
     job: dict | None = None
 
 
@@ -247,8 +254,7 @@ def load_service(service_id: str) -> Service | None:
 
 
 def save_service(service: Service) -> None:
-    path = service_dir(service.id) / "service.json"
-    path.write_text(service.model_dump_json(indent=2), encoding="utf-8")
+    write_atomic(service_dir(service.id) / "service.json", service.model_dump_json(indent=2))
 
 
 def load_service_transcript(service: Service) -> Transcript | None:
@@ -262,6 +268,24 @@ def load_service_transcript(service: Service) -> Transcript | None:
 
 def save_service_transcript(service: Service, transcript: Transcript) -> None:
     service.transcript = "transcript.json"
-    path = service_dir(service.id) / service.transcript
-    path.write_text(json.dumps(transcript.model_dump(), indent=2, ensure_ascii=False), encoding="utf-8")
+    write_atomic(service_dir(service.id) / service.transcript,
+                 json.dumps(transcript.model_dump(), indent=2, ensure_ascii=False))
     save_service(service)
+
+
+def recover_services() -> list[str]:
+    """After a restart no job is running any more: mark interrupted services so the user sees why."""
+    stopped = []
+    if not SERVICES_DIR.is_dir():
+        return stopped
+    for path in SERVICES_DIR.glob("*/service.json"):
+        try:
+            service = Service.model_validate_json(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001  a damaged file should not stop the app from starting
+            continue
+        if service.status in ("transcribing", "analyzing", "processing"):
+            service.status = "error"
+            service.error = "De app is opnieuw gestart terwijl dit nog bezig was. Start deze stap opnieuw."
+            save_service(service)
+            stopped.append(service.id)
+    return stopped

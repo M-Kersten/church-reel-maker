@@ -26,6 +26,7 @@ CONFIG_PATH = TEMPLATES_DIR / "outro.json"
 CHURCH_PATH = TEMPLATES_DIR / "church.json"
 OUTRO_PATH = TEMPLATES_DIR / "outro.mp4"
 WIDTH, HEIGHT, FPS = 1080, 1920, 30
+MARGIN = 60  # safe space left and right
 
 _lock = threading.Lock()
 
@@ -50,6 +51,7 @@ class OutroLogo(BaseModel):
 class OutroLine(BaseModel):
     text: str
     y: int = 960  # centre of the line, in pixels from the top
+    align: Literal["left", "center", "right"] = "center"
     size: int = 56
     weight: FontWeight = "bold"
     color: str = "#FFFFFF"
@@ -115,16 +117,17 @@ def build_ass(config: OutroConfig, church: ChurchInfo) -> str:
         family, bold = family_for(line.font or config.font, line.weight)
         styles.append(
             f"Style: L{i},{family},{line.size},{ass_color(line.color)},{ass_color(line.color)},"
-            f"&H00000000,&H00000000,{-1 if bold else 0},0,0,0,100,100,{line.spacing},0,1,0,0,5,60,60,0,1"
+            f"&H00000000,&H00000000,{-1 if bold else 0},0,0,0,100,100,{line.spacing},0,1,0,0,5,{MARGIN},{MARGIN},0,1"
         )
         text = fill(line.text, church).replace("{", "(").replace("}", ")").strip()
         if line.uppercase:
             text = text.upper()
         if not text:
             continue
+        anchor = {"left": (4, MARGIN), "center": (5, WIDTH // 2), "right": (6, WIDTH - MARGIN)}[line.align]
         events.append(
             f"Dialogue: 0,{ass_seconds(min(line.delay, config.duration))},{ass_seconds(config.duration)},L{i},,0,0,0,,"
-            f"{{\\fad({fade_ms},{fade_ms})\\pos({WIDTH // 2},{line.y})}}{text}"
+            f"{{\\fad({fade_ms},{fade_ms})\\an{anchor[0]}\\pos({anchor[1]},{line.y})}}{text}"
         )
     return "\n".join([
         "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {WIDTH}", f"PlayResY: {HEIGHT}",

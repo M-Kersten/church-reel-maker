@@ -72,15 +72,37 @@ export interface Project {
 }
 
 export interface RenderStatus {
-  status: 'idle' | 'running' | 'done' | 'error'
+  status: 'idle' | 'running' | 'done' | 'error' | 'cancelled'
   progress: number
   message: string
   error: string | null
+  canStop?: boolean
+}
+
+export interface HealthCheck {
+  name: string
+  ok: boolean
+  detail: string
+}
+
+export interface Health {
+  ok: boolean
+  checks: HealthCheck[]
+}
+
+/** What one analysis run would send to the model, and what it costs. */
+export interface AnalysisEstimate {
+  provider: string
+  model: string
+  windows: number
+  tokens: number
+  costUsd: number
 }
 
 export interface OutroLine {
   text: string
   y: number
+  align: 'left' | 'center' | 'right'
   size: number
   weight: FontWeight
   color: string
@@ -113,8 +135,24 @@ export interface ChurchInfo {
   instagram: string
 }
 
+/** An error from the API. `offline` means the app itself could not be reached. */
+export class ApiError extends Error {
+  offline: boolean
+  constructor(message: string, offline = false) {
+    super(message)
+    this.offline = offline
+  }
+}
+
+export const OFFLINE_MESSAGE = 'Geen verbinding met de app. Staat het zwarte venster nog open?'
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init)
+  let res: Response
+  try {
+    res = await fetch(url, init)
+  } catch {
+    throw new ApiError(OFFLINE_MESSAGE, true)
+  }
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -122,9 +160,35 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     } catch {
       /* not JSON */
     }
-    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
+    if (res.status >= 500 && !detail) detail = 'De app kon dit niet verwerken. Kijk in het zwarte venster voor details.'
+    throw new ApiError(typeof detail === 'string' ? detail : JSON.stringify(detail))
   }
   return res.json() as Promise<T>
+}
+
+/** Upload with a progress callback; fetch cannot report how much has been sent. */
+function upload<T>(url: string, file: File, onProgress?: (fraction: number) => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total)
+    xhr.onload = () => {
+      let data: { detail?: string } = {}
+      try {
+        data = JSON.parse(xhr.responseText)
+      } catch {
+        reject(new ApiError(`Onverwacht antwoord van de app (${xhr.status}).`))
+        return
+      }
+      if (xhr.status >= 400) reject(new ApiError(data.detail ?? `Uploaden mislukt (${xhr.status}).`))
+      else resolve(data as T)
+    }
+    xhr.onerror = () => reject(new ApiError(OFFLINE_MESSAGE, true))
+    xhr.ontimeout = () => reject(new ApiError('Het uploaden duurde te lang.', true))
+    xhr.send(form)
+  })
 }
 
 const json = (method: string, body: unknown): RequestInit => ({
@@ -136,27 +200,22 @@ const json = (method: string, body: unknown): RequestInit => ({
 export const api = {
   createProject: () => request<Project>('/projects', { method: 'POST' }),
   getProject: (id: string) => request<Project>(`/projects/${id}`),
-  upload: (id: string, file: File) => {
-    const form = new FormData()
-    form.append('file', file)
-    return request<Project>(`/projects/${id}/upload`, { method: 'POST', body: form })
-  },
+  upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>
+    upload<Project>(`/projects/${id}/upload`, file, onProgress),
   transcribe: (id: string) => request<Transcript>(`/projects/${id}/transcribe`, { method: 'POST' }),
   saveTranscript: (id: string, transcript: Transcript) =>
     request<Transcript>(`/projects/${id}/transcript`, json('PUT', transcript)),
   saveStyle: (id: string, style: Style) => request<Project>(`/projects/${id}/style`, json('PUT', style)),
   saveCrop: (id: string, crop: CropWindow) => request<Project>(`/projects/${id}/crop`, json('PUT', crop)),
   render: (id: string) => request<RenderStatus>(`/projects/${id}/render`, { method: 'POST' }),
+  stopRender: (id: string) => request<RenderStatus>(`/projects/${id}/render/stop`, { method: 'POST' }),
+  health: () => request<Health>('/health'),
   renderStatus: (id: string) => request<RenderStatus>(`/projects/${id}/render-status`),
   church: () => request<ChurchInfo>('/church'),
   fonts: () => request<FontFamily[]>('/fonts'),
   outroConfig: () => request<OutroConfig>('/outro'),
   saveOutro: (config: OutroConfig) => request<OutroConfig>('/outro', json('PUT', config)),
-  uploadOutroBackground: (file: File) => {
-    const form = new FormData()
-    form.append('file', file)
-    return request<{ image: string }>('/outro/background', { method: 'POST', body: form })
-  },
+  uploadOutroBackground: (file: File) => upload<{ image: string }>('/outro/background', file),
   rebuildOutro: () => request<OutroConfig>('/outro/rebuild', { method: 'POST' }),
   sourceUrl: (id: string) => `/projects/${id}/source`,
   outputUrl: (id: string) => `/projects/${id}/output`,
@@ -207,21 +266,20 @@ export interface Service {
   candidates: ClipCandidate[]
   clips: ProcessedClip[]
   transcriptData: Transcript | null
+  analysis: AnalysisEstimate | null
   job: RenderStatus | null
 }
 
 export const serviceApi = {
   create: () => request<Service>('/services', { method: 'POST' }),
   get: (id: string) => request<Service>(`/services/${id}`),
-  upload: (id: string, file: File) => {
-    const form = new FormData()
-    form.append('file', file)
-    return request<Service>(`/services/${id}/upload`, { method: 'POST', body: form })
-  },
+  upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>
+    upload<Service>(`/services/${id}/upload`, file, onProgress),
   transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),
   analyze: (id: string) => request<Service>(`/services/${id}/analyze`, { method: 'POST' }),
   saveCandidates: (id: string, candidates: ClipCandidate[]) =>
     request<ClipCandidate[]>(`/services/${id}/candidates`, json('PUT', candidates)),
   processSelected: (id: string) => request<Service>(`/services/${id}/process-selected`, { method: 'POST' }),
+  stop: (id: string) => request<Service>(`/services/${id}/stop`, { method: 'POST' }),
   sourceUrl: (id: string) => `/services/${id}/source`,
 }

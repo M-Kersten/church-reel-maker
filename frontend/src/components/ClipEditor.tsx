@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, type ChurchInfo, type CropWindow, type Project, type RenderStatus, type Segment, type Style } from '../api'
+import { ApiError, api, type ChurchInfo, type CropWindow, type Project, type RenderStatus, type Segment, type Style } from '../api'
 import FramingPanel from './FramingPanel'
 import OutroPanel from './OutroPanel'
 import RenderControls from './RenderControls'
@@ -25,7 +25,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [playing, setPlaying] = useState(false)
   const [church, setChurch] = useState<ChurchInfo | null>(null)
   const [renderStatus, setRenderStatus] = useState<RenderStatus>(IDLE)
-  const [uploading, setUploading] = useState(false)
+  const [uploading, setUploading] = useState<number | null>(null)
+  const [offline, setOffline] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +36,14 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const previewRef = useRef<PreviewHandle>(null)
   const dirty = useRef({ transcript: false, style: false, crop: false })
 
-  const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+  const fail = (e: unknown) => {
+    if (e instanceof ApiError && e.offline) {
+      setOffline(true)
+      return
+    }
+    setOffline(false)
+    setError(e instanceof Error ? e.message : String(e))
+  }
 
   const adopt = useCallback((p: Project) => {
     setProject(p)
@@ -67,16 +75,16 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
 
   const upload = async (file: File) => {
     setError(null)
-    setUploading(true)
+    setUploading(0)
     try {
       const p = project?.sourceVideo ? await api.createProject() : project ?? (await api.createProject())
-      adopt(await api.upload(p.id, file))
+      adopt(await api.upload(p.id, file, setUploading))
       setRenderStatus(IDLE)
       setSegments([])
     } catch (e) {
       fail(e)
     } finally {
-      setUploading(false)
+      setUploading(null)
     }
   }
 
@@ -151,20 +159,29 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     }
   }
 
-  // Poll render progress while a job runs.
+  // Poll render progress while a job runs. A hiccup in the connection is not an error yet.
   useEffect(() => {
     if (!project || renderStatus.status !== 'running') return
+    let misses = 0
     const handle = setInterval(async () => {
       try {
         const s = await api.renderStatus(project.id)
+        misses = 0
+        setOffline(false)
         setRenderStatus(s)
         if (s.status === 'done') setOutputVersion((v) => v + 1)
       } catch (e) {
-        fail(e)
+        misses += 1
+        if (misses >= 3) fail(e)
       }
     }, 1000)
     return () => clearInterval(handle)
   }, [project, renderStatus.status])
+
+  const stopRender = () => {
+    if (!project) return
+    api.stopRender(project.id).then(setRenderStatus).catch(fail)
+  }
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -182,6 +199,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
         <p>Kies een fragment, verbeter de ondertitels, bepaal het beeldkader en maak de video. Links zie je steeds hoe het resultaat eruitziet.</p>
       </header>
 
+      {offline && <div className="offline">Geen verbinding met de app. Staat het zwarte venster nog open? Zodra het weer draait gaat dit vanzelf verder.</div>}
       {error && <div className="error">{error}</div>}
 
       <label
@@ -194,8 +212,12 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
         onDrop={onDrop}
       >
         <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-        {uploading ? (
-          <strong>Bezig met uploaden…</strong>
+        {uploading !== null ? (
+          <span className="uploading">
+            <strong>Bezig met uploaden…</strong>
+            <span className="bar"><span style={{ display: 'block', height: '100%', width: `${Math.round(uploading * 100)}%`, background: 'var(--purple)' }} /></span>
+            <span className="meta">{Math.round(uploading * 100)}%</span>
+          </span>
         ) : hasVideo ? (
           <>
             <strong style={{ flex: 1 }}>{project?.title ?? 'Fragment'}</strong>
@@ -250,6 +272,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               outputUrl={renderStatus.status === 'done' ? `${api.outputUrl(project.id)}?v=${outputVersion}` : null}
               onTranscribe={transcribe}
               onRender={render}
+              onStop={stopRender}
             />
           </div>
           <div>

@@ -10,6 +10,7 @@ interface Props {
   outputUrl: string | null
   onTranscribe: () => void
   onRender: () => void
+  onStop: () => void
 }
 
 /** The two actions that finish the job, right under the preview so they are always in view. */
@@ -22,9 +23,13 @@ export default function RenderControls(props: Props) {
         <button className="primary" onClick={props.onRender} disabled={!props.canRender || busy}>
           {rendering ? 'Bezig met maken…' : 'Video maken'}
         </button>
-        <button onClick={props.onTranscribe} disabled={!props.hasAudio || busy}>
-          {props.transcribing ? 'Uitschrijven…' : props.hasSubtitles ? 'Opnieuw uitschrijven' : 'Ondertitels maken'}
-        </button>
+        {rendering ? (
+          <button onClick={props.onStop} disabled={props.renderStatus.message.startsWith('Bezig met stoppen')}>Stoppen</button>
+        ) : (
+          <button onClick={props.onTranscribe} disabled={!props.hasAudio || busy}>
+            {props.transcribing ? 'Uitschrijven…' : props.hasSubtitles ? 'Opnieuw uitschrijven' : 'Ondertitels maken'}
+          </button>
+        )}
       </div>
       {props.outputUrl && props.renderStatus.status === 'done' && (
         <p className="hint"><a href={props.outputUrl} download>Download de video (mp4)</a></p>

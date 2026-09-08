@@ -238,7 +238,28 @@ def dedupe_and_rank(raw: list[ClipCandidate]) -> list[ClipCandidate]:
     return kept
 
 
-def discover(transcript: Transcript, on_progress: ProgressCallback | None = None) -> list[ClipCandidate]:
+# Rough list price per million tokens (input, output), for the cost estimate shown before analysing.
+PRICES = {"claude-opus-5": (5.0, 25.0), "claude-sonnet-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
+
+
+def estimate(transcript: Transcript) -> dict:
+    """How much text goes to the model, so the interface can say what a run costs before spending anything."""
+    windows = build_windows(transcript.segments)
+    characters = sum(len(w.text) + 16 for window in windows for w in window.segments)
+    input_tokens = int(characters / 3.5) + len(windows) * 700  # transcript plus the instructions per window
+    output_tokens = len(windows) * 500
+    model = LLM_MODEL or ("llama3.1" if LLM_PROVIDER == "ollama" else "claude-opus-5")
+    if LLM_PROVIDER == "ollama":
+        cost = 0.0
+    else:
+        price_in, price_out = PRICES.get(model, PRICES["claude-opus-5"])
+        cost = round(input_tokens * price_in / 1e6 + output_tokens * price_out / 1e6, 2)
+    return {"provider": LLM_PROVIDER, "model": model, "windows": len(windows),
+            "tokens": input_tokens + output_tokens, "costUsd": cost}
+
+
+def discover(transcript: Transcript, on_progress: ProgressCallback | None = None,
+             should_stop: Callable[[], None] | None = None) -> list[ClipCandidate]:
     check_provider()
     windows = build_windows(transcript.segments)
     total = len(windows)
@@ -248,6 +269,8 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
     done = 0
 
     def work(window: Window) -> list[ClipCandidate]:
+        if should_stop:
+            should_stop()
         out = []
         for c in analyze_window(window):
             start, end = snap(c, window)

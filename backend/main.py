@@ -6,24 +6,29 @@
 import shutil
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+import traceback
+
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import clips, discovery, fonts, outro, renderer, transcription
-from .jobs import Job, JobManager
+from . import clips, discovery, fonts, health, outro, renderer, transcription
+from .jobs import Cancelled, Job, JobManager
 from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, ProcessedClip, Project,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
-                     save_project, save_service, save_service_transcript, save_transcript, service_dir)
+                     recover_services, save_project, save_service, save_service_transcript, save_transcript, service_dir)
 from .subtitles import write_ass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    stopped = recover_services()
+    if stopped:
+        print(f"[start] onderbroken diensten hersteld: {', '.join(stopped)}")
     # Rebuild the end screen when templates/outro.json or church.json changed.
     try:
         outro.ensure_outro()
@@ -35,6 +40,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Church Reel Maker", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 jobs = JobManager()
+
+
+@app.exception_handler(Exception)
+async def unexpected_error(request: Request, exc: Exception):
+    traceback.print_exc()
+    return JSONResponse(status_code=500, content={"detail": f"Er ging iets mis in de app: {exc}"})
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"}
 
@@ -162,10 +173,18 @@ def render_project(project_id: str):
             source, info, subtitles, project.output, output_dir / "final.mp4",
             outro=outro if outro.is_file() else None,
             crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop,
-            on_progress=on_progress,
+            on_progress=on_progress, should_stop=job.check,
         )
 
     return jobs.start(project.id, work_fn).to_dict()
+
+
+@app.post("/projects/{project_id}/render/stop")
+def stop_render(project_id: str):
+    project = get_project(project_id)
+    if not jobs.cancel(project.id):
+        raise HTTPException(409, "Er wordt op dit moment niets gemaakt")
+    return jobs.get(project.id).to_dict()
 
 
 @app.get("/projects/{project_id}/render-status")
@@ -189,6 +208,12 @@ def read_output(project_id: str):
 @app.get("/church", response_model=ChurchInfo)
 def read_church():
     return load_church_info()
+
+
+@app.get("/health")
+def read_health():
+    """What the app needs to work: FFmpeg, the speech model, the analysis model, disk space, folders."""
+    return health.report()
 
 
 @app.get("/fonts", response_model=list[fonts.FontFamily])
@@ -264,9 +289,11 @@ def get_service(service_id: str) -> Service:
 
 def service_detail(service: Service) -> ServiceDetail:
     job = jobs.get(service.id)
+    transcript = load_service_transcript(service)
     return ServiceDetail(
         **service.model_dump(),
-        transcriptData=load_service_transcript(service),
+        transcriptData=transcript,
+        analysis=discovery.estimate(transcript) if transcript else None,
         job=job.to_dict() if job.status == "running" else None,
     )
 
@@ -287,6 +314,10 @@ def run_service_job(service: Service, busy_status: str, done_status: str, work) 
         try:
             work(job, service)
             set_status(service, done_status)
+        except Cancelled:
+            set_status(service, "uploaded" if busy_status == "transcribing" else "transcribed"
+                       if busy_status == "analyzing" else "ready")
+            raise
         except Exception as exc:  # noqa: BLE001
             set_status(service, "error", str(exc))
             raise
@@ -357,7 +388,7 @@ def transcribe_service(service_id: str):
 
         transcript = transcription.transcribe(
             service_dir(service.id) / service.sourceVideo, service_dir(service.id) / "work",
-            on_progress=on_progress, duration=service.sourceInfo.duration,
+            on_progress=on_progress, duration=service.sourceInfo.duration, should_stop=job.check,
         )
         save_service_transcript(service, transcript)
 
@@ -375,10 +406,19 @@ def analyze_service(service_id: str):
         def on_progress(fraction: float, message: str) -> None:
             job.progress, job.message = fraction, message
 
-        service.candidates = discovery.discover(transcript, on_progress)
+        service.candidates = discovery.discover(transcript, on_progress, should_stop=job.check)
         save_service(service)
 
     return run_service_job(service, "analyzing", "ready", work)
+
+
+@app.post("/services/{service_id}/stop", response_model=ServiceDetail)
+def stop_service_job(service_id: str):
+    """Stop the transcription, the analysis or the clip cutting that is running."""
+    service = get_service(service_id)
+    if not jobs.cancel(service.id):
+        raise HTTPException(409, "Er is niets bezig voor deze dienst")
+    return service_detail(service)
 
 
 @app.get("/services/{service_id}/candidates", response_model=list[ClipCandidate])
@@ -415,6 +455,7 @@ def process_selected(service_id: str):
 
     def work(job: Job, service: Service) -> None:
         for n, cand in enumerate(selected, start=1):
+            job.check()
             job.progress, job.message = (n - 1) / len(selected), f"Fragment {n} van {len(selected)} wordt geknipt"
             project = clips.create_clip(
                 source, cand.start, cand.end, transcript, title=cand.title,

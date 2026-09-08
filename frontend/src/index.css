@@ -274,7 +274,14 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .outro-edit { display: grid; grid-template-columns: 190px 1fr; gap: 1.3rem; align-items: start; }
 @media (max-width: 720px) { .outro-edit { grid-template-columns: 1fr; } }
 .endscreen { position: relative; width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden; background: #17121D; }
-.endscreen .line { position: absolute; left: 0; right: 0; text-align: center; line-height: 1.15; }
+.endscreen .line { position: absolute; line-height: 1.15; cursor: grab; touch-action: none; }
+.endscreen .line:hover { outline: 1px dashed rgba(255, 255, 255, 0.6); outline-offset: 3px; }
+.endscreen .line.on { outline: 1px solid rgba(255, 255, 255, 0.9); outline-offset: 3px; }
+.endscreen .line:active { cursor: grabbing; }
+.endscreen .veil { position: absolute; inset: 0; pointer-events: none; }
+.place-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
+.line-edit.on { border-color: var(--purple); }
+.seg.small-seg button { padding: 0.15rem 0.45rem; font-size: 0.9rem; line-height: 1.1; }
 .outro-edit .made { margin-top: 0.5rem; }
 .outro-edit .made video { width: 100%; border-radius: 8px; background: #000; display: block; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -300,3 +307,37 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* system check in the bar */
+.syscheck { position: relative; margin-left: auto; }
+.syscheck .pill {
+  display: inline-flex; align-items: center; gap: 0.45rem; color: rgba(237, 230, 244, 0.75);
+  font-size: 0.82rem; font-weight: 500; padding: 0.3rem 0.6rem; border-radius: 999px;
+}
+.syscheck .pill:hover { background: rgba(255, 255, 255, 0.1); color: var(--white); border-color: transparent; }
+.syscheck .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
+.syscheck .pill.bad { color: #F6C6D2; }
+.syscheck .pill.bad .dot { background: #E2637F; }
+.syscheck-list {
+  position: absolute; right: 0; top: calc(100% + 0.6rem); z-index: 40; width: min(30rem, 80vw);
+  background: var(--white); border: 1px solid var(--line); border-radius: 12px; padding: 0.8rem 1rem;
+  list-style: none; margin: 0; box-shadow: 0 14px 34px rgba(42, 17, 64, 0.2); color: var(--ink);
+}
+.syscheck-list li { display: grid; grid-template-columns: 10px 8.5rem 1fr; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0; font-size: 0.85rem; }
+.syscheck-list li .dot { align-self: center; }
+.syscheck-list li.bad .dot { background: var(--danger); }
+.syscheck-list li span:last-child { color: var(--muted); }
+.syscheck-list li.bad span:last-child { color: var(--danger); }
+
+/* offline banner */
+.offline {
+  background: #FFF6E5; border: 1px solid #EAD5A8; color: #7A5A12; border-radius: 10px;
+  padding: 0.6rem 0.9rem; margin-bottom: 1rem; font-size: 0.9rem;
+}
+/* upload progress */
+.uploading { display: flex; align-items: center; gap: 0.8rem; justify-content: center; }
+.uploading .bar { flex: 1; max-width: 18rem; height: 6px; background: var(--lavender); border-radius: 3px; overflow: hidden; }
+.uploading .bar div { height: 100%; background: var(--purple); transition: width 0.2s; }
+/* cost note under the analysis button */
+.cost { margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); max-width: 62ch; }
+.cost strong { color: var(--ink); font-weight: 600; }

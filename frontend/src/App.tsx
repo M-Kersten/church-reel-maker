@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type ChurchInfo } from './api'
 import ClipEditor from './components/ClipEditor'
 import ServiceView from './components/ServiceView'
+import SystemCheck from './components/SystemCheck'
 
 type Mode = 'clip' | 'service'
 const MODE_KEY = 'church-reel-maker.mode'
@@ -39,6 +40,7 @@ export default function App() {
             <div className="church">{church?.churchName ?? 'Kerk'}</div>
           </div>
         </div>
+        <SystemCheck />
         <nav aria-label="Wat wil je doen">
           <button className={mode === 'service' ? 'active' : ''} onClick={() => switchMode('service')}>Hele dienst</button>
           <button className={mode === 'clip' ? 'active' : ''} onClick={() => switchMode('clip')}>Losse clip</button>

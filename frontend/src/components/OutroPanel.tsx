@@ -9,6 +9,17 @@ const BACKGROUNDS: { value: OutroConfig['background']['type']; label: string }[]
   { value: 'solid', label: 'Effen kleur' },
   { value: 'image', label: 'Afbeelding' },
 ]
+const ALIGNMENTS: { value: OutroLine['align']; label: string; title: string }[] = [
+  { value: 'left', label: '◧', title: 'Links uitlijnen' },
+  { value: 'center', label: '▣', title: 'Midden' },
+  { value: 'right', label: '◨', title: 'Rechts uitlijnen' },
+]
+const HEIGHT = 1920
+const MARGIN = 60
+
+const newLine = (y: number, weight: FontWeight): OutroLine => ({
+  text: 'Nieuwe regel', y, align: 'center', size: 48, weight, color: '#FFFFFF', font: '', spacing: 0, uppercase: false, delay: 0,
+})
 
 interface Props {
   church: ChurchInfo | null
@@ -17,7 +28,7 @@ interface Props {
   onRebuilt: () => void
 }
 
-/** Edit the end screen: background, font, and the lines of text. */
+/** Edit the end screen: background, font, and where every line of text sits. */
 export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
   const families = useFonts()
   const [config, setConfig] = useState<OutroConfig | null>(null)
@@ -25,6 +36,7 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [active, setActive] = useState<number | null>(null)
 
   useEffect(() => {
     api.outroConfig().then(setConfig).catch((e) => setError(e instanceof Error ? e.message : String(e)))
@@ -38,6 +50,16 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
   }
   const editLine = (index: number, patch: Partial<OutroLine>) =>
     edit({ lines: config!.lines.map((l, i) => (i === index ? { ...l, ...patch } : l)) })
+
+  /** Move every line together, keeping the spacing between them. */
+  const moveBlock = (where: 'top' | 'middle' | 'bottom') => {
+    if (!config || config.lines.length === 0) return
+    const top = Math.min(...config.lines.map((l) => l.y))
+    const bottom = Math.max(...config.lines.map((l) => l.y))
+    const target = where === 'top' ? 420 : where === 'bottom' ? HEIGHT - 420 - (bottom - top) : (HEIGHT - (bottom - top)) / 2
+    const shift = target - top
+    edit({ lines: config.lines.map((l) => ({ ...l, y: Math.round(Math.min(HEIGHT - 40, Math.max(40, l.y + shift))) })) })
+  }
 
   const save = async () => {
     if (!config) return
@@ -84,13 +106,25 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
     <Section
       step={4}
       title="Afsluiter"
-      intro="Elke video eindigt met dit scherm. Wijzig kleuren, lettertype en teksten; links zie je het meteen. Met {churchName}, {serviceTimes} en {instagram} vul je automatisch de gegevens van de kerk in."
+      intro="Elke video eindigt met dit scherm. Sleep de teksten in de voorvertoning naar de plek waar je ze wilt hebben. Met {churchName}, {serviceTimes} en {instagram} vul je de gegevens van de kerk automatisch in."
     >
       <div className="outro-edit">
         <div>
-          <EndScreen config={config} church={church} />
+          <EndScreen
+            config={config}
+            church={church}
+            active={active}
+            onPick={setActive}
+            onMove={(index, patch) => editLine(index, patch)}
+          />
+          <div className="place-row">
+            <span className="meta">Zet alles</span>
+            <button className="small" onClick={() => moveBlock('top')}>Boven</button>
+            <button className="small" onClick={() => moveBlock('middle')}>Midden</button>
+            <button className="small" onClick={() => moveBlock('bottom')}>Onder</button>
+          </div>
           <div className="made">
-            <p className="meta" style={{ margin: '0.5rem 0 0.25rem' }}>Zoals hij nu in de video staat:</p>
+            <p className="meta" style={{ margin: '0.7rem 0 0.25rem' }}>Zoals hij nu in de video staat:</p>
             <video src={outroUrl} muted playsInline controls preload="auto" onLoadedMetadata={(e) => (e.currentTarget.currentTime = e.currentTarget.duration / 2)} />
           </div>
         </div>
@@ -176,17 +210,26 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
             </div>
           </div>
 
-          <h3 style={{ marginTop: '1.1rem' }}>Teksten</h3>
+          <h3 style={{ marginTop: '1.2rem' }}>Teksten</h3>
+          <p className="hint" style={{ marginTop: 0 }}>Klik een regel aan om hem in de voorvertoning te zien oplichten.</p>
           <div className="lines-edit">
             {config.lines.map((line, i) => {
               const weights = weightsOf(families, line.font || config.font)
               return (
-                <div key={i} className="line-edit">
+                <div key={i} className={`line-edit ${active === i ? 'on' : ''}`} onFocusCapture={() => setActive(i)}>
                   <div className="top">
                     <input value={line.text} onChange={(e) => editLine(i, { text: e.target.value })} placeholder="Tekst van deze regel" />
                     <button className="bare small" onClick={() => edit({ lines: config.lines.filter((_, n) => n !== i) })} title="Regel verwijderen">✕</button>
                   </div>
                   <div className="bits">
+                    <span className="seg small-seg">
+                      {ALIGNMENTS.map((a) => (
+                        <button key={a.value} className={line.align === a.value ? 'on' : ''} title={a.title} onClick={() => editLine(i, { align: a.value })}>
+                          {a.label}
+                        </button>
+                      ))}
+                    </span>
+                    <label>Hoogte <input type="number" min={40} max={1880} step={10} value={line.y} onChange={(e) => editLine(i, { y: Number(e.target.value) })} /></label>
                     <label>Grootte <input type="number" min={16} max={160} step={2} value={line.size} onChange={(e) => editLine(i, { size: Number(e.target.value) })} /></label>
                     <label>Kleur <input type="color" value={line.color} onChange={(e) => editLine(i, { color: e.target.value.toUpperCase() })} /></label>
                     <label>
@@ -197,7 +240,15 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
                         ))}
                       </select>
                     </label>
-                    <label>Hoogte <input type="range" min={80} max={1840} step={10} value={line.y} onChange={(e) => editLine(i, { y: Number(e.target.value) })} /></label>
+                    <label>
+                      Lettertype
+                      <select value={line.font} onChange={(e) => editLine(i, { font: e.target.value, weight: resolveWeight(families, e.target.value || config.font, line.weight) })}>
+                        <option value="">Zelfde als scherm</option>
+                        {families.map((f) => (
+                          <option key={f.name} value={f.name}>{f.name}</option>
+                        ))}
+                      </select>
+                    </label>
                     <label>Letterafstand <input type="number" min={0} max={30} step={1} value={line.spacing} onChange={(e) => editLine(i, { spacing: Number(e.target.value) })} /></label>
                     <label><input type="checkbox" checked={line.uppercase} onChange={(e) => editLine(i, { uppercase: e.target.checked })} /> Hoofdletters</label>
                   </div>
@@ -210,7 +261,7 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
               className="small"
               onClick={() => {
                 const last = config.lines[config.lines.length - 1]
-                edit({ lines: [...config.lines, { text: 'Nieuwe regel', y: Math.min(1840, (last?.y ?? 900) + 140), size: 48, weight: resolveWeight(families, config.font, 'bold'), color: '#FFFFFF', font: '', spacing: 0, uppercase: false, delay: 0 }] })
+                edit({ lines: [...config.lines, newLine(Math.min(1840, (last?.y ?? 900) + 140), resolveWeight(families, config.font, 'bold'))] })
               }}
             >
               Regel toevoegen
@@ -232,10 +283,19 @@ export default function OutroPanel({ church, outroUrl, onRebuilt }: Props) {
   )
 }
 
-/** Live approximation of the end screen, drawn with the same fonts as the render. */
-function EndScreen({ config, church }: { config: OutroConfig; church: ChurchInfo | null }) {
+interface ScreenProps {
+  config: OutroConfig
+  church: ChurchInfo | null
+  active: number | null
+  onPick: (index: number) => void
+  onMove: (index: number, patch: Partial<OutroLine>) => void
+}
+
+/** Live end screen. Drag a line to move it up or down, or sideways to align it. */
+function EndScreen({ config, church, active, onPick, onMove }: ScreenProps) {
   const box = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(190 / 1080)
+  const drag = useRef<{ index: number; y: number; startY: number; align: OutroLine['align'] } | null>(null)
 
   useEffect(() => {
     const el = box.current
@@ -259,25 +319,52 @@ function EndScreen({ config, church }: { config: OutroConfig; church: ChurchInfo
       .replace('{serviceTimes}', (church?.serviceTimes ?? []).join('  ·  '))
       .replace('{instagram}', church?.instagram ?? '')
 
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>, index: number) => {
+    drag.current = { index, y: e.clientY, startY: config.lines[index].y, align: config.lines[index].align }
+    onPick(index)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    const el = box.current
+    if (!d || !el) return
+    const y = Math.round(Math.min(1880, Math.max(40, d.startY + (e.clientY - d.y) / scale)) / 5) * 5
+    // Sideways: the third of the frame the pointer is in decides the alignment.
+    const x = (e.clientX - el.getBoundingClientRect().left) / el.clientWidth
+    const align: OutroLine['align'] = x < 0.28 ? 'left' : x > 0.72 ? 'right' : 'center'
+    onMove(d.index, { y, align })
+  }
+  const onPointerUp = () => (drag.current = null)
+
   return (
     <div className="endscreen" ref={box} style={style}>
-      {bg.type === 'image' && bg.darken > 0 && <div style={{ position: 'absolute', inset: 0, background: `rgba(0,0,0,${bg.darken})` }} />}
+      {bg.type === 'image' && bg.darken > 0 && <div className="veil" style={{ background: `rgba(0,0,0,${bg.darken})` }} />}
       {config.lines.map((line, i) => {
         const text = fill(line.text)
+        const place: React.CSSProperties =
+          line.align === 'left'
+            ? { left: MARGIN * scale, right: 'auto', textAlign: 'left', maxWidth: `calc(100% - ${MARGIN * 2 * scale}px)` }
+            : line.align === 'right'
+              ? { right: MARGIN * scale, left: 'auto', textAlign: 'right', maxWidth: `calc(100% - ${MARGIN * 2 * scale}px)` }
+              : { left: MARGIN * scale, right: MARGIN * scale, textAlign: 'center' }
         return (
           <div
             key={i}
-            className="line"
+            className={`line ${active === i ? 'on' : ''}`}
             style={{
+              ...place,
               top: line.y * scale,
               transform: 'translateY(-50%)',
-              padding: `0 ${60 * scale}px`,
               fontFamily: `'${line.font || config.font}', sans-serif`,
               fontWeight: cssWeight(line.weight),
               fontSize: line.size * scale,
               letterSpacing: line.spacing * scale,
               color: line.color,
             }}
+            onPointerDown={(e) => onPointerDown(e, i)}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
           >
             {line.uppercase ? text.toUpperCase() : text}
           </div>

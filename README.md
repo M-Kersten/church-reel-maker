@@ -107,7 +107,7 @@ Upload service → Transcribing → Analyzing service → Suggestions ready → 
 | `LLM_CONCURRENCY` | `3` | Windows analysed in parallel. |
 | `OLLAMA_URL` | `http://localhost:11434` | |
 
-Only transcript text is sent to the model, never video or audio. A 90-minute service is about 25 windows of roughly 2,000 tokens each.
+Only transcript text is sent to the model, never video or audio. Before you press **Beste momenten zoeken**, the interface says how many pieces of text go out, roughly how many tokens that is and what it costs at list price: about 45,000 tokens and $0.75 for a 90-minute service with Claude Opus 5. With `LLM_PROVIDER=ollama` it says the run is free and stays on the machine.
 
 ### Discovery data
 
@@ -125,6 +125,15 @@ A **candidate** means "the AI thinks this range could work"; a **processed clip*
 
 The interface between discovery and production is one function, `create_clip(source, start, end)` in `backend/clips.py`, which builds a standard project for the existing pipeline. The candidate model has room for future fields (category, hook, keywords, thumbnail time) without changing the workflow.
 
+## When something goes wrong
+
+- The app bar shows a check of everything the app needs: FFmpeg, the speech model, the analysis model, free disk space and writable folders. It opens by itself when a check fails and says what to do.
+- Long jobs can be stopped. Transcribing, analysing, cutting and rendering all have a **Stoppen** button; the job ends at its next checkpoint, which takes a few seconds for a render and up to half a minute for a transcription.
+- Interrupted work is picked up honestly. If the app is closed while a service is being transcribed or analysed, the next start marks that service so you know the step has to run again, rather than leaving a progress bar that never moves.
+- Project and service files are written through a temporary file and renamed, so a crash or a power cut cannot leave half a file behind.
+- The interface tells the difference between "the app is not answering" and "this went wrong". Losing the connection shows a calm banner and keeps polling; the work in the black window carries on.
+- FFmpeg failures are translated: no space left, no permission, a damaged video file. A missing speech model or a rejected API key says which file to edit.
+
 ## Church outro (end screen)
 
 `templates/outro.mp4` is appended after every clip, normalised to 1080×1920 during rendering. It is generated with FFmpeg (no AI) from two files:
@@ -139,7 +148,7 @@ The interface between discovery and production is one function, `create_clip(sou
   }
   ```
 
-- `templates/outro.json` holds the look. **The Afsluiter panel in the Clip tab edits all of it**: background (solid colour, gradient with up to four colours and a direction, or an uploaded image with a darkening slider), font, duration, and the text lines with their size, colour, weight, height, letter spacing and capitals. The panel draws the end screen live while you type and rebuilds the video when you press **Opslaan en vernieuwen**. The file is created on the first start from the defaults; `templates/outro.example.json` is the copy in the repository. Every field:
+- `templates/outro.json` holds the look. **The Afsluiter panel in the Clip tab edits all of it**: background (solid colour, gradient with up to four colours and a direction, or an uploaded image with a darkening slider), font, duration, and the text lines with their size, colour, weight, font, letter spacing and capitals. Placement is direct: drag a line in the preview to move it up or down, drag it to the left or right third to align it there, or use **Zet alles boven / midden / onder** to move the whole block at once. The panel draws the end screen live while you type and rebuilds the video when you press **Opslaan en vernieuwen**. The file is created on the first start from the defaults; `templates/outro.example.json` is the copy in the repository. Every field:
 
   | Field | Meaning |
   | --- | --- |
@@ -158,6 +167,7 @@ The interface between discovery and production is one function, `create_clip(sou
   | `lines[]` | the text lines, top to bottom |
   | `lines[].text` | the text; `{churchName}`, `{serviceTimes}` and `{instagram}` are filled in from `church.json` |
   | `lines[].y` | vertical centre in pixels (0 is the top, 1920 the bottom) |
+| `lines[].align` | `left`, `center` or `right`, within a 60 px margin |
   | `lines[].size`, `weight`, `color` | font size, `regular`…`extrabold`, hex colour |
   | `lines[].font` | override the main font for this line |
   | `lines[].spacing` | extra letter spacing, for small uppercase labels |
@@ -199,10 +209,12 @@ PUT  /projects/{id}/transcript      save edited segments
 PUT  /projects/{id}/style           save subtitle style
 PUT  /projects/{id}/crop            save the crop window {x, y, zoom}
 POST /projects/{id}/render          start the background render job
-GET  /projects/{id}/render-status   {status, progress, message, error}
+POST /projects/{id}/render/stop     stop the render that is running
+GET  /projects/{id}/render-status   {status, progress, message, error, canStop}
 GET  /projects/{id}/output          the rendered final.mp4
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
+GET  /health                        FFmpeg, speech model, analysis model, disk space, folders
 GET  /fonts                         font families found in templates/fonts
 GET  /outro                         the end-screen config from templates/outro.json
 PUT  /outro                         save the end-screen config and rebuild the video
@@ -218,6 +230,7 @@ GET  /services/{id}                 service + transcript + running job progress
 GET  /services/{id}/candidates      ranked candidates
 PUT  /services/{id}/candidates      save selection and boundary edits
 POST /services/{id}/process-selected  cut each selected candidate into a clip project (status: processing -> complete)
+POST /services/{id}/stop            stop the transcription, analysis or cutting that is running
 GET  /services/{id}/source          the recording (for candidate preview)
 ```
 
