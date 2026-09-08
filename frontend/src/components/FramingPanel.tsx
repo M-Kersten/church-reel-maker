@@ -10,6 +10,8 @@ interface Props {
   crop: CropWindow
   currentTime: number
   playing: boolean
+  /** Seconds into the source file where this clip begins. */
+  sourceStart?: number
   onChange: (crop: CropWindow) => void
 }
 
@@ -17,7 +19,7 @@ interface Props {
  * Shows the whole source with the 9:16 output frame drawn on top. Drag the frame to move
  * the crop window, use the slider to zoom; the same numbers drive the preview and the render.
  */
-export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, currentTime, playing, onChange }: Props) {
+export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, currentTime, playing, sourceStart = 0, onChange }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; crop: CropWindow } | null>(null)
@@ -26,10 +28,11 @@ export default function FramingPanel({ sourceUrl, sourceInfo, output, crop, curr
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
-    if (Math.abs(v.currentTime - currentTime) > 0.75) v.currentTime = currentTime
+    const wanted = sourceStart + currentTime
+    if (Math.abs(v.currentTime - wanted) > 0.75) v.currentTime = wanted
     if (playing && v.paused) void v.play().catch(() => undefined)
     if (!playing && !v.paused) v.pause()
-  }, [currentTime, playing])
+  }, [currentTime, playing, sourceStart])
 
   const g = cropGeometry(sourceInfo, output, crop)
   const pan = canPan(sourceInfo, output, crop)

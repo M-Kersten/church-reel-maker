@@ -119,6 +119,9 @@ class Project(BaseModel):
     title: str | None = None
     description: str = ""  # short text to paste under the post
     origin: ClipOrigin | None = None
+    # A clip either owns its footage (a file in the project directory) or points into the
+    # service recording it was cut from. Pointing avoids a second encode of every clip;
+    # materialise() in clips.py turns a pointer into a file when the recording has to go.
     sourceVideo: str | None = None  # file name inside the project directory
     sourceInfo: VideoInfo | None = None
     transcript: str | None = None  # "transcript.json" once a transcript exists
@@ -136,6 +139,10 @@ class ProjectDetail(Project):
     """Project plus its transcript, as returned by GET /projects/{id}."""
 
     transcriptData: Transcript | None = None
+    # Seconds into /projects/{id}/source where this clip begins. Zero when the clip owns
+    # its own file; the offset into the recording when it points at a service.
+    sourceStart: float = 0.0
+    hasFootage: bool = True
 
 
 class ChurchInfo(BaseModel):

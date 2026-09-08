@@ -157,11 +157,19 @@ def build_command(
     crop: CropWindow | None = None,
     music: MusicSettings | None = None,
     watermark: Watermark | None = None,
+    source_start: float | None = None,
 ) -> tuple[list[str], float]:
-    """Build the ffmpeg command line. Returns (argv, total output duration)."""
+    """Build the ffmpeg command line. Returns (argv, total output duration).
+
+    `source_start` set means the clip is a range of a longer recording: seek there and take
+    source_info.duration seconds, instead of reading a separately cut copy. Input-side -ss
+    rebases the timestamps to zero, so the subtitles still line up with the clip.
+    """
     w, h, fps = output.width, output.height, output.fps
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1"]
     inputs = [source]
+    # Per-input options, by input index. Only the clip itself is ever trimmed.
+    trim = {0: ["-ss", f"{source_start:.3f}", "-t", f"{source_info.duration:.3f}"]} if source_start is not None else {}
     filters: list[str] = []
     # Speech is levelled to what social platforms expect, so clips from different services
     # sound equally loud next to each other.
@@ -215,8 +223,8 @@ def build_command(
             speech_mix = speech
         filters.append(f"[{speech_mix}][bed]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[a]")
 
-    for path in inputs:
-        cmd += ["-i", str(path)]
+    for index, path in enumerate(inputs):
+        cmd += trim.get(index, []) + ["-i", str(path)]
     if music_path is not None:
         cmd += ["-stream_loop", "-1", "-i", str(music_path)]
     cmd += ["-filter_complex", ";".join(filters), "-map", "[v]", "-map", "[a]"]
@@ -284,6 +292,7 @@ def render_video(
     crop: CropWindow | None = None,
     music: MusicSettings | None = None,
     watermark: Watermark | None = None,
+    source_start: float | None = None,
     on_progress: ProgressCallback | None = None,
     should_stop: Callable[[], None] | None = None,
 ) -> Path:
@@ -292,7 +301,7 @@ def render_video(
         outro = None
     cmd, total = build_command(
         source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop, music,
-        watermark
+        watermark, source_start
     )
     tmp = destination.with_suffix(".part.mp4")
     cmd[-1] = str(tmp)

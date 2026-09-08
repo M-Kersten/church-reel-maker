@@ -89,6 +89,10 @@ export interface Project {
   crop: CropWindow
   tracking: string | null
   transcriptData: Transcript | null
+  /** Seconds into the source file where this clip begins; 0 when the clip owns its file. */
+  sourceStart: number
+  /** False when the recording this clip was cut from has been cleaned up. */
+  hasFootage: boolean
 }
 
 export interface RenderStatus {

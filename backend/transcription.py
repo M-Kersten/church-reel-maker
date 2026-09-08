@@ -94,14 +94,18 @@ def get_model():
 
 
 def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] | None = None,
-                  on_progress: Callable[[float], None] | None = None, duration: float | None = None) -> None:
-    """Pull the audio out of the video.
+                  on_progress: Callable[[float], None] | None = None, duration: float | None = None,
+                  start: float = 0.0) -> None:
+    """Pull the audio out of the video, or out of a range of it.
 
     Reports how far it is and checks `should_stop` while running, so the bar moves from the
     first second and stopping feels immediate.
     """
+    seek = ["-ss", f"{start:.3f}"] if start else []
+    limit = ["-t", f"{duration:.3f}"] if duration else []
     command = ["ffmpeg", "-y", "-loglevel", "error", "-nostats", "-progress", "pipe:1",
-               "-i", str(source), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav_path)]
+               *seek, "-i", str(source), *limit,
+               "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav_path)]
     try:
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except FileNotFoundError as exc:
@@ -125,15 +129,18 @@ def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] 
 
 
 def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None] | None = None,
-               duration: float | None = None, should_stop: Callable[[], None] | None = None) -> Transcript:
-    """Transcribe `source`. `on_progress(fraction)` is called as segments come in when `duration` is known.
+               duration: float | None = None, should_stop: Callable[[], None] | None = None,
+               start: float = 0.0) -> Transcript:
+    """Transcribe `source`, or the `duration` seconds of it that begin at `start`.
 
-    `should_stop()` is called between segments and may raise to end the work early.
+    `on_progress(fraction)` is called as segments come in when `duration` is known, and
+    `should_stop()` between segments; it may raise to end the work early. Timecodes come
+    back relative to the start of the range, matching the clip the user sees.
     """
     wav_path = work_dir / "audio.wav"
     extract_audio(source, wav_path, should_stop,
                   on_progress=(lambda f: on_progress(EXTRACT_SHARE * f)) if on_progress else None,
-                  duration=duration)
+                  duration=duration, start=start)
 
     model = get_model()
     if should_stop:

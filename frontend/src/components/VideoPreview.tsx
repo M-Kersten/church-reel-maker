@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { ChurchInfo, CropWindow, Output, Segment, Style, VideoInfo, Watermark } from '../api'
 import { api } from '../api'
 import { canPan, clampCrop, cropGeometry } from '../crop'
@@ -18,6 +18,8 @@ interface Props {
   output: Output
   crop: CropWindow
   watermark?: Watermark
+  /** Seconds into the file where this clip starts; the preview stays in clip time. */
+  sourceStart?: number
   onCropChange?: (crop: CropWindow) => void
   onTime: (time: number) => void
   onPlayState?: (playing: boolean) => void
@@ -30,6 +32,15 @@ interface Props {
  */
 const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(props, ref) {
   const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, crop, watermark, onCropChange, onTime, onPlayState } = props
+  // Everything above this component counts from the start of the clip; the video element
+  // counts from the start of the file it is playing, which for a clip cut from a service
+  // is the whole recording.
+  const offset = props.sourceStart ?? 0
+  const length = sourceInfo.duration
+  const toClip = useCallback(
+    (fileTime: number) => Math.min(length, Math.max(0, fileTime - offset)), [offset, length])
+  const toFile = useCallback(
+    (clipTime: number) => offset + Math.min(length, Math.max(0, clipTime)), [offset, length])
   const boxRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLVideoElement>(null)
   const outroRef = useRef<HTMLVideoElement>(null)
@@ -45,7 +56,7 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
       if (!v) return
       outroRef.current?.pause()
       setPhase('main')
-      v.currentTime = t
+      v.currentTime = toFile(t)
       setTime(t)
       onTime(t)
     },
@@ -65,19 +76,35 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
     onPlayState?.(playing)
   }, [playing, onPlayState])
 
+  const startOutro = useCallback(() => {
+    setPhase('outro')
+    const o = outroRef.current
+    if (o) {
+      o.currentTime = 0
+      void o.play().catch(() => setPlaying(false))
+    }
+  }, [])
+
   useEffect(() => {
     let frame = 0
     const tick = () => {
       const v = mainRef.current
       if (v && phase === 'main') {
-        setTime(v.currentTime)
-        onTime(v.currentTime)
+        // A clip is a range of a longer file, so stop at its end rather than the file's.
+        if (v.currentTime >= offset + length - 0.02) {
+          v.pause()
+          startOutro()
+        } else {
+          const t = toClip(v.currentTime)
+          setTime(t)
+          onTime(t)
+        }
       }
       frame = requestAnimationFrame(tick)
     }
     if (playing) frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [playing, phase, onTime])
+  }, [playing, phase, onTime, offset, length, toClip, startOutro])
 
   const active = useMemo(() => segments.find((s) => time >= s.start && time < s.end && s.text.trim()), [segments, time])
   const layout = active ? layoutText(active.text, style, output) : null
@@ -85,23 +112,20 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
   const togglePlay = () => {
     const v = phase === 'main' ? mainRef.current : outroRef.current
     if (!v) return
-    if (v.paused) void v.play()
-    else v.pause()
-  }
-
-  const onMainEnded = () => {
-    setPhase('outro')
-    const o = outroRef.current
-    if (o) {
-      o.currentTime = 0
-      void o.play().catch(() => setPlaying(false))
+    if (v.paused) {
+      // Restarting after the clip ran out: go back to the beginning of the range.
+      if (phase === 'main' && toClip(v.currentTime) >= sourceInfo.duration - 0.05) v.currentTime = toFile(0)
+      void v.play()
+    } else {
+      v.pause()
     }
   }
+
 
   const onOutroEnded = () => {
     setPlaying(false)
     setPhase('main')
-    if (mainRef.current) mainRef.current.currentTime = 0
+    if (mainRef.current) mainRef.current.currentTime = toFile(0)
     setTime(0)
   }
 
@@ -159,10 +183,19 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
           preload="auto"
           style={videoStyle}
           draggable={false}
+          onLoadedMetadata={(e) => {
+            // A clip cut from a service is a range of the whole recording: start at its start.
+            if (offset > 0 && e.currentTarget.currentTime < offset) e.currentTarget.currentTime = offset
+          }}
           onPlay={() => setPlaying(true)}
           onPause={() => phase === 'main' && setPlaying(false)}
-          onEnded={onMainEnded}
-          onSeeked={() => mainRef.current && (setTime(mainRef.current.currentTime), onTime(mainRef.current.currentTime))}
+          onEnded={startOutro}
+          onSeeked={() => {
+            const v = mainRef.current
+            if (!v) return
+            setTime(toClip(v.currentTime))
+            onTime(toClip(v.currentTime))
+          }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -242,7 +275,7 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
           value={phase === 'main' ? time : sourceInfo.duration}
           onChange={(e) => {
             const t = Number(e.target.value)
-            if (mainRef.current) mainRef.current.currentTime = t
+            if (mainRef.current) mainRef.current.currentTime = toFile(t)
             if (phase === 'outro') {
               outroRef.current?.pause()
               setPhase('main')

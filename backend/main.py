@@ -61,7 +61,13 @@ def get_project(project_id: str) -> Project:
 def detail(project: Project) -> ProjectDetail:
     if project.crop is None and project.sourceInfo is not None:
         project.crop = renderer.default_crop(project.sourceInfo, project.output)
-    return ProjectDetail(**project.model_dump(), transcriptData=load_transcript(project))
+    try:
+        _path, start, _length = clips.source_of(project)
+        present = True
+    except clips.MissingFootage:
+        start, present = 0.0, False
+    return ProjectDetail(**project.model_dump(), transcriptData=load_transcript(project),
+                         sourceStart=start, hasFootage=present)
 
 
 @app.post("/projects", response_model=ProjectDetail)
@@ -106,10 +112,17 @@ def upload_video(project_id: str, file: UploadFile):
 
 @app.get("/projects/{project_id}/source")
 def read_source(project_id: str):
+    """The footage behind this clip.
+
+    For a clip cut from a service that is the whole recording; the interface skips to
+    `sourceStart` and stops at the end of the range. Range requests keep that cheap.
+    """
     project = get_project(project_id)
-    if not project.sourceVideo:
-        raise HTTPException(404, "Er is nog geen video geüpload")
-    return FileResponse(project_dir(project.id) / project.sourceVideo)
+    try:
+        path, _start, _length = clips.source_of(project)
+    except clips.MissingFootage as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return FileResponse(path)
 
 
 def transcribe_key(project_id: str) -> str:
@@ -121,16 +134,18 @@ def transcribe_key(project_id: str) -> str:
 def transcribe_project(project_id: str):
     """Start writing out the speech. Follow it with GET /projects/{id}/transcribe-status."""
     project = get_project(project_id)
-    if not project.sourceVideo or not project.sourceInfo:
+    if not project.sourceInfo:
         raise HTTPException(400, "Upload eerst een video")
     if not project.sourceInfo.hasAudio:
         raise HTTPException(400, "De video heeft geen geluid")
     if jobs.is_running(transcribe_key(project.id)):
         raise HTTPException(409, "De ondertitels worden al gemaakt")
 
-    source = project_dir(project.id) / project.sourceVideo
+    try:
+        source, start, duration = clips.source_of(project)
+    except clips.MissingFootage as exc:
+        raise HTTPException(400, str(exc)) from exc
     work_dir = project_dir(project.id) / "work"
-    duration = project.sourceInfo.duration
 
     def work(job: Job) -> None:
         def on_progress(fraction: float) -> None:
@@ -140,6 +155,7 @@ def transcribe_project(project_id: str):
 
         transcript = transcription.transcribe(
             source, work_dir, on_progress=on_progress, duration=duration, should_stop=job.check,
+            start=start,
         )
         save_transcript(get_project(project_id), transcript)
 
@@ -188,12 +204,15 @@ def update_crop(project_id: str, crop: CropWindow):
 @app.post("/projects/{project_id}/render")
 def render_project(project_id: str):
     project = get_project(project_id)
-    if not project.sourceVideo or not project.sourceInfo:
+    if not project.sourceInfo:
         raise HTTPException(400, "Upload eerst een video")
     if jobs.is_running(project.id):
         raise HTTPException(409, "De video wordt al gemaakt")
 
-    source = project_dir(project.id) / project.sourceVideo
+    try:
+        source, source_start, _length = clips.source_of(project)
+    except clips.MissingFootage as exc:
+        raise HTTPException(400, str(exc)) from exc
     info = project.sourceInfo
     transcript = load_transcript(project) or Transcript()
     work = project_dir(project.id) / "work"
@@ -217,6 +236,7 @@ def render_project(project_id: str):
             outro=outro if outro.is_file() else None,
             crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop, music=project.music,
             watermark=project.watermark,
+            source_start=None if project.sourceVideo else source_start,
             on_progress=on_progress, should_stop=job.check,
         )
 
@@ -678,10 +698,11 @@ def process_selected(service_id: str):
     def work(job: Job, service: Service) -> None:
         for n, cand in enumerate(selected, start=1):
             job.check()
-            job.progress, job.message = (n - 1) / len(selected), f"Fragment {n} van {len(selected)} wordt geknipt"
+            job.progress, job.message = (n - 1) / len(selected), f"Fragment {n} van {len(selected)} wordt klaargezet"
             project = clips.create_clip(
                 source, cand.start, cand.end, transcript, title=cand.title,
                 origin=ClipOrigin(serviceId=service.id, candidateId=cand.id, start=cand.start, end=cand.end),
+                source_info=service.sourceInfo,
             )
             service.clips.append(ProcessedClip(
                 candidateId=cand.id, projectId=project.id, title=cand.title, start=cand.start, end=cand.end,

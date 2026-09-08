@@ -251,7 +251,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     if (file) void upload(file)
   }
 
-  const hasVideo = Boolean(project?.sourceVideo && project.sourceInfo)
+  // A clip either owns a file or points at the recording it was cut from; both count.
+  const hasVideo = Boolean(project?.sourceInfo && project.hasFootage)
 
   return (
     <div>
@@ -262,6 +263,12 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
 
       {offline && <div className="offline">Geen verbinding met de app. Staat het zwarte venster nog open? Zodra het weer draait gaat dit vanzelf verder.</div>}
       {error && <div className="error">{error}</div>}
+      {project && !project.hasFootage && (
+        <div className="error">
+          De opname waar dit fragment uit komt is opgeruimd, dus er valt niets meer te bewerken of te maken.
+          Upload de dienst opnieuw als je dit fragment alsnog wilt hebben.
+        </div>
+      )}
 
       <label
         className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
@@ -321,6 +328,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               output={project.output}
               crop={crop}
               watermark={watermark}
+              sourceStart={project.sourceStart}
               onCropChange={changeCrop}
               onTime={setCurrentTime}
               onPlayState={setPlaying}
@@ -347,6 +355,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               crop={crop}
               currentTime={currentTime}
               playing={playing}
+              sourceStart={project.sourceStart}
               onChange={changeCrop}
             />
             <StylePanel style={style} onChange={changeStyle} />

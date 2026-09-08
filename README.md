@@ -109,7 +109,9 @@ Upload service → Transcribing → Analyzing service → Suggestions ready → 
 2. Analysis starts when the transcript is ready. The transcript is cut into overlapping windows of about three minutes; each window goes to the LLM with per-sentence timecodes and comes back as structured JSON candidates (start, end, title, summary, reason, confidence). Progress shows "Analyzing transcript · Section 8 of 24".
 3. Candidate boundaries are snapped to sentence boundaries, proposals that cover the same moment are merged (the extra boundaries stay available as alternatives), and the list is ranked with an internal score (confidence plus a preference for 30–60 seconds).
 4. **Clip Suggestions** lists the ranked candidates with title, timecodes, duration, transcript excerpt, summary and reason. **Preview** plays just that range of the original recording; **Transcript & timecodes** opens the full excerpt and the boundary editor with direct `mm:ss.s` input and -5 / -1 / +1 / +5 second nudges. Selections and edits are saved automatically.
-5. **Process selected clips** cuts each selected range out of the recording (frame-accurate, original resolution), creates a normal clip project with the matching part of the transcript already filled in, and lists them under "Processed clips". **Open in editor** switches to the Clip tab for subtitles, styling, framing and rendering. Nothing about rendering lives in the discovery layer.
+5. **Process selected clips** creates a normal clip project per selected range, with the matching part of the transcript already filled in, and lists them in the bar at the bottom of the screen. **Open in editor** switches to the Clip tab for subtitles, styling, framing and rendering. Nothing about rendering lives in the discovery layer.
+
+   Nothing is cut at this point. A clip records which recording it came from and which seconds it covers, and the renderer seeks into the original, so a finished clip is one encode away from the camera instead of two and processing eight moments takes a moment rather than several minutes. `clips.source_of()` answers where a clip's footage is; `clips.materialise()` gives a clip its own copy, which only happens when the recording is about to be removed.
 
 ### LLM configuration
 
@@ -256,7 +258,9 @@ POST /projects/{id}/render          start the background render job
 POST /projects/{id}/render/stop     stop the render that is running
 GET  /projects/{id}/render-status   {status, progress, message, error, canStop}
 GET  /projects/{id}/output          the rendered final.mp4, named after the clip's title
-GET  /projects/{id}/source          the uploaded clip (for the preview)
+GET  /projects/{id}/source          the footage behind the clip; for a clip cut from a service
+                                    that is the whole recording, and the interface skips to
+                                    `sourceStart` and stops at the end of the range
 GET  /church                        contents of templates/church.json
 GET  /health                        FFmpeg, speech model, analysis model, disk space, folders
 GET  /brands                        the brands, and which one is active
