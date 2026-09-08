@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from . import brands, clips, discovery, fonts, health, outro, renderer, transcription
 from .jobs import Cancelled, Job, JobManager
-from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project,
+from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
                      recover_services, save_project, save_service, save_service_transcript, save_transcript, service_dir)
@@ -71,6 +71,7 @@ def create_project():
     brand = brands.active()
     project.style = brand.subtitleStyle.model_copy(deep=True)
     project.music = brand.music.model_copy(deep=True)
+    project.watermark = brand.watermark.model_copy(deep=True)
     save_project(project)
     return detail(project)
 
@@ -111,16 +112,51 @@ def read_source(project_id: str):
     return FileResponse(project_dir(project.id) / project.sourceVideo)
 
 
-@app.post("/projects/{project_id}/transcribe", response_model=Transcript)
+def transcribe_key(project_id: str) -> str:
+    """Transcribing and rendering never overlap, but they report progress separately."""
+    return f"{project_id}:transcribe"
+
+
+@app.post("/projects/{project_id}/transcribe")
 def transcribe_project(project_id: str):
+    """Start writing out the speech. Follow it with GET /projects/{id}/transcribe-status."""
     project = get_project(project_id)
     if not project.sourceVideo or not project.sourceInfo:
         raise HTTPException(400, "Upload eerst een video")
     if not project.sourceInfo.hasAudio:
         raise HTTPException(400, "De video heeft geen geluid")
-    transcript = transcription.transcribe(project_dir(project.id) / project.sourceVideo, project_dir(project.id) / "work")
-    save_transcript(project, transcript)
-    return transcript
+    if jobs.is_running(transcribe_key(project.id)):
+        raise HTTPException(409, "De ondertitels worden al gemaakt")
+
+    source = project_dir(project.id) / project.sourceVideo
+    work_dir = project_dir(project.id) / "work"
+    duration = project.sourceInfo.duration
+
+    def work(job: Job) -> None:
+        def on_progress(fraction: float) -> None:
+            job.progress = fraction
+            job.message = ("Geluid wordt uit de video gehaald" if fraction < 0.08
+                           else "Gesproken tekst wordt uitgeschreven")
+
+        transcript = transcription.transcribe(
+            source, work_dir, on_progress=on_progress, duration=duration, should_stop=job.check,
+        )
+        save_transcript(get_project(project_id), transcript)
+
+    return jobs.start(transcribe_key(project.id), work).to_dict()
+
+
+@app.get("/projects/{project_id}/transcribe-status")
+def transcribe_status(project_id: str):
+    get_project(project_id)
+    return jobs.get(transcribe_key(project_id)).to_dict()
+
+
+@app.post("/projects/{project_id}/transcribe/stop")
+def stop_transcribe(project_id: str):
+    get_project(project_id)
+    jobs.cancel(transcribe_key(project_id))
+    return jobs.get(transcribe_key(project_id)).to_dict()
 
 
 @app.put("/projects/{project_id}/transcript", response_model=Transcript)
@@ -180,6 +216,7 @@ def render_project(project_id: str):
             source, info, subtitles, project.output, output_dir / "final.mp4",
             outro=outro if outro.is_file() else None,
             crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop, music=project.music,
+            watermark=project.watermark,
             on_progress=on_progress, should_stop=job.check,
         )
 
@@ -209,7 +246,8 @@ def read_output(project_id: str):
     path = project_dir(project.id) / "output" / "final.mp4"
     if jobs.is_running(project.id) or not path.is_file():
         raise HTTPException(404, "Er is nog geen video gemaakt")
-    return FileResponse(path, media_type="video/mp4", filename=f"{project.id}-reel.mp4")
+    name = brands.slug(project.title) if project.title else project.id
+    return FileResponse(path, media_type="video/mp4", filename=f"{name}.mp4")
 
 
 @app.get("/church", response_model=ChurchInfo)
@@ -274,6 +312,40 @@ def delete_brand(brand_id: str):
     return brands.summaries()
 
 
+# --- logos ----------------------------------------------------------------------
+
+LOGO_DIR = TEMPLATES_DIR / "logos"
+ALLOWED_LOGOS = {".png", ".jpg", ".jpeg", ".webp", ".svg"}
+
+
+@app.get("/logos")
+def read_logos():
+    """The logo files that can go in a corner of the clip or on the end screen."""
+    LOGO_DIR.mkdir(parents=True, exist_ok=True)
+    return [{"file": p.name} for p in sorted(LOGO_DIR.iterdir()) if p.suffix.lower() in ALLOWED_LOGOS]
+
+
+@app.post("/logos")
+def upload_logo(file: UploadFile):
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_LOGOS:
+        raise HTTPException(400, "Gebruik een png (met transparantie), jpg of webp")
+    LOGO_DIR.mkdir(parents=True, exist_ok=True)
+    target = LOGO_DIR / Path(file.filename or f"logo{ext}").name
+    with target.open("wb") as out:
+        shutil.copyfileobj(file.file, out, length=1024 * 1024)
+    return {"file": target.name}
+
+
+@app.delete("/logos/{name}")
+def delete_logo(name: str):
+    target = LOGO_DIR / Path(name).name
+    if not target.is_file():
+        raise HTTPException(404, "Logo niet gevonden")
+    target.unlink()
+    return {"file": target.name}
+
+
 # --- background music -----------------------------------------------------------
 
 MUSIC_DIR = TEMPLATES_DIR / "music"
@@ -307,6 +379,26 @@ def delete_music(name: str):
         raise HTTPException(404, "Muziekbestand niet gevonden")
     target.unlink()
     return {"file": target.name}
+
+
+@app.put("/projects/{project_id}/meta", response_model=ProjectDetail)
+def update_meta(project_id: str, title: str = Body(default="", embed=True), description: str = Body(default="", embed=True)):
+    """The title names the downloaded file; the description is the text to paste under the post."""
+    project = get_project(project_id)
+    project.title = title.strip() or None
+    project.description = description.strip()
+    save_project(project)
+    return detail(project)
+
+
+@app.put("/projects/{project_id}/watermark", response_model=ProjectDetail)
+def update_watermark(project_id: str, watermark: Watermark):
+    project = get_project(project_id)
+    if watermark.file and not (LOGO_DIR / Path(watermark.file).name).is_file():
+        raise HTTPException(400, f"Het logo {watermark.file} staat niet in templates/logos")
+    project.watermark = watermark
+    save_project(project)
+    return detail(project)
 
 
 @app.put("/projects/{project_id}/music", response_model=ProjectDetail)
@@ -495,7 +587,9 @@ def transcribe_service(service_id: str):
         job.message = "Geluid wordt uit de opname gehaald"
 
         def on_progress(fraction: float) -> None:
-            job.progress, job.message = fraction, "Gesproken tekst wordt uitgeschreven"
+            job.progress = fraction
+            job.message = ("Geluid wordt uit de opname gehaald" if fraction < 0.08
+                           else "Gesproken tekst wordt uitgeschreven")
 
         transcript = transcription.transcribe(
             service_dir(service.id) / service.sourceVideo, service_dir(service.id) / "work",

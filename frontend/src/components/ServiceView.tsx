@@ -216,7 +216,7 @@ export default function ServiceView({ onOpenClip }: Props) {
         {uploading !== null ? (
           <span className="uploading">
             <strong>Bezig met uploaden…</strong>
-            <span className="bar"><span style={{ display: 'block', height: '100%', width: `${Math.round(uploading * 100)}%` }} /></span>
+            <span className="bar"><span style={{ display: 'block', height: '100%', background: 'var(--purple)', width: `${Math.round(uploading * 100)}%` }} /></span>
             <span className="meta">{Math.round(uploading * 100)}%</span>
           </span>
         ) : hasVideo ? (
@@ -248,12 +248,12 @@ export default function ServiceView({ onOpenClip }: Props) {
             {service.warning && <div className="warning">{service.warning}</div>}
             {busy && stopping && <p className="hint">Stoppen kan een halve minuut duren; de app maakt het huidige stukje eerst af.</p>}
             {busy && (
-              <div className="progress">
+              <div className={`progress ${progress ? 'busy' : 'waiting'}`}>
                 <div className="bar"><div style={{ width: `${progress ?? 0}%` }} /></div>
                 <div className="label">
                   <span>{service.job?.message ?? STATUS_LABEL[service.status]}</span>
                   <span>
-                    {progress !== null ? `${progress}%` : ''}
+                    {progress ? `${progress}%` : ''}
                     <button
                       className="bare small"
                       style={{ marginLeft: '0.6rem' }}

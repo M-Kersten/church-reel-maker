@@ -12,7 +12,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Callable
 
-from .models import FONTS_DIR, TEMPLATES_DIR, CropWindow, MusicSettings, Output, VideoInfo
+from .models import FONTS_DIR, TEMPLATES_DIR, CropWindow, MusicSettings, Output, VideoInfo, Watermark
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -146,6 +146,7 @@ def build_command(
     tracking=None,
     crop: CropWindow | None = None,
     music: MusicSettings | None = None,
+    watermark: Watermark | None = None,
 ) -> tuple[list[str], float]:
     """Build the ffmpeg command line. Returns (argv, total output duration)."""
     w, h, fps = output.width, output.height, output.fps
@@ -157,12 +158,23 @@ def build_command(
     audio_norm = "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo"
     music_path = music_file(music)
     speech = "aall" if music_path else "a"
+    logo_path = watermark_file(watermark)
+
+    if logo_path is not None:
+        inputs.append(logo_path)  # a still image; overlay repeats its single frame
 
     crop_chain = build_crop_filter(source_info, output, crop_strategy, tracking, crop)
+    clip_label = "v0raw" if logo_path is not None else "v0"
     filters.append(
         f"[0:v]{crop_chain},fps={fps},setsar=1,format=yuv420p,"
-        f"ass=filename='{_ffpath(subtitles)}':fontsdir='{_ffpath(FONTS_DIR)}'[v0]"
+        f"ass=filename='{_ffpath(subtitles)}':fontsdir='{_ffpath(FONTS_DIR)}'[{clip_label}]"
     )
+    if logo_path is not None and watermark is not None:
+        filters.append(
+            f"[1:v]format=rgba,colorchannelmixer=aa={watermark.opacity:.2f},"
+            f"scale={max(16, int(w * watermark.width))}:-1[wm]"
+        )
+        filters.append(f"[{clip_label}][wm]overlay={overlay_position(watermark)}:format=auto[v0]")
     filters.append(_audio_filter(0, source_info, audio_norm, inputs, filters, "a0"))
 
     total = source_info.duration
@@ -207,6 +219,25 @@ def build_command(
     return cmd, total
 
 
+def watermark_file(watermark: Watermark | None) -> Path | None:
+    """The logo to put in the corner, when one is chosen and still on disk."""
+    if watermark is None or not watermark.file:
+        return None
+    path = TEMPLATES_DIR / "logos" / watermark.file
+    return path if path.is_file() else None
+
+
+def overlay_position(watermark: Watermark) -> str:
+    """Where the logo sits, expressed the way the overlay filter wants it."""
+    m = watermark.margin
+    return {
+        "topLeft": f"{m}:{m}",
+        "topRight": f"main_w-overlay_w-{m}:{m}",
+        "bottomLeft": f"{m}:main_h-overlay_h-{m}",
+        "bottomRight": f"main_w-overlay_w-{m}:main_h-overlay_h-{m}",
+    }[watermark.corner]
+
+
 def music_file(music: MusicSettings | None) -> Path | None:
     """The music file to mix in, when one is chosen and still on disk."""
     if music is None or not music.file:
@@ -242,6 +273,7 @@ def render_video(
     tracking=None,
     crop: CropWindow | None = None,
     music: MusicSettings | None = None,
+    watermark: Watermark | None = None,
     on_progress: ProgressCallback | None = None,
     should_stop: Callable[[], None] | None = None,
 ) -> Path:
@@ -249,7 +281,8 @@ def render_video(
     if outro_info is None:
         outro = None
     cmd, total = build_command(
-        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop, music
+        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop, music,
+        watermark
     )
     tmp = destination.with_suffix(".part.mp4")
     cmd[-1] = str(tmp)

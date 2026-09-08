@@ -1,4 +1,5 @@
-import type { Style } from '../api'
+import { useEffect, useState } from 'react'
+import type { Style, SubtitleAnimation } from '../api'
 import { WEIGHT_LABELS, resolveWeight, useFonts, weightsOf } from '../fonts'
 import { cssWeight } from '../subtitleLayout'
 import Section from './Section'
@@ -15,11 +16,20 @@ export default function StylePanel({ style, onChange }: Props) {
   const pickFont = (font: string) => onChange({ ...style, font, fontWeight: resolveWeight(families, font, style.fontWeight) })
   const weights = weightsOf(families, style.font)
   const outline = style.outline * 0.45
+  // Replay the specimen animation now and then; the key also replays it on every change.
+  const [beat, setBeat] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setBeat((b) => b + 1), 2600)
+    return () => window.clearInterval(timer)
+  }, [])
   return (
     <Section step={3} title="Stijl van de ondertitels" intro="Wit met een donkere rand leest bijna altijd het best.">
       <div className="specimen">
         <span
+          key={`${style.animation}-${style.animationSpeed}-${beat}`}
+          className={`sub-anim sub-anim-${style.animation}`}
           style={{
+            animationDuration: `${style.animationSpeed}ms`,
             fontFamily: `'${style.font}', sans-serif`,
             fontWeight: cssWeight(style.fontWeight),
             fontSize: `${style.fontSize * 0.4}px`,
@@ -50,9 +60,36 @@ export default function StylePanel({ style, onChange }: Props) {
 
         <label htmlFor="size">Grootte</label>
         <div className="inline">
-          <input id="size" type="range" min={24} max={120} step={2} value={style.fontSize} onChange={(e) => set('fontSize', Number(e.target.value))} />
+          <input id="size" type="range" min={24} max={200} step={2} value={style.fontSize} onChange={(e) => set('fontSize', Number(e.target.value))} />
           <output>{style.fontSize}</output>
         </div>
+        <p className="hint span">Boven de 110 vullen lange zinnen bijna het hele beeld. Kijk het na in het voorbeeld links.</p>
+
+        <label htmlFor="animation">Beweging</label>
+        <select id="animation" value={style.animation} onChange={(e) => set('animation', e.target.value as SubtitleAnimation)}>
+          <option value="none">Geen, tekst staat er meteen</option>
+          <option value="fade">Zacht opkomen</option>
+          <option value="pop">Opveren, valt op</option>
+          <option value="slide">Van onder omhoog</option>
+        </select>
+
+        {style.animation !== 'none' && (
+          <>
+            <label htmlFor="animspeed">Snelheid</label>
+            <div className="inline">
+              <input
+                id="animspeed"
+                type="range"
+                min={60}
+                max={600}
+                step={20}
+                value={style.animationSpeed}
+                onChange={(e) => set('animationSpeed', Number(e.target.value))}
+              />
+              <output>{(style.animationSpeed / 1000).toFixed(2)}s</output>
+            </div>
+          </>
+        )}
 
         <label htmlFor="color">Kleur</label>
         <div className="inline">

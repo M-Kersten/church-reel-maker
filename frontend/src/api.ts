@@ -1,5 +1,7 @@
 export type FontWeight = 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold'
 
+export type SubtitleAnimation = 'none' | 'fade' | 'pop' | 'slide'
+
 export interface Style {
   font: string
   fontSize: number
@@ -8,6 +10,21 @@ export interface Style {
   outline: number
   outlineColor: string
   background: boolean
+  animation: SubtitleAnimation
+  /** How long the animation runs, in milliseconds. */
+  animationSpeed: number
+}
+
+export type Corner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'
+
+/** A logo in a corner of the clip. Files live in templates/logos. */
+export interface Watermark {
+  file: string
+  corner: Corner
+  /** Share of the video width, 0.04 to 0.5. */
+  width: number
+  opacity: number
+  margin: number
 }
 
 export interface Output {
@@ -58,6 +75,7 @@ export interface Project {
   id: string
   createdAt: string
   title: string | null
+  description: string
   origin: ClipOrigin | null
   sourceVideo: string | null
   sourceInfo: VideoInfo | null
@@ -66,6 +84,7 @@ export interface Project {
   output: Output
   outro: string
   music: MusicSettings
+  watermark: Watermark
   cropStrategy: 'static' | 'tracked'
   crop: CropWindow
   tracking: string | null
@@ -113,9 +132,12 @@ export interface OutroLine {
   delay: number
 }
 
+export type OutroMotion = 'none' | 'in' | 'out' | 'up'
+
 export interface OutroConfig {
   generate: boolean
   duration: number
+  motion: OutroMotion
   font: string
   fade: number
   background: { type: 'solid' | 'gradient' | 'image'; color: string; colors: string[]; angle: number; image: string; darken: number }
@@ -137,6 +159,10 @@ export interface MusicSettings {
   fadeOut: number
 }
 
+export interface LogoFile {
+  file: string
+}
+
 export interface MusicFile {
   file: string
   sizeMb: number
@@ -149,6 +175,7 @@ export interface Brand {
   outro: OutroConfig
   subtitleStyle: Style
   music: MusicSettings
+  watermark: Watermark
 }
 
 export interface BrandSummary {
@@ -240,12 +267,22 @@ export const api = {
   getProject: (id: string) => request<Project>(`/projects/${id}`),
   upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>
     upload<Project>(`/projects/${id}/upload`, file, onProgress),
-  transcribe: (id: string) => request<Transcript>(`/projects/${id}/transcribe`, { method: 'POST' }),
+  transcribe: (id: string) => request<RenderStatus>(`/projects/${id}/transcribe`, { method: 'POST' }),
+  transcribeStatus: (id: string) => request<RenderStatus>(`/projects/${id}/transcribe-status`),
+  stopTranscribe: (id: string) => request<RenderStatus>(`/projects/${id}/transcribe/stop`, { method: 'POST' }),
   saveTranscript: (id: string, transcript: Transcript) =>
     request<Transcript>(`/projects/${id}/transcript`, json('PUT', transcript)),
   saveStyle: (id: string, style: Style) => request<Project>(`/projects/${id}/style`, json('PUT', style)),
   saveCrop: (id: string, crop: CropWindow) => request<Project>(`/projects/${id}/crop`, json('PUT', crop)),
   saveMusic: (id: string, music: MusicSettings) => request<Project>(`/projects/${id}/music`, json('PUT', music)),
+  saveMeta: (id: string, title: string, description: string) =>
+    request<Project>(`/projects/${id}/meta`, json('PUT', { title, description })),
+  saveWatermark: (id: string, watermark: Watermark) =>
+    request<Project>(`/projects/${id}/watermark`, json('PUT', watermark)),
+  logos: () => request<LogoFile[]>('/logos'),
+  uploadLogo: (file: File, onProgress?: (f: number) => void) => upload<LogoFile>('/logos', file, onProgress),
+  deleteLogo: (name: string) => request<LogoFile>(`/logos/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  logoUrl: (name: string) => `/templates/logos/${encodeURIComponent(name)}`,
   music: () => request<MusicFile[]>('/music'),
   uploadMusic: (file: File, onProgress?: (f: number) => void) => upload<{ file: string }>('/music', file, onProgress),
   brands: () => request<BrandSummary[]>('/brands'),

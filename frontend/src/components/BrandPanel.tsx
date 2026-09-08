@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, type Brand, type BrandSummary, type ChurchInfo, type FontWeight, type OutroConfig, type OutroLine } from '../api'
+import { api, type Brand, type BrandSummary, type ChurchInfo, type FontWeight, type LogoFile, type OutroConfig, type OutroLine, type OutroMotion } from '../api'
 import { announceBrandChange } from '../church'
 import { WEIGHT_LABELS, resolveWeight, useFonts, weightsOf } from '../fonts'
 import { cssWeight } from '../subtitleLayout'
@@ -14,6 +14,12 @@ const ALIGNMENTS: { value: OutroLine['align']; label: string; title: string }[] 
   { value: 'left', label: '◧', title: 'Links uitlijnen' },
   { value: 'center', label: '▣', title: 'Midden' },
   { value: 'right', label: '◨', title: 'Rechts uitlijnen' },
+]
+const MOTIONS: { value: OutroMotion; label: string }[] = [
+  { value: 'none', label: 'Stilstaand' },
+  { value: 'in', label: 'Langzaam inzoomen' },
+  { value: 'out', label: 'Langzaam uitzoomen' },
+  { value: 'up', label: 'Rustig omhoog' },
 ]
 const HEIGHT = 1920
 const MARGIN = 60
@@ -41,6 +47,12 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [active, setActive] = useState<number | null>(null)
+  const [logos, setLogos] = useState<LogoFile[]>([])
+
+  const loadLogos = () => api.logos().then(setLogos).catch(() => setLogos([]))
+  useEffect(() => {
+    loadLogos()
+  }, [])
 
   const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
   const config = brand?.outro ?? null
@@ -174,7 +186,7 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
 
   if (!brand || !config) {
     return (
-      <Section step={5} title="Merk en afsluiter" intro="De gegevens van de kerk en het eindscherm van elke video.">
+      <Section step={7} title="Merk en afsluiter" intro="De gegevens van de kerk en het eindscherm van elke video.">
         {error ? <div className="error">{error}</div> : <p className="empty">Bezig met laden…</p>}
       </Section>
     )
@@ -185,7 +197,7 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
 
   return (
     <Section
-      step={5}
+      step={7}
       title="Merk en afsluiter"
       intro="Een merk bevat de gegevens van de kerk en het eindscherm dat achter elke video komt. Werk je voor meerdere kerken of locaties, maak dan per kerk een merk aan en wissel hier."
     >
@@ -316,7 +328,65 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
               <input id="dur" type="range" min={2} max={12} step={0.5} value={config.duration} onChange={(e) => edit({ duration: Number(e.target.value) })} />
               <output>{String(config.duration).replace('.', ',')} s</output>
             </div>
+
+            <label htmlFor="motion">Camera</label>
+            <select id="motion" value={config.motion} onChange={(e) => edit({ motion: e.target.value as OutroMotion })}>
+              {MOTIONS.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
           </div>
+          <p className="hint" style={{ marginTop: '0.4rem' }}>
+            Een trage beweging houdt het eindscherm levend. Je ziet het pas terug nadat je hebt opgeslagen.
+          </p>
+
+          <h3 style={{ marginTop: '1.2rem' }}>Logo</h3>
+          <div className="logos">
+            <button type="button" className={`plain ${config.logo.file ? '' : 'on'}`} onClick={() => edit({ logo: { ...config.logo, file: '' } })}>geen</button>
+            {logos.map((f) => (
+              <button
+                type="button"
+                key={f.file}
+                title={f.file}
+                className={config.logo.file === f.file ? 'on' : ''}
+                onClick={() => edit({ logo: { ...config.logo, file: f.file } })}
+              >
+                <img src={api.logoUrl(f.file)} alt={f.file} />
+              </button>
+            ))}
+            <label className="upload-link">
+              Logo toevoegen
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const { file: name } = await api.uploadLogo(file)
+                    await loadLogos()
+                    edit({ logo: { ...config.logo, file: name } })
+                  } catch (err) {
+                    fail(err)
+                  }
+                }}
+              />
+            </label>
+          </div>
+          {config.logo.file && (
+            <div className="fields">
+              <label htmlFor="logow">Breedte</label>
+              <div className="inline">
+                <input id="logow" type="range" min={120} max={900} step={20} value={config.logo.width} onChange={(e) => edit({ logo: { ...config.logo, width: Number(e.target.value) } })} />
+                <output>{config.logo.width}</output>
+              </div>
+              <label htmlFor="logoy">Hoogte</label>
+              <div className="inline">
+                <input id="logoy" type="range" min={80} max={1840} step={20} value={config.logo.y} onChange={(e) => edit({ logo: { ...config.logo, y: Number(e.target.value) } })} />
+                <output>{config.logo.y}</output>
+              </div>
+            </div>
+          )}
 
           <h3 style={{ marginTop: '1.2rem' }}>Teksten</h3>
           <p className="hint" style={{ marginTop: 0 }}>Klik een regel aan om hem in de voorvertoning te zien oplichten.</p>
@@ -447,6 +517,14 @@ function EndScreen({ config, church, active, onPick, onMove }: ScreenProps) {
   return (
     <div className="endscreen" ref={box} style={style}>
       {bg.type === 'image' && bg.darken > 0 && <div className="veil" style={{ background: `rgba(0,0,0,${bg.darken})` }} />}
+      {config.logo.file && (
+        <img
+          className="outro-logo"
+          alt=""
+          src={api.logoUrl(config.logo.file)}
+          style={{ width: config.logo.width * scale, left: '50%', top: config.logo.y * scale, transform: 'translate(-50%, -50%)' }}
+        />
+      )}
       {config.lines.map((line, i) => {
         const text = fill(line.text)
         const place: React.CSSProperties =

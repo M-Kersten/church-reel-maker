@@ -4,7 +4,6 @@ import json
 import os
 import re
 import subprocess
-import time
 from pathlib import Path
 from typing import Callable
 
@@ -20,6 +19,7 @@ COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8" if DEVICE == "cpu" 
 MAX_CHARS = 60  # roughly two lines of subtitle text
 MAX_DURATION = 6.0  # seconds
 PAUSE_SPLIT = 0.7  # a pause longer than this starts a new segment
+EXTRACT_SHARE = 0.08  # first slice of the progress bar: pulling the audio out of the video
 
 _model = None
 
@@ -93,15 +93,21 @@ def get_model():
     return _model
 
 
-def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] | None = None) -> None:
-    """Pull the audio out of the video. Checks `should_stop` while running, so stopping feels immediate."""
-    command = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(source), "-vn",
-               "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav_path)]
+def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] | None = None,
+                  on_progress: Callable[[float], None] | None = None, duration: float | None = None) -> None:
+    """Pull the audio out of the video.
+
+    Reports how far it is and checks `should_stop` while running, so the bar moves from the
+    first second and stopping feels immediate.
+    """
+    command = ["ffmpeg", "-y", "-loglevel", "error", "-nostats", "-progress", "pipe:1",
+               "-i", str(source), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav_path)]
     try:
-        proc = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except FileNotFoundError as exc:
         raise RuntimeError("FFmpeg is niet gevonden. Sluit de app en start opnieuw met start.bat of start.command.") from exc
-    while proc.poll() is None:
+    assert proc.stdout is not None
+    for line in proc.stdout:
         if should_stop:
             try:
                 should_stop()
@@ -110,8 +116,10 @@ def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] 
                 proc.wait(timeout=10)
                 wav_path.unlink(missing_ok=True)
                 raise
-        time.sleep(0.25)
-    if proc.returncode != 0:
+        key, _, value = line.strip().partition("=")
+        if key in ("out_time_us", "out_time_ms") and value.lstrip("-").isdigit() and on_progress and duration:
+            on_progress(min(1.0, (int(value) / 1_000_000) / duration))
+    if proc.wait() != 0:
         stderr = proc.stderr.read() if proc.stderr else ""
         raise RuntimeError("Het geluid kon niet uit de video gehaald worden: " + stderr.strip()[-400:])
 
@@ -123,7 +131,9 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None
     `should_stop()` is called between segments and may raise to end the work early.
     """
     wav_path = work_dir / "audio.wav"
-    extract_audio(source, wav_path, should_stop)
+    extract_audio(source, wav_path, should_stop,
+                  on_progress=(lambda f: on_progress(EXTRACT_SHARE * f)) if on_progress else None,
+                  duration=duration)
 
     model = get_model()
     if should_stop:
@@ -144,7 +154,7 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None
         if should_stop:
             should_stop()
         if on_progress and duration:
-            on_progress(min(0.99, seg.end / duration))
+            on_progress(min(0.99, EXTRACT_SHARE + (1 - EXTRACT_SHARE) * (seg.end / duration)))
         fallback.append(Segment(start=round(seg.start, 2), end=round(seg.end, 2), text=seg.text.strip()))
         if seg.words:
             words.extend(seg.words)

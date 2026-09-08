@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, api, type CropWindow, type MusicSettings, type Project, type RenderStatus, type Segment, type Style } from '../api'
+import { ApiError, api, type CropWindow, type MusicSettings, type Project, type RenderStatus, type Segment, type Style, type Watermark } from '../api'
 import { useChurch } from '../church'
 import FramingPanel from './FramingPanel'
+import LogoPanel from './LogoPanel'
 import MusicPanel from './MusicPanel'
+import SharePanel from './SharePanel'
 import BrandPanel from './BrandPanel'
 import RenderControls from './RenderControls'
 import StylePanel from './StylePanel'
@@ -11,6 +13,7 @@ import VideoPreview, { type PreviewHandle } from './VideoPreview'
 
 const IDLE: RenderStatus = { status: 'idle', progress: 0, message: '', error: null }
 const STORAGE_KEY = 'church-reel-maker.project'
+const CLEAN = { transcript: false, style: false, crop: false, music: false, watermark: false, meta: false }
 
 interface Props {
   /** Project to open (for example a clip cut from a full service). */
@@ -25,19 +28,21 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [style, setStyle] = useState<Style | null>(null)
   const [crop, setCrop] = useState<CropWindow | null>(null)
   const [music, setMusic] = useState<MusicSettings | null>(null)
+  const [watermark, setWatermark] = useState<Watermark | null>(null)
+  const [meta, setMeta] = useState({ title: '', description: '' })
   const [playing, setPlaying] = useState(false)
   const church = useChurch()
   const [renderStatus, setRenderStatus] = useState<RenderStatus>(IDLE)
   const [uploading, setUploading] = useState<number | null>(null)
   const [offline, setOffline] = useState(false)
-  const [transcribing, setTranscribing] = useState(false)
+  const [transcribeStatus, setTranscribeStatus] = useState<RenderStatus>(IDLE)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [outputVersion, setOutputVersion] = useState(0)
   const [outroVersion, setOutroVersion] = useState(0)
   const previewRef = useRef<PreviewHandle>(null)
-  const dirty = useRef({ transcript: false, style: false, crop: false, music: false })
+  const dirty = useRef({ ...CLEAN })
 
   const fail = (e: unknown) => {
     if (e instanceof ApiError && e.offline) {
@@ -53,6 +58,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     setStyle(p.style)
     setCrop(p.crop)
     setMusic(p.music)
+    setWatermark(p.watermark)
+    setMeta({ title: p.title ?? '', description: p.description })
     setSegments(p.transcriptData?.segments ?? [])
     localStorage.setItem(STORAGE_KEY, p.id)
     onProjectChange(p.id)
@@ -66,10 +73,14 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       .getProject(wanted)
       .then((p) => {
         adopt(p)
-        dirty.current = { transcript: false, style: false, crop: false, music: false }
-        return api.renderStatus(p.id)
+        dirty.current = { ...CLEAN }
+        return Promise.all([api.renderStatus(p.id), api.transcribeStatus(p.id)])
       })
-      .then(setRenderStatus)
+      .then(([render, transcribe]) => {
+        setRenderStatus(render)
+        // A transcription that is still running survives a page reload.
+        if (transcribe.status === 'running') setTranscribeStatus(transcribe)
+      })
       .catch(() => localStorage.removeItem(STORAGE_KEY))
   }, [projectId, project?.id, adopt])
 
@@ -125,6 +136,34 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     return () => clearTimeout(handle)
   }, [music, project])
 
+  useEffect(() => {
+    if (!project || !watermark || !dirty.current.watermark) return
+    const handle = setTimeout(() => {
+      dirty.current.watermark = false
+      api.saveWatermark(project.id, watermark).catch(fail)
+    }, 400)
+    return () => clearTimeout(handle)
+  }, [watermark, project])
+
+  useEffect(() => {
+    if (!project || !dirty.current.meta) return
+    const handle = setTimeout(() => {
+      dirty.current.meta = false
+      api.saveMeta(project.id, meta.title, meta.description).catch(fail)
+    }, 600)
+    return () => clearTimeout(handle)
+  }, [meta, project])
+
+  const changeWatermark = (next: Watermark) => {
+    dirty.current.watermark = true
+    setWatermark(next)
+  }
+
+  const changeMeta = (title: string, description: string) => {
+    dirty.current.meta = true
+    setMeta({ title, description })
+  }
+
   const changeMusic = (next: MusicSettings) => {
     dirty.current.music = true
     setMusic(next)
@@ -146,17 +185,40 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const transcribe = async () => {
     if (!project) return
     setError(null)
-    setTranscribing(true)
     try {
-      const t = await api.transcribe(project.id)
-      dirty.current.transcript = false
-      setSegments(t.segments)
+      setTranscribeStatus(await api.transcribe(project.id))
     } catch (e) {
       fail(e)
-    } finally {
-      setTranscribing(false)
     }
   }
+
+  const stopTranscribe = () => {
+    if (!project) return
+    api.stopTranscribe(project.id).then(setTranscribeStatus).catch(fail)
+  }
+
+  // Follow the transcription and pick up the subtitles once they are written.
+  useEffect(() => {
+    if (!project || transcribeStatus.status !== 'running') return
+    let misses = 0
+    const handle = setInterval(async () => {
+      try {
+        const s = await api.transcribeStatus(project.id)
+        misses = 0
+        setOffline(false)
+        setTranscribeStatus(s)
+        if (s.status === 'done') {
+          const fresh = await api.getProject(project.id)
+          dirty.current.transcript = false
+          setSegments(fresh.transcriptData?.segments ?? [])
+        }
+      } catch (e) {
+        misses += 1
+        if (misses >= 3) fail(e)
+      }
+    }, 1000)
+    return () => clearInterval(handle)
+  }, [project, transcribeStatus.status])
 
   const render = async () => {
     if (!project || !style) return
@@ -167,7 +229,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       await api.saveStyle(project.id, style)
       if (crop) await api.saveCrop(project.id, crop)
       if (music) await api.saveMusic(project.id, music)
-      dirty.current = { transcript: false, style: false, crop: false, music: false }
+      if (watermark) await api.saveWatermark(project.id, watermark)
+      await api.saveMeta(project.id, meta.title, meta.description)
+      dirty.current = { ...CLEAN }
       setRenderStatus(await api.render(project.id))
     } catch (e) {
       fail(e)
@@ -261,7 +325,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
         </div>
       )}
 
-      {project && style && crop && music && hasVideo && (
+      {project && style && crop && music && watermark && hasVideo && (
         <div className="workbench">
           <div className="stage card">
             <VideoPreview
@@ -274,6 +338,7 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               style={style}
               output={project.output}
               crop={crop}
+              watermark={watermark}
               onCropChange={changeCrop}
               onTime={setCurrentTime}
               onPlayState={setPlaying}
@@ -281,13 +346,14 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
             <RenderControls
               hasAudio={Boolean(project.sourceInfo?.hasAudio)}
               hasSubtitles={segments.length > 0}
-              transcribing={transcribing}
+              transcribeStatus={transcribeStatus}
               canRender={hasVideo}
               renderStatus={renderStatus}
               outputUrl={renderStatus.status === 'done' ? `${api.outputUrl(project.id)}?v=${outputVersion}` : null}
               onTranscribe={transcribe}
               onRender={render}
               onStop={stopRender}
+              onStopTranscribe={stopTranscribe}
             />
           </div>
           <div>
@@ -302,7 +368,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               onChange={changeCrop}
             />
             <StylePanel style={style} onChange={changeStyle} />
+            <LogoPanel watermark={watermark} onChange={changeWatermark} />
             <MusicPanel music={music} onChange={changeMusic} />
+            <SharePanel fallback={project.id} title={meta.title} description={meta.description} onChange={changeMeta} />
             <BrandPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>

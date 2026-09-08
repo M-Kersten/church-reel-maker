@@ -35,7 +35,7 @@ export default function MusicPanel({ music, onChange }: Props) {
   const on = Boolean(music.file)
   return (
     <Section
-      step={4}
+      step={5}
       title="Muziek"
       intro="Zet er een rustige track onder als je wilt. De stem blijft leidend: zodra er gepraat wordt gaat de muziek automatisch zachter."
     >

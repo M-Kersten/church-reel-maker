@@ -13,6 +13,7 @@ SAFE_MARGIN_BOTTOM = 320  # px from the bottom edge at 1080x1920 (clear of the R
 SAFE_MARGIN_SIDE = 90  # px from the left/right edges
 CHAR_WIDTH_RATIO = 0.58  # average glyph width relative to font size (bold sans-serif)
 MIN_FONT_SCALE = 0.6  # never shrink a line below this fraction of the chosen size
+MAX_LINES = 3  # a bigger font spreads over more lines before it is shrunk
 BACKGROUND_ALPHA = 0x80  # 50% translucent box
 
 # Font family names as libass finds them in templates/fonts (and system fonts for Arial).
@@ -37,10 +38,42 @@ def font_name(style: Style) -> tuple[str, bool]:
     return family_for(style.font, style.fontWeight)
 
 
-def layout_text(text: str, style: Style, output: Output) -> tuple[list[str], int]:
-    """Wrap text to at most two lines; shrink the font if two lines are not enough.
+def wrap_words(words: list[str], width: int) -> list[str]:
+    """Greedy fill: put as many words on a line as fit within `width` characters."""
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > width:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
 
-    Returns (lines, font_size).
+
+def fit_lines(words: list[str], count: int, max_chars: int) -> list[str] | None:
+    """Split the words over at most `count` lines, none wider than max_chars.
+
+    Starts from evenly divided lines and widens until the greedy fill needs no
+    extra line, so the lines come out roughly equal instead of one long, one short.
+    """
+    total = len(" ".join(words))
+    start = max(max(len(w) for w in words), -(-total // count))
+    for width in range(start, max_chars + 1):
+        lines = wrap_words(words, width)
+        if len(lines) <= count:
+            return lines
+    return None
+
+
+def layout_text(text: str, style: Style, output: Output) -> tuple[list[str], int]:
+    """Wrap text over as few lines as it needs; shrink the font only as a last resort.
+
+    Returns (lines, font_size). A large font takes more lines, up to MAX_LINES, so
+    the text really does get bigger on screen instead of being scaled straight back.
     """
     text = " ".join(text.split())
     available = output.width - 2 * SAFE_MARGIN_SIDE
@@ -51,17 +84,17 @@ def layout_text(text: str, style: Style, output: Output) -> tuple[list[str], int
     words = text.split(" ")
     if len(words) == 1:
         return [text], style.fontSize
-    best: tuple[int, str, str] | None = None
-    for i in range(1, len(words)):
-        first, second = " ".join(words[:i]), " ".join(words[i:])
-        longest = max(len(first), len(second))
-        if best is None or longest < best[0]:
-            best = (longest, first, second)
-    longest, first, second = best
-    if longest <= max_chars:
-        return [first, second], style.fontSize
-    scale = max(MIN_FONT_SCALE, max_chars / longest)
-    return [first, second], int(round(style.fontSize * scale))
+
+    for count in range(2, MAX_LINES + 1):
+        lines = fit_lines(words, count, max_chars)
+        if lines is not None:
+            return lines, style.fontSize
+
+    # Still too wide: use MAX_LINES lines and shrink the font until they fit.
+    lines = fit_lines(words, MAX_LINES, len(text)) or [text]
+    longest = max(len(line) for line in lines)
+    scale = max(MIN_FONT_SCALE, min(1.0, max_chars / longest))
+    return lines, int(round(style.fontSize * scale))
 
 
 def ass_color(hex_color: str, alpha: int = 0) -> str:
@@ -83,6 +116,21 @@ def ass_time(seconds: float) -> str:
 
 def escape_text(text: str) -> str:
     return text.replace("{", "(").replace("}", ")").replace("\n", " ")
+
+
+def animation_tags(style: Style, output: Output) -> str:
+    """The ASS tags that make a line appear, in the style the user picked."""
+    ms = style.animationSpeed
+    if style.animation == "fade":
+        return f"\\fad({ms},{min(ms, 200)})"
+    if style.animation == "pop":
+        # Start slightly small and settle: reads as a snap without moving the line.
+        return f"\\fad(60,80)\\fscx72\\fscy72\\t(0,{ms},\\fscx100\\fscy100)"
+    if style.animation == "slide":
+        # Alignment 2 anchors the bottom centre of the block; slide it up into that spot.
+        anchor_y = output.height - SAFE_MARGIN_BOTTOM
+        return f"\\fad(60,80)\\move({output.width // 2},{anchor_y + 40},{output.width // 2},{anchor_y},0,{ms})"
+    return ""
 
 
 def build_ass(transcript: Transcript, style: Style, output: Output) -> str:
@@ -109,13 +157,15 @@ def build_ass(transcript: Transcript, style: Style, output: Output) -> str:
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
+    tags = animation_tags(style, output)
     for seg in sorted(transcript.segments, key=lambda s: s.start):
         if not seg.text.strip() or seg.end <= seg.start:
             continue
         wrapped, size = layout_text(seg.text, style, output)
         text = "\\N".join(escape_text(line) for line in wrapped)
-        if size != style.fontSize:
-            text = f"{{\\fs{size}}}" + text
+        prefix = tags + (f"\\fs{size}" if size != style.fontSize else "")
+        if prefix:
+            text = "{" + prefix + "}" + text
         lines.append(f"Dialogue: 0,{ass_time(seg.start)},{ass_time(seg.end)},Default,,0,0,0,,{text}")
     return "\n".join(lines) + "\n"
 

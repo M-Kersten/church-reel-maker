@@ -27,7 +27,9 @@ templates/outro.json
 templates/outro.mp4
 templates/outro.ass
 
-# brands, music and the word list: your own content (see the .example.json files)
+# logos, brands, music and the word list: your own content (see the .example.json files)
+templates/logos/*
+!templates/logos/.gitkeep
 templates/brands/
 templates/music/*
 !templates/music/.gitkeep

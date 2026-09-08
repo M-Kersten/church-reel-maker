@@ -79,13 +79,26 @@ Environment variables for transcription:
 ## Using the app
 
 1. Drop a clip on the page. The original is stored under `projects/<id>/` and its metadata (size, duration, frame rate, audio) is read with ffprobe. The 9:16 preview appears right away.
-2. Click **Transcribe**. Audio is extracted with FFmpeg and transcribed with faster-whisper, language forced to `nl`. Words are grouped into short caption-sized segments.
+2. Click **Transcribe**. Audio is extracted with FFmpeg and transcribed with faster-whisper, language forced to `nl`. Words are grouped into short caption-sized segments. This runs as a background job with a progress bar, so you can keep working and even reload the page while it runs.
 3. Correct the subtitles. Each segment has editable start/end times (`mm:ss.s`) and text, plus **Split**, **Merge ↓** and delete. Click ▶ on a segment to jump the preview there. Edits are saved automatically.
 4. Set the framing. The **Framing** panel shows the whole source with the 9:16 output frame drawn on it: drag the frame (or drag the preview itself) to choose which part of the picture ends up in the reel, and use the zoom slider to crop in further or, at the low end, to fit the whole picture with black bars. Landscape clips start centred and filling the frame; portrait clips start with the whole picture visible. **Reset** returns to that default.
-5. Pick a style: font (Inter, Montserrat, Poppins, Arial), weight, size, text colour, outline size and colour, optional dark translucent background. Subtitles always sit bottom-centre, above the safe margin that Reels and Shorts overlay with UI. Text wraps to at most two lines; longer segments are scaled down to fit.
-6. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
+5. Pick a style: font, weight, size (24–200), text colour, outline size and colour, optional dark translucent background, and how a line appears. Subtitles always sit bottom-centre, above the safe margin that Reels and Shorts overlay with UI. A bigger font spreads over more lines (up to three) before anything is scaled down, so turning the size up really does make the text bigger on screen.
+6. Put the church logo in a corner if you want one. The **Logo in beeld** panel picks the corner, the width as a share of the frame, the opacity and the margin, and draws it straight into the preview. Files live in `templates/logos/` and are shared with the end screen.
+7. Fill in **Titel en omschrijving**. The title becomes the file name of the download (`genade-is-geen-beloning.mp4` instead of `project-b46da05b.mp4`) and the description is the text you paste under the post; **Kopieer voor je post** puts both on the clipboard.
+8. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
 
 The preview is an HTML `<video>` with `object-fit` mimicking the static crop and an HTML overlay for subtitles; it uses the same fonts and layout rules as the renderer. When the clip ends, the outro plays in the preview as well. Nothing is rendered until you click **Render video**.
+
+### Subtitle animation
+
+Each line can appear in one of four ways, with the speed (60–600 ms) set alongside it. The preview replays the animation on every line, using CSS keyframes that mirror the ASS tags in the render:
+
+| Setting | What it does | ASS |
+| --- | --- | --- |
+| `none` | the line is simply there | no tags |
+| `fade` | fades in and out | `\fad` |
+| `pop` | starts at 72% and springs to full size | `\fscx`/`\fscy` with `\t` |
+| `slide` | rises 40 px into place | `\move` |
 
 ## Full service clip discovery
 
@@ -143,6 +156,10 @@ Everything that makes a video belong to a church lives in a **brand**: the churc
 
 Brands are stored as `templates/brands/<id>.json`, with `templates/brands/actief.json` naming the active one. On the first start the old `church.json` and `outro.json` are folded into one brand automatically, so nothing is lost.
 
+## Logos
+
+Logo files live in `templates/logos/` (ignored by git) and are used in two places: the corner of the clip (per project, in the **Logo in beeld** panel) and the end screen (per brand, in **Merk en afsluiter**). Upload once from either panel; png with transparency looks best. The corner logo is composited by FFmpeg with `overlay` at the chosen opacity and margin.
+
 ## Background music
 
 The **Muziek** panel puts a track under the clip. Upload an mp3, m4a, wav, aac or ogg file once and it stays available for every clip; files live in `templates/music/`.
@@ -181,7 +198,8 @@ Speech is levelled to -14 LUFS with `loudnorm` before the music is mixed in, and
   | `background.angle` | gradient direction in degrees; 0 is left to right, 90 top to bottom |
   | `background.image` | file name in `templates/` for `image` |
   | `background.darken` | 0–1, a black veil over the image so text stays readable |
-  | `logo.file` | optional PNG in `templates/` (transparency supported) |
+  | `motion` | `none`, `in` (slow dolly in), `out` (dolly out) or `up` (drift upwards) |
+  | `logo.file` | optional PNG in `templates/logos/` (transparency supported) |
   | `logo.width`, `logo.y` | logo width and its vertical centre, in pixels of the 1080×1920 frame |
   | `lines[]` | the text lines, top to bottom |
   | `lines[].text` | the text; `{churchName}`, `{serviceTimes}` and `{instagram}` are filled in from `church.json` |
@@ -222,16 +240,20 @@ The renderer passes this directory to libass and the browser loads the same file
 ```text
 POST /projects                      create an empty project
 POST /projects/{id}/upload          multipart upload (field "file"); probes the video
-POST /projects/{id}/transcribe      Dutch transcription, returns the segments
+POST /projects/{id}/transcribe      start the Dutch transcription as a background job
+GET  /projects/{id}/transcribe-status  {status, progress, message, error, canStop}
+POST /projects/{id}/transcribe/stop stop the transcription that is running
 GET  /projects/{id}                 project + transcript
 PUT  /projects/{id}/transcript      save edited segments
 PUT  /projects/{id}/style           save subtitle style
 PUT  /projects/{id}/crop            save the crop window {x, y, zoom}
 PUT  /projects/{id}/music           save the background music for this clip
+PUT  /projects/{id}/meta            save the title and the description for sharing
+PUT  /projects/{id}/watermark       save the corner logo {file, corner, width, opacity, margin}
 POST /projects/{id}/render          start the background render job
 POST /projects/{id}/render/stop     stop the render that is running
 GET  /projects/{id}/render-status   {status, progress, message, error, canStop}
-GET  /projects/{id}/output          the rendered final.mp4
+GET  /projects/{id}/output          the rendered final.mp4, named after the title
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
 GET  /health                        FFmpeg, speech model, analysis model, disk space, folders
@@ -241,6 +263,9 @@ PUT  /brands/{id}                   save a brand (rebuilds the end screen when i
 POST /brands                        create a brand, optionally copied from another
 POST /brands/{id}/activate          make a brand active
 DELETE /brands/{id}                 remove a brand (never the last one)
+GET  /logos                         the logo files for the corner and the end screen
+POST /logos                         upload a logo (png, jpg, webp, svg)
+DELETE /logos/{name}                remove a logo
 GET  /music                         the music files that can go under a clip
 POST /music                         upload a music file
 DELETE /music/{name}                remove a music file
@@ -291,6 +316,8 @@ frontend/src/
   components/ClipSuggestions.tsx  ranked candidate list: preview, select, adjust boundaries
   components/BrandPanel.tsx    brand switch, church details and the end-screen editor
   components/MusicPanel.tsx    background music under the clip
+  components/LogoPanel.tsx     the church logo in a corner of the clip
+  components/SharePanel.tsx    title (file name) and description for the post
   components/SystemCheck.tsx   the readiness check in the app bar
   fonts.ts                     font catalogue: loads the faces and resolves weights
   components/VideoPreview.tsx  9:16 preview with subtitle overlay and outro
@@ -299,7 +326,8 @@ frontend/src/
   components/RenderControls.tsx
   components/ProgressIndicator.tsx
 templates/
-  church.json, outro.json (created on first start), outro.example.json, make_outro.py, outro.mp4, fonts/
+  church.json, outro.json (created on first start), outro.example.json, make_outro.py, outro.mp4
+  fonts/  logos/  music/  brands/  woordenlijst.json
 launcher.py         loads config.env, fetches FFmpeg when missing, starts the server, opens the browser
 start.bat / start.command   one-click launchers for Windows and macOS (create .venv, install, run launcher.py)
 config.example.env  template for config.env (API key, LLM provider, whisper model)

@@ -25,6 +25,19 @@ FontWeight = Literal["regular", "medium", "semibold", "bold", "extrabold"]
 CropStrategy = Literal["static", "tracked"]  # "tracked" is reserved for Part 2
 
 
+Corner = Literal["topLeft", "topRight", "bottomLeft", "bottomRight"]
+
+
+class Watermark(BaseModel):
+    """A logo in a corner of the clip. Files live in templates/logos."""
+
+    file: str = ""  # empty means no logo
+    corner: Corner = "topRight"
+    width: float = Field(default=0.18, ge=0.04, le=0.5)  # share of the video width
+    opacity: float = Field(default=0.85, ge=0.05, le=1.0)
+    margin: int = Field(default=60, ge=0, le=300)  # pixels from the edges
+
+
 class MusicSettings(BaseModel):
     """Background music under the clip. Files live in templates/music."""
 
@@ -34,14 +47,19 @@ class MusicSettings(BaseModel):
     fadeOut: float = Field(default=2.0, ge=0.0, le=10.0)
 
 
+SubtitleAnimation = Literal["none", "fade", "pop", "slide"]
+
+
 class Style(BaseModel):
     font: str = "Montserrat"
-    fontSize: int = Field(default=64, ge=24, le=120)
+    fontSize: int = Field(default=64, ge=24, le=200)
     fontWeight: FontWeight = "bold"
     color: str = "#FFFFFF"
     outline: int = Field(default=4, ge=0, le=12)
     outlineColor: str = "#000000"
     background: bool = False
+    animation: SubtitleAnimation = "fade"  # how a line appears
+    animationSpeed: int = Field(default=180, ge=60, le=600)  # milliseconds
 
 
 class Output(BaseModel):
@@ -99,6 +117,7 @@ class Project(BaseModel):
     id: str
     createdAt: str
     title: str | None = None
+    description: str = ""  # short text to paste under the post
     origin: ClipOrigin | None = None
     sourceVideo: str | None = None  # file name inside the project directory
     sourceInfo: VideoInfo | None = None
@@ -107,6 +126,7 @@ class Project(BaseModel):
     output: Output = Output()
     outro: str = "templates/outro.mp4"  # relative to the repository root
     music: MusicSettings = MusicSettings()
+    watermark: Watermark = Watermark()
     cropStrategy: CropStrategy = "static"
     crop: CropWindow | None = None  # None = default framing for the source (see renderer.default_crop)
     tracking: str | None = None  # Part 2: file with the tracked crop path
@@ -211,9 +231,13 @@ class OutroLine(BaseModel):
     delay: float = 0.0  # seconds before this line appears
 
 
+OutroMotion = Literal["none", "in", "out", "up"]
+
+
 class OutroConfig(BaseModel):
     generate: bool = True  # false: never touch outro.mp4 (you supply your own video)
     duration: float = Field(default=5.0, ge=1.0, le=30.0)
+    motion: OutroMotion = "none"  # a slow dolly, so the end screen is not a still image
     font: str = "Poppins"  # Inter, Montserrat, Poppins or Arial
     fade: float = Field(default=0.4, ge=0.0, le=3.0)  # fade in and out, in seconds
     background: OutroBackground = OutroBackground()

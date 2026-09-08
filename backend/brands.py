@@ -14,7 +14,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .models import TEMPLATES_DIR, ChurchInfo, MusicSettings, OutroConfig, Style, write_atomic
+from .models import TEMPLATES_DIR, ChurchInfo, MusicSettings, OutroConfig, Style, Watermark, write_atomic
 
 BRANDS_DIR = TEMPLATES_DIR / "brands"
 ACTIVE_FILE = BRANDS_DIR / "actief.json"
@@ -27,6 +27,7 @@ class Brand(BaseModel):
     outro: OutroConfig = OutroConfig()
     subtitleStyle: Style = Style()
     music: MusicSettings = MusicSettings()
+    watermark: Watermark = Watermark()
 
 
 class BrandSummary(BaseModel):
@@ -127,7 +128,8 @@ def create(name: str, copy_from: str | None = None) -> Brand:
                   church=base.church.model_copy(deep=True) if base else ChurchInfo(churchName=name),
                   outro=base.outro.model_copy(deep=True) if base else OutroConfig(),
                   subtitleStyle=base.subtitleStyle.model_copy(deep=True) if base else Style(),
-                  music=base.music.model_copy(deep=True) if base else MusicSettings())
+                  music=base.music.model_copy(deep=True) if base else MusicSettings(),
+                  watermark=base.watermark.model_copy(deep=True) if base else Watermark())
     if not base:
         brand.church.churchName = name
     return save(brand)

@@ -5,6 +5,7 @@ export const SAFE_MARGIN_BOTTOM = 320
 export const SAFE_MARGIN_SIDE = 90
 export const CHAR_WIDTH_RATIO = 0.58
 export const MIN_FONT_SCALE = 0.6
+export const MAX_LINES = 3
 export const BACKGROUND_ALPHA = 0.5
 
 export const WEIGHTS: { value: Style['fontWeight']; label: string; css: number }[] = [
@@ -19,7 +20,38 @@ export function cssWeight(weight: Style['fontWeight']): number {
   return WEIGHTS.find((w) => w.value === weight)?.css ?? 700
 }
 
-/** Wrap to at most two lines; shrink the font when two lines are not enough. */
+/** Greedy fill: put as many words on a line as fit within `width` characters. */
+function wrapWords(words: string[], width: number): string[] {
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const candidate = `${current} ${word}`.trim()
+    if (current && candidate.length > width) {
+      lines.push(current)
+      current = word
+    } else {
+      current = candidate
+    }
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
+/**
+ * Split the words over at most `count` lines, none wider than maxChars.
+ * Starts from evenly divided lines and widens until the greedy fill needs no extra line.
+ */
+function fitLines(words: string[], count: number, maxChars: number): string[] | null {
+  const total = words.join(' ').length
+  const start = Math.max(Math.max(...words.map((w) => w.length)), Math.ceil(total / count))
+  for (let width = start; width <= maxChars; width++) {
+    const lines = wrapWords(words, width)
+    if (lines.length <= count) return lines
+  }
+  return null
+}
+
+/** Wrap over as few lines as the text needs; shrink the font only as a last resort. */
 export function layoutText(text: string, style: Style, output: Output): { lines: string[]; fontSize: number } {
   text = text.split(/\s+/).filter(Boolean).join(' ')
   const available = output.width - 2 * SAFE_MARGIN_SIDE
@@ -28,17 +60,16 @@ export function layoutText(text: string, style: Style, output: Output): { lines:
 
   const words = text.split(' ')
   if (words.length === 1) return { lines: [text], fontSize: style.fontSize }
-  let best: { longest: number; first: string; second: string } | null = null
-  for (let i = 1; i < words.length; i++) {
-    const first = words.slice(0, i).join(' ')
-    const second = words.slice(i).join(' ')
-    const longest = Math.max(first.length, second.length)
-    if (best === null || longest < best.longest) best = { longest, first, second }
+
+  for (let count = 2; count <= MAX_LINES; count++) {
+    const lines = fitLines(words, count, maxChars)
+    if (lines) return { lines, fontSize: style.fontSize }
   }
-  const { longest, first, second } = best!
-  if (longest <= maxChars) return { lines: [first, second], fontSize: style.fontSize }
-  const scale = Math.max(MIN_FONT_SCALE, maxChars / longest)
-  return { lines: [first, second], fontSize: Math.round(style.fontSize * scale) }
+
+  const lines = fitLines(words, MAX_LINES, text.length) ?? [text]
+  const longest = Math.max(...lines.map((l) => l.length))
+  const scale = Math.max(MIN_FONT_SCALE, Math.min(1, maxChars / longest))
+  return { lines, fontSize: Math.round(style.fontSize * scale) }
 }
 
 export function formatTime(seconds: number): string {

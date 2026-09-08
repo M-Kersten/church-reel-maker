@@ -26,6 +26,8 @@ CHURCH_PATH = TEMPLATES_DIR / "church.json"
 OUTRO_PATH = TEMPLATES_DIR / "outro.mp4"
 WIDTH, HEIGHT, FPS = 1080, 1920, 30
 MARGIN = 60  # safe space left and right
+SUPER = 1.5  # the end screen is drawn larger, so a slow dolly stays sharp
+BIG_W, BIG_H = int(WIDTH * SUPER), int(HEIGHT * SUPER)
 
 _lock = threading.Lock()
 
@@ -94,18 +96,35 @@ def build_ass(config: OutroConfig, church: ChurchInfo) -> str:
     ]) + "\n"
 
 
+def motion_filter(motion: str, duration: float) -> str:
+    """Turn the still end screen into a slow camera move, or scale it down when there is none."""
+    frames = max(2, int(duration * FPS))
+    centre = "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+    if motion == "in":
+        step = 0.12 / frames
+        return f"zoompan=z='min(1+{step:.6f}*on,1.12)':d=1:{centre}:s={WIDTH}x{HEIGHT}:fps={FPS}"
+    if motion == "out":
+        step = 0.12 / frames
+        return f"zoompan=z='max(1.12-{step:.6f}*on,1.0)':d=1:{centre}:s={WIDTH}x{HEIGHT}:fps={FPS}"
+    if motion == "up":
+        # A fixed slight crop that drifts from the bottom of the frame to the top.
+        return (f"zoompan=z=1.08:d=1:x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*(1-on/{frames})'"
+                f":s={WIDTH}x{HEIGHT}:fps={FPS}")
+    return f"scale={WIDTH}:{HEIGHT}"
+
+
 def gradient_source(background: OutroBackground, duration: float) -> str:
     colors = [c for c in background.colors if c.strip()][:8] or ["#4B1E78", "#9B1B3A"]
     if len(colors) == 1:
         colors = colors * 2
     radians = math.radians(background.angle)
     dx, dy = math.cos(radians), math.sin(radians)
-    half = (WIDTH * abs(dx) + HEIGHT * abs(dy)) / 2
-    points = [max(0, round(WIDTH / 2 - dx * half)), max(0, round(HEIGHT / 2 - dy * half)),
-              max(0, round(WIDTH / 2 + dx * half)), max(0, round(HEIGHT / 2 + dy * half))]
+    half = (BIG_W * abs(dx) + BIG_H * abs(dy)) / 2
+    points = [max(0, round(BIG_W / 2 - dx * half)), max(0, round(BIG_H / 2 - dy * half)),
+              max(0, round(BIG_W / 2 + dx * half)), max(0, round(BIG_H / 2 + dy * half))]
     args = ":".join(f"c{i}=0x{c.lstrip('#')}" for i, c in enumerate(colors))
     # speed at its minimum keeps the gradient still instead of rotating.
-    return (f"gradients=s={WIDTH}x{HEIGHT}:r={FPS}:d={duration}:n={len(colors)}:{args}"
+    return (f"gradients=s={BIG_W}x{BIG_H}:r={FPS}:d={duration}:n={len(colors)}:{args}"
             f":x0={points[0]}:y0={points[1]}:x1={points[2]}:y1={points[3]}:speed=0.00001")
 
 
@@ -140,31 +159,35 @@ def build(config: OutroConfig | None = None, church: ChurchInfo | None = None) -
         if not image.is_file():
             raise RuntimeError(f"De achtergrondafbeelding templates/{background.image} bestaat niet.")
         inputs += ["-loop", "1", "-t", f"{config.duration}", "-r", str(FPS), "-i", str(image)]
-        chain.append(f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,crop={WIDTH}:{HEIGHT}")
+        chain.append(f"scale={BIG_W}:{BIG_H}:force_original_aspect_ratio=increase,crop={BIG_W}:{BIG_H}")
         if background.darken > 0:
             chain.append(f"drawbox=x=0:y=0:w=iw:h=ih:color=black@{background.darken}:t=fill")
     elif background.type == "gradient":
         inputs += ["-f", "lavfi", "-i", gradient_source(background, config.duration)]
     else:
         color = background.color.lstrip("#")
-        inputs += ["-f", "lavfi", "-i", f"color=c=0x{color}:s={WIDTH}x{HEIGHT}:r={FPS}:d={config.duration}"]
+        inputs += ["-f", "lavfi", "-i", f"color=c=0x{color}:s={BIG_W}x{BIG_H}:r={FPS}:d={config.duration}"]
 
     logo_input: list[str] = []
     if config.logo.file:
-        logo = TEMPLATES_DIR / config.logo.file
+        logo = TEMPLATES_DIR / "logos" / config.logo.file
         if not logo.is_file():
-            raise RuntimeError(f"Het logobestand templates/{config.logo.file} bestaat niet.")
+            logo = TEMPLATES_DIR / config.logo.file  # older configs pointed straight at templates/
+        if not logo.is_file():
+            raise RuntimeError(f"Het logobestand {config.logo.file} staat niet in templates/logos.")
         logo_input = ["-i", str(logo)]
 
     filters = [f"[0:v]{','.join(chain)}[bg]" if chain else "[0:v]null[bg]"]
     if logo_input:
-        filters.append(f"[2:v]scale={config.logo.width}:-1[logo]")
-        filters.append(f"[bg][logo]overlay=x=(W-w)/2:y={config.logo.y}-h/2[withlogo]")
+        filters.append(f"[2:v]scale={int(config.logo.width * SUPER)}:-1[logo]")
+        filters.append(f"[bg][logo]overlay=x=(W-w)/2:y={int(config.logo.y * SUPER)}-h/2[withlogo]")
         last = "withlogo"
     else:
         last = "bg"
+    # The text is drawn at the larger size (libass scales from PlayRes), then the whole
+    # card is moved and brought back to 1080x1920, so nothing looks soft.
     filters.append(f"[{last}]ass=filename='{filter_path(ass_path)}':fontsdir='{filter_path(FONTS_DIR)}',"
-                   f"format=yuv420p[v]")
+                   f"{motion_filter(config.motion, config.duration)},format=yuv420p[v]")
 
     temp = OUTRO_PATH.with_suffix(".part.mp4")
     command = [ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error", *inputs,

@@ -1,6 +1,7 @@
 {
   "generate": true,
   "duration": 5.0,
+  "motion": "none",
   "font": "Poppins",
   "fade": 0.4,
   "background": {

@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { ChurchInfo, CropWindow, Output, Segment, Style, VideoInfo } from '../api'
+import type { ChurchInfo, CropWindow, Output, Segment, Style, VideoInfo, Watermark } from '../api'
+import { api } from '../api'
 import { canPan, clampCrop, cropGeometry } from '../crop'
 import { BACKGROUND_ALPHA, SAFE_MARGIN_BOTTOM, SAFE_MARGIN_SIDE, cssWeight, formatTime, layoutText } from '../subtitleLayout'
 
@@ -16,6 +17,7 @@ interface Props {
   style: Style
   output: Output
   crop: CropWindow
+  watermark?: Watermark
   onCropChange?: (crop: CropWindow) => void
   onTime: (time: number) => void
   onPlayState?: (playing: boolean) => void
@@ -27,7 +29,7 @@ interface Props {
  * the same layout rules as the ASS file. When the clip ends the outro plays.
  */
 const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(props, ref) {
-  const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, crop, onCropChange, onTime, onPlayState } = props
+  const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, crop, watermark, onCropChange, onTime, onPlayState } = props
   const boxRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLVideoElement>(null)
   const outroRef = useRef<HTMLVideoElement>(null)
@@ -178,11 +180,28 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
           onEnded={onOutroEnded}
           onClick={togglePlay}
         />
+        {phase === 'main' && watermark?.file && (
+          <img
+            className="mark"
+            alt=""
+            src={api.logoUrl(watermark.file)}
+            style={{
+              width: output.width * watermark.width * scale,
+              opacity: watermark.opacity,
+              top: watermark.corner.startsWith('top') ? watermark.margin * scale : undefined,
+              bottom: watermark.corner.startsWith('bottom') ? watermark.margin * scale : undefined,
+              left: watermark.corner.endsWith('Left') ? watermark.margin * scale : undefined,
+              right: watermark.corner.endsWith('Right') ? watermark.margin * scale : undefined,
+            }}
+          />
+        )}
         {phase === 'main' && <div className="safe" style={{ bottom: SAFE_MARGIN_BOTTOM * scale }} />}
         {phase === 'main' && layout && (
           <div
-            className="subtitle"
+            key={`${active?.start}-${style.animation}-${style.animationSpeed}`}
+            className={`subtitle sub-anim sub-anim-${style.animation}`}
             style={{
+              animationDuration: `${style.animationSpeed}ms`,
               bottom: SAFE_MARGIN_BOTTOM * scale,
               paddingLeft: SAFE_MARGIN_SIDE * scale,
               paddingRight: SAFE_MARGIN_SIDE * scale,

@@ -124,6 +124,7 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .preview .subtitle span { display: inline; white-space: pre; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .preview .badge { position: absolute; top: 0.6rem; left: 0.6rem; font-size: 0.68rem; font-weight: 600; background: rgba(0, 0, 0, 0.55); color: #fff; padding: 0.15rem 0.5rem; border-radius: 6px; }
 .preview .safe { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(255, 255, 255, 0.28); pointer-events: none; }
+.preview .mark { position: absolute; height: auto; pointer-events: none; }
 .transport { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.8rem; color: rgba(237, 230, 244, 0.75); font-size: 0.85rem; }
 .transport input[type='range'] { flex: 1; accent-color: var(--gold); }
 .stage .transport button { background: rgba(255, 255, 255, 0.1); border-color: transparent; color: var(--white); }
@@ -150,6 +151,20 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .progress { margin-top: 0.8rem; }
 .progress .bar { height: 6px; background: var(--lavender); border-radius: 3px; overflow: hidden; }
 .progress .bar div { height: 100%; background: var(--purple); transition: width 0.3s; }
+/* Nothing measurable yet (the speech model is warming up): show that work is happening. */
+.progress.waiting .bar { position: relative; }
+.progress.waiting .bar::after {
+  content: ''; position: absolute; inset: 0; width: 35%; border-radius: 3px;
+  background: var(--purple); animation: sweep 1.4s ease-in-out infinite;
+}
+.stage .progress.waiting .bar::after { background: var(--gold); }
+@keyframes sweep { 0% { left: -35%; } 100% { left: 100%; } }
+/* Work is running but the number moves in jumps: keep the bar visibly alive. */
+.progress.busy .bar div {
+  background-image: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 70%);
+  background-size: 220% 100%; animation: crawl 1.6s linear infinite;
+}
+@keyframes crawl { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
 .progress .label { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
 .progress.error .bar div { background: var(--danger); }
 
@@ -185,6 +200,7 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .frame-source video { display: block; width: 100%; height: 100%; pointer-events: none; }
 .frame-box { position: absolute; box-sizing: border-box; border: 2px solid var(--gold); box-shadow: 0 0 0 9999px rgba(23, 18, 29, 0.55); }
 .frame-box span { position: absolute; top: 3px; left: 5px; font-size: 0.65rem; font-weight: 600; color: #fff; }
+.fields .span { grid-column: 1 / -1; margin: -0.2rem 0 0.2rem; }
 .fields { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.6rem 0.8rem; align-items: center; font-size: 0.9rem; }
 .fields .inline { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
 .fields output { min-width: 2.6rem; color: var(--muted); font-family: var(--mono); font-size: 0.82rem; }
@@ -192,6 +208,34 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 /* subtitle style specimen */
 .specimen { background: #211A2A; border-radius: 10px; padding: 1.5rem 1rem; text-align: center; margin-bottom: 1rem; overflow: hidden; }
 .specimen span { display: inline; line-height: 1.25; }
+
+/* subtitle animations, mirroring the ASS tags in backend/subtitles.py */
+.sub-anim { animation-duration: 180ms; animation-fill-mode: both; animation-timing-function: ease-out; }
+.sub-anim-none { animation-name: none; }
+.sub-anim-fade { animation-name: sub-fade; }
+.sub-anim-pop { animation-name: sub-pop; }
+.sub-anim-slide { animation-name: sub-slide; }
+@keyframes sub-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sub-pop { from { opacity: 0; transform: scale(0.72); } to { opacity: 1; transform: scale(1); } }
+@keyframes sub-slide { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+
+/* title and description */
+.share label { display: block; font-weight: 600; font-size: 0.85rem; margin: 0.9rem 0 0.35rem; }
+.share label:first-child { margin-top: 0; }
+.share input[type='text'], .share textarea { width: 100%; box-sizing: border-box; }
+.share textarea { resize: vertical; line-height: 1.4; font-family: inherit; }
+.share .hint { margin-top: 0.35rem; }
+.share code { font-family: var(--mono); font-size: 0.8rem; }
+
+/* logo picker */
+.logos { display: flex; flex-wrap: wrap; gap: 0.55rem; margin: 0.2rem 0 0.9rem; }
+.logos button {
+  position: relative; width: 82px; height: 62px; padding: 0.3rem; border: 1px solid var(--line); border-radius: 10px;
+  background: repeating-conic-gradient(#EFEBF3 0% 25%, #FDFDFD 0% 50%) 50% / 14px 14px; display: grid; place-items: center;
+}
+.logos button.on { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(75, 30, 120, 0.18); }
+.logos button img { max-width: 100%; max-height: 100%; }
+.logos button.plain { background: var(--white); font-size: 0.78rem; color: var(--muted); font-weight: 600; }
 
 /* service */
 .service-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
@@ -279,6 +323,7 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .endscreen .line.on { outline: 1px solid rgba(255, 255, 255, 0.9); outline-offset: 3px; }
 .endscreen .line:active { cursor: grabbing; }
 .endscreen .veil { position: absolute; inset: 0; pointer-events: none; }
+.endscreen .outro-logo { position: absolute; height: auto; pointer-events: none; }
 .place-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
 .line-edit.on { border-color: var(--purple); }
 .seg.small-seg button { padding: 0.15rem 0.45rem; font-size: 0.9rem; line-height: 1.1; }
