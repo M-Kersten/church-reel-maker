@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from . import discovery
+from . import discovery, storage
 from .models import PROJECTS_DIR, ROOT, SERVICES_DIR, TEMPLATES_DIR
 from .transcription import MODEL_SIZE
 
@@ -61,9 +61,17 @@ def _llm() -> Check:
 
 def _disk() -> Check:
     free_gb = shutil.disk_usage(ROOT).free / 1e9
-    return Check(name="Schijfruimte", ok=free_gb >= 3,
-                 detail=f"{free_gb:.0f} GB vrij" if free_gb >= 3
-                 else f"Nog maar {free_gb:.1f} GB vrij. Een dienst van anderhalf uur heeft al gauw enkele GB nodig.")
+    if free_gb >= 3:
+        return Check(name="Schijfruimte", ok=True, detail=f"{free_gb:.0f} GB vrij")
+    try:
+        recoverable = storage.survey()["usedMb"] / 1000
+    except Exception:  # noqa: BLE001
+        recoverable = 0.0
+    advice = (f" Onder Opruimen staat {recoverable:.1f} GB aan opnames en werkbestanden klaar om weg te gooien."
+              if recoverable >= 0.5 else "")
+    return Check(name="Schijfruimte", ok=False,
+                 detail=f"Nog maar {free_gb:.1f} GB vrij. Een dienst van anderhalf uur heeft al gauw "
+                        f"enkele GB nodig.{advice}")
 
 
 def _folders() -> Check:

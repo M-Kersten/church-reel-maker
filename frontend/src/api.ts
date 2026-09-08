@@ -103,6 +103,29 @@ export interface RenderStatus {
   canStop?: boolean
 }
 
+/** One recording or clip that could be cleaned up, and what that would give back. */
+export interface StorageItem {
+  kind: 'service' | 'project'
+  id: string
+  title: string
+  createdAt: string
+  days: number
+  mb: number
+  /** What survives the cleanup, in the user's words. */
+  keeps: string
+  /** Empty when it can go; otherwise why it cannot yet. */
+  blocked: string
+}
+
+export interface StorageReport {
+  keepWeeks: number
+  freeGb: number
+  lowDisk: boolean
+  usedMb: number
+  oldMb: number
+  items: StorageItem[]
+}
+
 export interface HealthCheck {
   name: string
   ok: boolean
@@ -298,6 +321,10 @@ export const api = {
   render: (id: string) => request<RenderStatus>(`/projects/${id}/render`, { method: 'POST' }),
   stopRender: (id: string) => request<RenderStatus>(`/projects/${id}/render/stop`, { method: 'POST' }),
   health: () => request<Health>('/health'),
+  storage: () => request<StorageReport>('/storage'),
+  cleanOne: (kind: StorageItem['kind'], id: string) =>
+    request<StorageReport>('/storage/clean', json('POST', { kind, id })),
+  cleanOld: () => request<StorageReport>('/storage/clean-old', { method: 'POST' }),
   renderStatus: (id: string) => request<RenderStatus>(`/projects/${id}/render-status`),
   church: () => request<ChurchInfo>('/church'),
   fonts: () => request<FontFamily[]>('/fonts'),

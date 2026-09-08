@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import brands, clips, discovery, fonts, health, outro, renderer, transcription
+from . import brands, clips, discovery, fonts, health, outro, renderer, storage, transcription
 from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
@@ -30,6 +30,13 @@ async def lifespan(app: FastAPI):
     stopped = recover_services()
     if stopped:
         print(f"[start] onderbroken diensten hersteld: {', '.join(stopped)}")
+    # Working files and long-expired recordings go, so the disk does not fill up quietly.
+    try:
+        swept = storage.sweep()
+        if swept:
+            print(f"[start] {swept}")
+    except Exception as exc:  # noqa: BLE001  cleaning up must never stop the app from starting
+        print(f"[opruimen] {exc}")
     # Rebuild the end screen when templates/outro.json or church.json changed.
     try:
         outro.ensure_outro()
@@ -447,6 +454,30 @@ def update_music(project_id: str, music: MusicSettings):
     project.music = music
     save_project(project)
     return detail(project)
+
+
+# --- disk housekeeping ----------------------------------------------------------
+
+@app.get("/storage")
+def read_storage():
+    """What is taking up room, what cleaning it up would give back, and what stays."""
+    return storage.survey()
+
+
+@app.post("/storage/clean")
+def clean_one(kind: str = Body(embed=True), id: str = Body(embed=True)):
+    """Clean up one recording or one clip. Clips that still need footage get a copy first."""
+    if kind not in ("service", "project"):
+        raise HTTPException(400, "Onbekend soort")
+    freed = storage.clean(kind, id)
+    return {"freedMb": round(freed / 1e6, 1)} | storage.survey()
+
+
+@app.post("/storage/clean-old")
+def clean_expired():
+    """Clean up everything past the keep-by date that has nothing waiting on it."""
+    count, freed = storage.clean_old()
+    return {"cleaned": count, "freedMb": round(freed / 1e6, 1)} | storage.survey()
 
 
 @app.get("/health")

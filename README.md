@@ -161,6 +161,25 @@ A **candidate** means "the AI thinks this range could work"; a **processed clip*
 
 The interface between discovery and production is one function, `create_clip(source, start, end)` in `backend/clips.py`, which builds a standard project for the existing pipeline. The candidate model has room for future fields (category, hook, keywords, thumbnail time) without changing the workflow.
 
+## Disk space
+
+A 90-minute service is a few GB in, so a church doing this every week fills a laptop inside a
+couple of months. **Opruimen** in the app bar shows what is taking up room and what letting go of
+it would give back.
+
+- Working audio (a 170 MB wav per service) is thrown away on every start, as soon as there is a
+  transcript to show for it. It takes a second to make again.
+- A recording can be cleared once every fragment cut from it has been rendered. The transcript,
+  the found moments and the finished videos stay; the panel says so on each row. A fragment that
+  has not been rendered yet is given its own copy of its seconds first, so nothing is left
+  pointing at a file that is gone, and rows that are not ready to go say why.
+- Recordings older than `KEEP_WEEKS` (four by default, `0` turns it off) are cleared on start,
+  again only when nothing is waiting on them.
+- A clip that owns a copy of its footage lets go of it once its video has been made.
+
+When free space drops below 3 GB the readiness check says so and names how much Opruimen could
+give back.
+
 ## When something goes wrong
 
 - The app bar shows a check of everything the app needs: FFmpeg, the speech model, the analysis model, free disk space and writable folders. It opens by itself when a check fails and says what to do.
@@ -283,6 +302,10 @@ GET  /projects/{id}/source          the footage behind the clip; for a clip cut 
                                     `sourceStart` and stops at the end of the range
 GET  /church                        contents of templates/church.json
 GET  /health                        FFmpeg, speech model, analysis model, disk space, folders
+GET  /storage                       what is taking up room and what clearing it would give back
+POST /storage/clean                 clear one recording or one clip {kind, id}
+POST /storage/clean-old             clear everything past the keep-by date with nothing waiting
+PUT  /services/{id}/accuracy        pick the quick model or the one that hears more
 GET  /brands                        the brands, and which one is active
 GET  /brands/{id}                   one brand: church, end screen, subtitle style, music
 PUT  /brands/{id}                   save a brand (rebuilds the end screen when it is active)

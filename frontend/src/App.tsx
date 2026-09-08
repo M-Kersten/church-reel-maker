@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useChurch } from './church'
 import ClipEditor from './components/ClipEditor'
 import ServiceView from './components/ServiceView'
+import StoragePanel from './components/StoragePanel'
 import SystemCheck from './components/SystemCheck'
 
 type Mode = 'clip' | 'service'
@@ -10,6 +11,7 @@ const MODE_KEY = 'church-reel-maker.mode'
 export default function App() {
   const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) === 'clip' ? 'clip' : 'service'))
   const [projectId, setProjectId] = useState<string | null>(null)
+  const [tidying, setTidying] = useState(false)
   const church = useChurch()
 
   const switchMode = (next: Mode) => {
@@ -40,11 +42,13 @@ export default function App() {
         <nav aria-label="Wat wil je doen">
           <button className={mode === 'service' ? 'active' : ''} onClick={() => switchMode('service')}>Hele dienst</button>
           <button className={mode === 'clip' ? 'active' : ''} onClick={() => switchMode('clip')}>Losse clip</button>
+          <button className="bare tidy-open" onClick={() => setTidying(true)}>Opruimen</button>
         </nav>
       </header>
       <main className="page">
         {mode === 'service' ? <ServiceView onOpenClip={openClip} /> : <ClipEditor projectId={projectId} onProjectChange={setProjectId} />}
       </main>
+      {tidying && <StoragePanel onClose={() => setTidying(false)} />}
     </>
   )
 }
