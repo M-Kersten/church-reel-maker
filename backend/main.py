@@ -26,6 +26,7 @@ from .subtitles import write_ass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    transcription.load_vocabulary()  # writes templates/woordenlijst.json the first time
     stopped = recover_services()
     if stopped:
         print(f"[start] onderbroken diensten hersteld: {', '.join(stopped)}")
