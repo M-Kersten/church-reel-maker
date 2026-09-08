@@ -5,6 +5,7 @@ It never renders video; selected candidates go through backend/clips.py into
 the existing clip-production pipeline.
 """
 
+import hashlib
 import json
 import os
 import random
@@ -12,12 +13,13 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from pydantic import BaseModel
 
 from .jobs import Cancelled
-from .models import ClipCandidate, Segment, TimeRange, Transcript
+from .models import ClipCandidate, Segment, TimeRange, Transcript, write_atomic
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic")  # anthropic | ollama
 LLM_MODEL = os.environ.get("LLM_MODEL")  # defaults per provider below
@@ -129,6 +131,37 @@ def format_window(window: Window) -> str:
 
 class Retryable(RuntimeError):
     """A failure that is worth trying again: rate limit, server error, network hiccup."""
+
+
+def window_file(cache_dir: Path, window: Window) -> Path:
+    """Where one window's answer is kept.
+
+    The name carries the text and the settings that produced the answer, so a
+    re-transcription, a different model or an edited prompt all miss the cache instead of
+    handing back something that no longer matches.
+    """
+    recipe = f"{format_window(window)}\n{LLM_PROVIDER}\n{LLM_MODEL}\n{SYSTEM_PROMPT}"
+    digest = hashlib.sha1(recipe.encode("utf-8")).hexdigest()[:16]
+    return cache_dir / f"{window.index:03d}-{digest}.json"
+
+
+def cached_window(cache_dir: Path | None, window: Window) -> list[LlmCandidate] | None:
+    if cache_dir is None:
+        return None
+    path = window_file(cache_dir, window)
+    if not path.is_file():
+        return None
+    try:
+        return [LlmCandidate(**c) for c in json.loads(path.read_text(encoding="utf-8"))]
+    except Exception:  # noqa: BLE001  a damaged answer is simply asked again
+        return None
+
+
+def remember_window(cache_dir: Path | None, window: Window, found: list[LlmCandidate]) -> None:
+    if cache_dir is None:
+        return
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    write_atomic(window_file(cache_dir, window), json.dumps([c.model_dump() for c in found]))
 
 
 def analyze_window(window: Window) -> list[LlmCandidate]:
@@ -291,7 +324,13 @@ class Result(BaseModel):
 
 
 def discover(transcript: Transcript, on_progress: ProgressCallback | None = None,
-             should_stop: Callable[[], None] | None = None) -> Result:
+             should_stop: Callable[[], None] | None = None, cache_dir: Path | None = None) -> Result:
+    """Read the whole transcript and come back with ranked moments.
+
+    Windows that were already answered are read from `cache_dir` instead of being sent
+    again, so a run that was interrupted or that lost a few windows to a rate limit picks
+    up where it left off instead of paying for the whole service twice.
+    """
     check_provider()
     windows = build_windows(transcript.segments)
     total = len(windows)
@@ -304,8 +343,12 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
     def work(window: Window) -> list[ClipCandidate]:
         if should_stop:
             should_stop()
+        found = cached_window(cache_dir, window)
+        if found is None:
+            found = analyze_window(window)
+            remember_window(cache_dir, window, found)
         out = []
-        for c in analyze_window(window):
+        for c in found:
             start, end = snap(c, window)
             duration = end - start
             if duration < MIN_CLIP or duration > MAX_CLIP or not c.title.strip():

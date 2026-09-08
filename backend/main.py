@@ -580,6 +580,7 @@ def run_service_job(service: Service, busy_status: str, done_status: str, work) 
     """Run `work(job, service)` in the shared job manager and keep service.status in sync."""
     if jobs.is_running(service.id):
         raise HTTPException(409, "De dienst wordt nog verwerkt, wacht even")
+    service.warning = None  # the note about carrying on has served its purpose
     set_status(service, busy_status)
 
     def wrapped(job: Job) -> None:
@@ -693,15 +694,22 @@ def analyze_service(service_id: str):
     if transcript is None:
         raise HTTPException(400, "Schrijf de dienst eerst uit")
 
+    # Answers already paid for are kept here, so an interrupted or partly failed run does
+    # not send the whole service to the model a second time.
+    cache = service_dir(service.id) / "analysis"
+
     def work(job: Job, service: Service) -> None:
         def on_progress(fraction: float, message: str) -> None:
             job.advance(fraction)
             job.message = message
 
-        result = discovery.discover(transcript, on_progress, should_stop=job.check)
+        result = discovery.discover(transcript, on_progress, should_stop=job.check, cache_dir=cache)
         service.candidates = result.candidates
         service.warning = result.warning
         save_service(service)
+        if not result.failed:
+            # A clean run means the next "opnieuw zoeken" is meant as a fresh look.
+            shutil.rmtree(cache, ignore_errors=True)
 
     return run_service_job(service, "analyzing", "ready", work)
 

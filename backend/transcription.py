@@ -5,10 +5,11 @@ import os
 import re
 import subprocess
 import threading
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable
 
-from .models import TEMPLATES_DIR, Segment, Transcript
+from .models import TEMPLATES_DIR, Segment, Transcript, write_atomic
 
 LANGUAGE = "nl"
 VOCABULARY_PATH = TEMPLATES_DIR / "woordenlijst.json"
@@ -160,6 +161,41 @@ def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] 
         raise RuntimeError("Het geluid kon niet uit de video gehaald worden: " + stderr.strip()[-400:])
 
 
+PARTIAL_FILE = "partial.json"
+SAVE_EVERY = 30.0  # seconds of audio between saves of the work in progress
+
+
+@dataclass
+class Word:
+    """One word with its timing. Plain data, so a half-finished run can be written to disk."""
+
+    start: float
+    end: float
+    word: str
+
+
+def load_partial(work_dir: Path) -> tuple[float, list[Word], list[Segment]]:
+    """Where an interrupted run got to: (seconds done, words, whole-sentence fallback)."""
+    path = work_dir / PARTIAL_FILE
+    if not path.is_file():
+        return 0.0, [], []
+    try:
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        return (float(saved["upTo"]),
+                [Word(**w) for w in saved["words"]],
+                [Segment(**s) for s in saved["segments"]])
+    except Exception:  # noqa: BLE001  a damaged half-finished file just means starting over
+        return 0.0, [], []
+
+
+def save_partial(work_dir: Path, up_to: float, words: list[Word], segments: list[Segment]) -> None:
+    write_atomic(work_dir / PARTIAL_FILE, json.dumps({
+        "upTo": round(up_to, 2),
+        "words": [asdict(w) for w in words],
+        "segments": [s.model_dump() for s in segments],
+    }))
+
+
 def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float, str], None] | None = None,
                duration: float | None = None, should_stop: Callable[[], None] | None = None,
                start: float = 0.0, accurate: bool = False) -> Transcript:
@@ -170,13 +206,22 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float, str],
     from the number. `should_stop()` is called between segments and may raise to end the
     work early. Timecodes come back relative to the start of the range, matching the clip
     the user sees.
+
+    The work is written down as it goes. Closing the laptop during a half-hour run used to
+    throw all of it away; now the next attempt carries on from the last saved point.
     """
     report = on_progress or (lambda _f, _p: None)
+    work_dir.mkdir(parents=True, exist_ok=True)
+    done_to, words, fallback = load_partial(work_dir)
+    if duration and done_to >= duration - 1.0:
+        done_to, words, fallback = 0.0, [], []  # nothing left to do; start over rather than stall
+
     wav_path = work_dir / "audio.wav"
     report(0.0, AUDIO)
+    remaining = (duration - done_to) if duration else None
     extract_audio(source, wav_path, should_stop,
                   on_progress=lambda f: report(EXTRACT_SHARE * f, AUDIO),
-                  duration=duration, start=start)
+                  duration=remaining, start=start + done_to)
 
     from faster_whisper import BatchedInferencePipeline
 
@@ -184,7 +229,8 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float, str],
     model = get_model(model_for(accurate))
     if should_stop:
         should_stop()
-    report(EXTRACT_SHARE + MODEL_SHARE, TEXT)
+    base = EXTRACT_SHARE + MODEL_SHARE
+    report(base + (1 - base) * (done_to / duration) if duration else base, TEXT)
     vocabulary = load_vocabulary()
     whisper_segments, _info = BatchedInferencePipeline(model=model).transcribe(
         str(wav_path),
@@ -196,22 +242,33 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float, str],
         batch_size=batch_size(accurate),
     )
 
-    words = []
-    fallback: list[Segment] = []
-    for seg in whisper_segments:
-        if should_stop:
-            should_stop()
-        if duration:
-            done = EXTRACT_SHARE + MODEL_SHARE
-            report(min(0.99, done + (1 - done) * (seg.end / duration)), TEXT)
-        fallback.append(Segment(start=round(seg.start, 2), end=round(seg.end, 2), text=seg.text.strip()))
-        if seg.words:
-            words.extend(seg.words)
+    saved_at = done_to
+    try:
+        for seg in whisper_segments:
+            if should_stop:
+                should_stop()
+            # Timings come back relative to the piece of audio just decoded, so shift them
+            # onto the clip the user is looking at.
+            at = done_to + seg.end
+            if duration:
+                report(min(0.99, base + (1 - base) * (at / duration)), TEXT)
+            fallback.append(Segment(start=round(done_to + seg.start, 2), end=round(at, 2),
+                                    text=seg.text.strip()))
+            words.extend(Word(round(done_to + w.start, 2), round(done_to + w.end, 2), w.word)
+                         for w in (seg.words or []))
+            if at - saved_at >= SAVE_EVERY:
+                save_partial(work_dir, at, words, fallback)
+                saved_at = at
+    except BaseException:
+        # Interrupted or stopped: keep what has been heard so far for the next attempt.
+        save_partial(work_dir, saved_at, words, fallback)
+        raise
 
     segments = chunk_words(words) if words else fallback
     corrections = vocabulary.get("corrections", {})
     for seg in segments:
         seg.text = apply_corrections(seg.text, corrections)
+    (work_dir / PARTIAL_FILE).unlink(missing_ok=True)
     return Transcript(language=LANGUAGE, segments=[s for s in segments if s.text])
 
 

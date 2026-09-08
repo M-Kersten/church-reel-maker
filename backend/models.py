@@ -360,8 +360,24 @@ def save_service_transcript(service: Service, transcript: Transcript) -> None:
     save_service(service)
 
 
+# Where an interrupted step leaves the service, and what to tell the user about carrying on.
+# The work done so far is on disk, so pressing the same button again continues it.
+RESUME_AFTER = {
+    "transcribing": ("uploaded",
+                     "De app is gestopt tijdens het uitschrijven. Klik op Uitschrijven om verder "
+                     "te gaan; wat al uitgeschreven was blijft staan."),
+    "analyzing": ("transcribed",
+                  "De app is gestopt tijdens het zoeken. Klik op Beste momenten zoeken om verder "
+                  "te gaan; de stukken die al gelukt waren worden overgeslagen."),
+    "processing": ("ready",
+                   "De app is gestopt tijdens het klaarzetten van de fragmenten. Klik opnieuw op "
+                   "Gekozen fragmenten verwerken."),
+}
+
+
 def recover_services() -> list[str]:
-    """After a restart no job is running any more: mark interrupted services so the user sees why."""
+    """After a restart no job is running any more. Put each interrupted service back on the
+    step before, with a note saying it can be continued."""
     stopped = []
     if not SERVICES_DIR.is_dir():
         return stopped
@@ -370,9 +386,8 @@ def recover_services() -> list[str]:
             service = Service.model_validate_json(path.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001  a damaged file should not stop the app from starting
             continue
-        if service.status in ("transcribing", "analyzing", "processing"):
-            service.status = "error"
-            service.error = "De app is opnieuw gestart terwijl dit nog bezig was. Start deze stap opnieuw."
+        if service.status in RESUME_AFTER:
+            service.status, service.warning = RESUME_AFTER[service.status]
             save_service(service)
             stopped.append(service.id)
     return stopped
