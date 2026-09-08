@@ -229,6 +229,11 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .share .hint { margin-top: 0.35rem; }
 .share code { font-family: var(--mono); font-size: 0.8rem; }
 
+/* a setting that sits with the buttons it changes */
+.choice { display: flex; align-items: flex-start; gap: 0.55rem; margin-top: 1rem; font-size: 0.9rem; cursor: pointer; }
+.choice input { margin-top: 0.25rem; flex: none; }
+.choice .meta { font-weight: 400; }
+
 /* logo picker */
 .logos { display: flex; flex-wrap: wrap; gap: 0.55rem; margin: 0.2rem 0 0.9rem; }
 .logos button {

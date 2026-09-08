@@ -72,9 +72,29 @@ Environment variables for transcription:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `WHISPER_MODEL` | `small` | `tiny`, `base`, `small`, `medium`, `large-v3`. `small` is a good CPU trade-off; `medium` is noticeably better for Dutch if you can wait. |
+| `WHISPER_MODEL` | `small` | `tiny`, `base`, `small`, `medium`, `large-v3`. `small` is a good CPU trade-off. |
+| `WHISPER_MODEL_ACCURATE` | `medium` | Used for a service with **Nauwkeuriger uitschrijven** ticked. |
 | `WHISPER_DEVICE` | `cpu` | `cuda` when a GPU with CUDA is available. |
 | `WHISPER_COMPUTE_TYPE` | `int8` on CPU, `float16` on GPU | |
+| `WHISPER_BATCH_SIZE` | twice the core count, at most 8 | How many 30-second windows are decoded together. |
+
+Transcription runs through faster-whisper's batched pipeline: windows go through the encoder
+together instead of one after another. Measured on four cores with the `small` model over eight
+minutes of Dutch speech, with identical output either way:
+
+| batch | wall clock | speed |
+| --- | --- | --- |
+| one at a time | 139 s | 3.6× realtime |
+| 2 | 72 s | 6.8× |
+| 4 | 60 s | 8.3× |
+| 8 | 58 s | 8.6× |
+| 16 | 66 s | 7.5× (the cores are oversubscribed) |
+
+That puts a 90-minute service at roughly ten minutes instead of twenty-five. The interface says
+which phase it is in (pulling the audio out, loading the model, writing the text out) and, once it
+has measured the speed of the current phase, how long is left. Batched decoding hands back several
+minutes of text at a time, so the bar is carried forward at the measured rate between readings
+rather than standing still and then jumping.
 
 ## Using the app
 

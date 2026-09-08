@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from . import brands, clips, discovery, fonts, health, outro, renderer, transcription
-from .jobs import Cancelled, Job, JobManager
+from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
@@ -125,6 +125,14 @@ def read_source(project_id: str):
     return FileResponse(path)
 
 
+# What each phase of writing out the speech is called, for the person watching the bar.
+SPEECH_PHASE = {
+    transcription.AUDIO: "Geluid wordt uit de video gehaald",
+    transcription.MODEL: "Het spraakmodel wordt geladen",
+    transcription.TEXT: "Gesproken tekst wordt uitgeschreven",
+}
+
+
 def transcribe_key(project_id: str) -> str:
     """Transcribing and rendering never overlap, but they report progress separately."""
     return f"{project_id}:transcribe"
@@ -148,10 +156,17 @@ def transcribe_project(project_id: str):
     work_dir = project_dir(project.id) / "work"
 
     def work(job: Job) -> None:
-        def on_progress(fraction: float) -> None:
-            job.progress = fraction
-            job.message = ("Geluid wordt uit de video gehaald" if fraction < 0.08
-                           else "Gesproken tekst wordt uitgeschreven")
+        left = Estimator(after=transcription.EXTRACT_SHARE + transcription.MODEL_SHARE)
+
+        seen = {"phase": ""}
+
+        def on_progress(fraction: float, phase: str) -> None:
+            if phase != seen["phase"]:
+                seen["phase"] = phase
+                job.start_phase()
+            job.advance(fraction)
+            wording = SPEECH_PHASE[phase]
+            job.message = left.note(fraction, wording) if phase == transcription.TEXT else wording
 
         transcript = transcription.transcribe(
             source, work_dir, on_progress=on_progress, duration=duration, should_stop=job.check,
@@ -228,8 +243,11 @@ def render_project(project_id: str):
         job.message = "Ondertitels worden voorbereid"
         subtitles = write_ass(transcript, project.style, project.output, work / "subtitles.ass")
 
+        left = Estimator()
+
         def on_progress(fraction: float, message: str) -> None:
-            job.progress, job.message = fraction, message
+            job.advance(fraction)
+            job.message = left.note(fraction, message)
 
         renderer.render_video(
             source, info, subtitles, project.output, output_dir / "final.mp4",
@@ -604,20 +622,37 @@ def transcribe_service(service_id: str):
         raise HTTPException(400, "Upload eerst een video")
 
     def work(job: Job, service: Service) -> None:
-        job.message = "Geluid wordt uit de opname gehaald"
+        job.message = SPEECH_PHASE[transcription.AUDIO]
+        # The three phases run at different speeds, so the estimate only counts the last one.
+        left = Estimator(after=transcription.EXTRACT_SHARE + transcription.MODEL_SHARE)
 
-        def on_progress(fraction: float) -> None:
-            job.progress = fraction
-            job.message = ("Geluid wordt uit de opname gehaald" if fraction < 0.08
-                           else "Gesproken tekst wordt uitgeschreven")
+        seen = {"phase": ""}
+
+        def on_progress(fraction: float, phase: str) -> None:
+            if phase != seen["phase"]:
+                seen["phase"] = phase
+                job.start_phase()
+            job.advance(fraction)
+            wording = SPEECH_PHASE[phase]
+            job.message = left.note(fraction, wording) if phase == transcription.TEXT else wording
 
         transcript = transcription.transcribe(
             service_dir(service.id) / service.sourceVideo, service_dir(service.id) / "work",
             on_progress=on_progress, duration=service.sourceInfo.duration, should_stop=job.check,
+            accurate=service.accurate,
         )
         save_service_transcript(service, transcript)
 
     return run_service_job(service, "transcribing", "transcribed", work)
+
+
+@app.put("/services/{service_id}/accuracy", response_model=ServiceDetail)
+def set_accuracy(service_id: str, accurate: bool = Body(default=False, embed=True)):
+    """Choose between the quick model and the one that hears more. Takes effect next run."""
+    service = get_service(service_id)
+    service.accurate = accurate
+    save_service(service)
+    return service_detail(service)
 
 
 @app.post("/services/{service_id}/analyze", response_model=ServiceDetail)
@@ -629,7 +664,8 @@ def analyze_service(service_id: str):
 
     def work(job: Job, service: Service) -> None:
         def on_progress(fraction: float, message: str) -> None:
-            job.progress, job.message = fraction, message
+            job.advance(fraction)
+            job.message = message
 
         result = discovery.discover(transcript, on_progress, should_stop=job.check)
         service.candidates = result.candidates

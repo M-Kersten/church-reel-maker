@@ -308,6 +308,7 @@ class Service(BaseModel):
     status: ServiceStatus = "created"
     error: str | None = None
     warning: str | None = None  # analysis finished, but not every part of the text worked
+    accurate: bool = False  # use the slower, better-hearing model for this recording
     candidates: list[ClipCandidate] = []
     clips: list[ProcessedClip] = []
 

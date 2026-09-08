@@ -266,6 +266,19 @@ export default function ServiceView({ onOpenClip }: Props) {
               </div>
             )}
             {!busy && (
+              <label className="choice">
+                <input
+                  type="checkbox"
+                  checked={service.accurate}
+                  onChange={(e) => serviceApi.setAccuracy(service.id, e.target.checked).then(setService).catch(fail)}
+                />
+                <span>
+                  <strong>Nauwkeuriger uitschrijven</strong>
+                  <span className="meta"> · hoort namen en moeilijke woorden beter, maar duurt ongeveer drie keer zo lang</span>
+                </span>
+              </label>
+            )}
+            {!busy && (
               <div className="acts" style={{ marginTop: '1rem' }}>
                 {!service.transcript && <button className="primary" onClick={() => run(serviceApi.transcribe)}>Uitschrijven</button>}
                 {service.transcript && service.candidates.length === 0 && (

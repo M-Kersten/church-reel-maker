@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 from pathlib import Path
 from typing import Callable
 
@@ -12,6 +13,8 @@ from .models import TEMPLATES_DIR, Segment, Transcript
 LANGUAGE = "nl"
 VOCABULARY_PATH = TEMPLATES_DIR / "woordenlijst.json"
 MODEL_SIZE = os.environ.get("WHISPER_MODEL", "small")
+# A full service is worth a bigger model if the church is willing to wait for it.
+ACCURATE_MODEL_SIZE = os.environ.get("WHISPER_MODEL_ACCURATE", "medium")
 DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")
 COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8" if DEVICE == "cpu" else "float16")
 
@@ -20,8 +23,14 @@ MAX_CHARS = 60  # roughly two lines of subtitle text
 MAX_DURATION = 6.0  # seconds
 PAUSE_SPLIT = 0.7  # a pause longer than this starts a new segment
 EXTRACT_SHARE = 0.08  # first slice of the progress bar: pulling the audio out of the video
+MODEL_SHARE = 0.04  # second slice: loading the speech model, which is slow only the first time
 
-_model = None
+# The phases a caller is told about, so it can say what is happening rather than guess
+# from a number. "text" is the long one and the only one worth estimating a time for.
+AUDIO, MODEL, TEXT = "audio", "model", "text"
+
+_models: dict[str, object] = {}
+_models_lock = threading.Lock()
 
 DEFAULT_VOCABULARY = {
     "initialPrompt": (
@@ -78,19 +87,42 @@ def apply_corrections(text: str, corrections: dict[str, str]) -> str:
     return text
 
 
-def get_model():
-    global _model
-    if _model is None:
-        from faster_whisper import WhisperModel
+def model_for(accurate: bool = False) -> str:
+    """Which model this job gets: the quick one, or the one that hears more."""
+    return ACCURATE_MODEL_SIZE if accurate else MODEL_SIZE
 
-        try:
-            _model = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
-                f"Het spraakmodel '{MODEL_SIZE}' kon niet geladen worden. De eerste keer wordt het gedownload; "
-                f"controleer de internetverbinding en de vrije schijfruimte. ({exc})"
-            ) from exc
-    return _model
+
+def batch_size(accurate: bool = False) -> int:
+    """How many 30-second windows to decode at once.
+
+    Batching is what makes this bearable on a laptop CPU: the windows go through the
+    encoder together instead of one after another. Measured on four cores with the small
+    model over eight minutes of Dutch speech: 3.6x realtime one at a time, 6.8x at two,
+    8.3x at four, 8.6x at eight, and back down to 7.5x at sixteen, where the cores are
+    oversubscribed. The bigger model holds more weights, so it gets a smaller batch.
+    """
+    override = os.environ.get("WHISPER_BATCH_SIZE")
+    if override and override.isdigit() and int(override) > 0:
+        return int(override)
+    room = min(8, max(2, (os.cpu_count() or 2) * 2))
+    return max(2, room // 2) if accurate else room
+
+
+def get_model(size: str | None = None):
+    """The loaded model of this size, kept for the life of the process."""
+    size = size or MODEL_SIZE
+    with _models_lock:
+        if size not in _models:
+            from faster_whisper import WhisperModel
+
+            try:
+                _models[size] = WhisperModel(size, device=DEVICE, compute_type=COMPUTE_TYPE)
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(
+                    f"Het spraakmodel '{size}' kon niet geladen worden. De eerste keer wordt het gedownload; "
+                    f"controleer de internetverbinding en de vrije schijfruimte. ({exc})"
+                ) from exc
+        return _models[size]
 
 
 def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] | None = None,
@@ -128,31 +160,40 @@ def extract_audio(source: Path, wav_path: Path, should_stop: Callable[[], None] 
         raise RuntimeError("Het geluid kon niet uit de video gehaald worden: " + stderr.strip()[-400:])
 
 
-def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None] | None = None,
+def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float, str], None] | None = None,
                duration: float | None = None, should_stop: Callable[[], None] | None = None,
-               start: float = 0.0) -> Transcript:
+               start: float = 0.0, accurate: bool = False) -> Transcript:
     """Transcribe `source`, or the `duration` seconds of it that begin at `start`.
 
-    `on_progress(fraction)` is called as segments come in when `duration` is known, and
-    `should_stop()` between segments; it may raise to end the work early. Timecodes come
-    back relative to the start of the range, matching the clip the user sees.
+    `on_progress(fraction, phase)` is called as the work moves along, with `phase` one of
+    AUDIO, MODEL or TEXT so the caller can say what is happening instead of inferring it
+    from the number. `should_stop()` is called between segments and may raise to end the
+    work early. Timecodes come back relative to the start of the range, matching the clip
+    the user sees.
     """
+    report = on_progress or (lambda _f, _p: None)
     wav_path = work_dir / "audio.wav"
+    report(0.0, AUDIO)
     extract_audio(source, wav_path, should_stop,
-                  on_progress=(lambda f: on_progress(EXTRACT_SHARE * f)) if on_progress else None,
+                  on_progress=lambda f: report(EXTRACT_SHARE * f, AUDIO),
                   duration=duration, start=start)
 
-    model = get_model()
+    from faster_whisper import BatchedInferencePipeline
+
+    report(EXTRACT_SHARE, MODEL)
+    model = get_model(model_for(accurate))
     if should_stop:
         should_stop()
+    report(EXTRACT_SHARE + MODEL_SHARE, TEXT)
     vocabulary = load_vocabulary()
-    whisper_segments, _info = model.transcribe(
+    whisper_segments, _info = BatchedInferencePipeline(model=model).transcribe(
         str(wav_path),
         language=LANGUAGE,
         beam_size=5,
         vad_filter=True,
         word_timestamps=True,
         initial_prompt=initial_prompt() or None,
+        batch_size=batch_size(accurate),
     )
 
     words = []
@@ -160,8 +201,9 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float], None
     for seg in whisper_segments:
         if should_stop:
             should_stop()
-        if on_progress and duration:
-            on_progress(min(0.99, EXTRACT_SHARE + (1 - EXTRACT_SHARE) * (seg.end / duration)))
+        if duration:
+            done = EXTRACT_SHARE + MODEL_SHARE
+            report(min(0.99, done + (1 - done) * (seg.end / duration)), TEXT)
         fallback.append(Segment(start=round(seg.start, 2), end=round(seg.end, 2), text=seg.text.strip()))
         if seg.words:
             words.extend(seg.words)

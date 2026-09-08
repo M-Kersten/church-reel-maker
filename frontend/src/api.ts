@@ -352,6 +352,8 @@ export interface Service {
   status: ServiceStatus
   error: string | null
   warning: string | null
+  /** Use the slower model that hears more. Applies to the next run. */
+  accurate: boolean
   candidates: ClipCandidate[]
   clips: ProcessedClip[]
   transcriptData: Transcript | null
@@ -366,6 +368,8 @@ export const serviceApi = {
   upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>
     upload<Service>(`/services/${id}/upload`, file, onProgress),
   transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),
+  setAccuracy: (id: string, accurate: boolean) =>
+    request<Service>(`/services/${id}/accuracy`, json('PUT', { accurate })),
   analyze: (id: string) => request<Service>(`/services/${id}/analyze`, { method: 'POST' }),
   saveCandidates: (id: string, candidates: ClipCandidate[]) =>
     request<ClipCandidate[]>(`/services/${id}/candidates`, json('PUT', candidates)),
