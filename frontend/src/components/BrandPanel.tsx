@@ -186,7 +186,7 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
 
   if (!brand || !config) {
     return (
-      <Section step={7} title="Merk en afsluiter" intro="De gegevens van de kerk en het eindscherm van elke video.">
+      <Section step={6} title="Merk en afsluiter" intro="De gegevens van de kerk en het eindscherm van elke video.">
         {error ? <div className="error">{error}</div> : <p className="empty">Bezig met laden…</p>}
       </Section>
     )
@@ -197,7 +197,7 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
 
   return (
     <Section
-      step={7}
+      step={6}
       title="Merk en afsluiter"
       intro="Een merk bevat de gegevens van de kerk en het eindscherm dat achter elke video komt. Werk je voor meerdere kerken of locaties, maak dan per kerk een merk aan en wissel hier."
     >

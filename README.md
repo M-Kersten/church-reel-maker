@@ -84,8 +84,7 @@ Environment variables for transcription:
 4. Set the framing. The **Framing** panel shows the whole source with the 9:16 output frame drawn on it: drag the frame (or drag the preview itself) to choose which part of the picture ends up in the reel, and use the zoom slider to crop in further or, at the low end, to fit the whole picture with black bars. Landscape clips start centred and filling the frame; portrait clips start with the whole picture visible. **Reset** returns to that default.
 5. Pick a style: font, weight, size (24–200), text colour, outline size and colour, optional dark translucent background, and how a line appears. Subtitles always sit bottom-centre, above the safe margin that Reels and Shorts overlay with UI. A bigger font spreads over more lines (up to three) before anything is scaled down, so turning the size up really does make the text bigger on screen.
 6. Put the church logo in a corner if you want one. The **Logo in beeld** panel picks the corner, the width as a share of the frame, the opacity and the margin, and draws it straight into the preview. Files live in `templates/logos/` and are shared with the end screen.
-7. Fill in **Titel en omschrijving**. The title becomes the file name of the download (`genade-is-geen-beloning.mp4` instead of `project-b46da05b.mp4`) and the description is the text you paste under the post; **Kopieer voor je post** puts both on the clipboard.
-8. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
+7. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
 
 The preview is an HTML `<video>` with `object-fit` mimicking the static crop and an HTML overlay for subtitles; it uses the same fonts and layout rules as the renderer. When the clip ends, the outro plays in the preview as well. Nothing is rendered until you click **Render video**.
 
@@ -199,6 +198,7 @@ Speech is levelled to -14 LUFS with `loudnorm` before the music is mixed in, and
   | `background.image` | file name in `templates/` for `image` |
   | `background.darken` | 0–1, a black veil over the image so text stays readable |
   | `motion` | `none`, `in` (slow dolly in), `out` (dolly out) or `up` (drift upwards) |
+
   | `logo.file` | optional PNG in `templates/logos/` (transparency supported) |
   | `logo.width`, `logo.y` | logo width and its vertical centre, in pixels of the 1080×1920 frame |
   | `lines[]` | the text lines, top to bottom |
@@ -211,7 +211,9 @@ Speech is levelled to -14 LUFS with `loudnorm` before the music is mixed in, and
   | `lines[].uppercase` | render the text in capitals |
   | `lines[].delay` | seconds before this line appears |
 
-A line that is too wide is wrapped over two lines automatically, inside a 60 px margin on each side, so long church names and service times stay in frame. Move a line with its `y` when the wrapped text ends up too close to the next one.
+A line that is too wide is wrapped over two lines automatically, inside a 60 px margin on each side, so long church names and service times stay in frame. Move a line with its `y` when the wrapped text ends up too close to the next one. With a camera move the wrap point sits at the frame edge instead, so a line that fits at rest cannot suddenly break in two while it grows.
+
+The camera move is drawn in two layers. Text is moved and scaled by libass, which works in floating point, so it glides instead of snapping to whole pixels; the background is a single still that an FFmpeg crop travels over, which is invisible on a gradient or a photograph. Both follow the same straight line, so the layers stay together. Measured on the default end screen, this brings the frame-to-frame wobble of the text down from 0.76 px to 0.02 px.
 
 The end screen is rebuilt automatically whenever `outro.json` or `church.json` is newer than `outro.mp4`: on start and before every render. In the Clip tab, the **Afsluiter** panel shows the result and has a **Vernieuwen** button, so you can try colours without restarting. `python templates/make_outro.py` does the same from the command line.
 
@@ -253,7 +255,7 @@ PUT  /projects/{id}/watermark       save the corner logo {file, corner, width, o
 POST /projects/{id}/render          start the background render job
 POST /projects/{id}/render/stop     stop the render that is running
 GET  /projects/{id}/render-status   {status, progress, message, error, canStop}
-GET  /projects/{id}/output          the rendered final.mp4, named after the title
+GET  /projects/{id}/output          the rendered final.mp4, named after the clip's title
 GET  /projects/{id}/source          the uploaded clip (for the preview)
 GET  /church                        contents of templates/church.json
 GET  /health                        FFmpeg, speech model, analysis model, disk space, folders

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, serviceApi, type ClipCandidate, type Service } from '../api'
 import { formatTime } from '../subtitleLayout'
 import ClipSuggestions from './ClipSuggestions'
-import Section from './Section'
 import Steps from './Steps'
 
 const STORAGE_KEY = 'church-reel-maker.service'
@@ -281,25 +280,6 @@ export default function ServiceView({ onOpenClip }: Props) {
             {!busy && service.transcript && service.analysis && <CostNote analysis={service.analysis} />}
           </section>
 
-          {service.clips.length > 0 && (
-            <Section
-              title="Gemaakte clips"
-              intro="Deze fragmenten zijn uit de opname geknipt. Open er een om de ondertitels na te kijken, het beeldkader te kiezen en de video te maken."
-            >
-              <ul className="clips">
-                {service.clips.map((clip) => (
-                  <li key={clip.projectId}>
-                    <span>
-                      <strong>{clip.title}</strong>
-                      <span className="meta tc"> {formatTime(clip.start)} – {formatTime(clip.end)}</span>
-                    </span>
-                    <button className="small" onClick={() => onOpenClip(clip.projectId)}>Open in de editor →</button>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
           {service.candidates.length > 0 && (
             <ClipSuggestions
               service={service}
@@ -309,12 +289,33 @@ export default function ServiceView({ onOpenClip }: Props) {
             />
           )}
 
-          {service.candidates.length > 0 && (
+          {(service.candidates.length > 0 || service.clips.length > 0) && (
             <div className="dock">
-              <span>{selectedCount === 0 ? 'Nog geen fragment gekozen' : selectedCount === 1 ? '1 fragment gekozen' : `${selectedCount} fragmenten gekozen`}</span>
-              <button className="primary" disabled={busy || selectedCount === 0} onClick={processSelected}>
-                {service.status === 'processing' ? 'Bezig…' : 'Gekozen fragmenten verwerken'}
-              </button>
+              {service.clips.length > 0 && (
+                <div className="ready">
+                  <span className="meta">Klaar om te bewerken</span>
+                  <div className="chips">
+                    {service.clips.map((clip) => (
+                      <button
+                        key={clip.projectId}
+                        className="chip"
+                        title={`${clip.title} · ${formatTime(clip.start)} – ${formatTime(clip.end)}`}
+                        onClick={() => onOpenClip(clip.projectId)}
+                      >
+                        {clip.title} →
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {service.candidates.length > 0 && (
+                <div className="row">
+                  <span>{selectedCount === 0 ? 'Nog geen fragment gekozen' : selectedCount === 1 ? '1 fragment gekozen' : `${selectedCount} fragmenten gekozen`}</span>
+                  <button className="primary" disabled={busy || selectedCount === 0} onClick={processSelected}>
+                    {service.status === 'processing' ? 'Bezig…' : 'Gekozen fragmenten verwerken'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>

@@ -4,7 +4,6 @@ import { useChurch } from '../church'
 import FramingPanel from './FramingPanel'
 import LogoPanel from './LogoPanel'
 import MusicPanel from './MusicPanel'
-import SharePanel from './SharePanel'
 import BrandPanel from './BrandPanel'
 import RenderControls from './RenderControls'
 import StylePanel from './StylePanel'
@@ -13,7 +12,7 @@ import VideoPreview, { type PreviewHandle } from './VideoPreview'
 
 const IDLE: RenderStatus = { status: 'idle', progress: 0, message: '', error: null }
 const STORAGE_KEY = 'church-reel-maker.project'
-const CLEAN = { transcript: false, style: false, crop: false, music: false, watermark: false, meta: false }
+const CLEAN = { transcript: false, style: false, crop: false, music: false, watermark: false }
 
 interface Props {
   /** Project to open (for example a clip cut from a full service). */
@@ -29,7 +28,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [crop, setCrop] = useState<CropWindow | null>(null)
   const [music, setMusic] = useState<MusicSettings | null>(null)
   const [watermark, setWatermark] = useState<Watermark | null>(null)
-  const [meta, setMeta] = useState({ title: '', description: '' })
   const [playing, setPlaying] = useState(false)
   const church = useChurch()
   const [renderStatus, setRenderStatus] = useState<RenderStatus>(IDLE)
@@ -59,7 +57,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     setCrop(p.crop)
     setMusic(p.music)
     setWatermark(p.watermark)
-    setMeta({ title: p.title ?? '', description: p.description })
     setSegments(p.transcriptData?.segments ?? [])
     localStorage.setItem(STORAGE_KEY, p.id)
     onProjectChange(p.id)
@@ -145,23 +142,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     return () => clearTimeout(handle)
   }, [watermark, project])
 
-  useEffect(() => {
-    if (!project || !dirty.current.meta) return
-    const handle = setTimeout(() => {
-      dirty.current.meta = false
-      api.saveMeta(project.id, meta.title, meta.description).catch(fail)
-    }, 600)
-    return () => clearTimeout(handle)
-  }, [meta, project])
-
   const changeWatermark = (next: Watermark) => {
     dirty.current.watermark = true
     setWatermark(next)
-  }
-
-  const changeMeta = (title: string, description: string) => {
-    dirty.current.meta = true
-    setMeta({ title, description })
   }
 
   const changeMusic = (next: MusicSettings) => {
@@ -230,7 +213,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       if (crop) await api.saveCrop(project.id, crop)
       if (music) await api.saveMusic(project.id, music)
       if (watermark) await api.saveWatermark(project.id, watermark)
-      await api.saveMeta(project.id, meta.title, meta.description)
       dirty.current = { ...CLEAN }
       setRenderStatus(await api.render(project.id))
     } catch (e) {
@@ -370,7 +352,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
             <StylePanel style={style} onChange={changeStyle} />
             <LogoPanel watermark={watermark} onChange={changeWatermark} />
             <MusicPanel music={music} onChange={changeMusic} />
-            <SharePanel fallback={project.id} title={meta.title} description={meta.description} onChange={changeMeta} />
             <BrandPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>
