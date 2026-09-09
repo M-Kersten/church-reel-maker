@@ -202,18 +202,26 @@ def spread(labels: list[Part | None]) -> None:
 
 
 def absorb_islands(labels: list[Part | None], segments: list[Segment], shortest: float = 20.0) -> None:
-    """A couple of sentences is not a part of the service. Fold short runs into their neighbours."""
-    for start, end in runs(labels):
-        length = segments[end].end - segments[start].start
-        if length >= shortest:
-            continue
-        before = labels[start - 1] if start > 0 else None
-        after = labels[end + 1] if end + 1 < len(labels) else None
-        replacement = before or after
-        if replacement is None or (before and after and before != after and labels[start] == "preek"):
-            continue
+    """A couple of sentences is not a part of the service.
+
+    The shortest island is folded into whichever neighbour lasts longer, and then the same
+    question is asked again, until nothing tiny is left. One stray mention of the collection
+    in the middle of the preaching is a sentence, not a notices block.
+    """
+    while True:
+        stretches = runs(labels)
+        if len(stretches) < 2:
+            return
+        spans = [segments[end].end - segments[start].start for start, end in stretches]
+        smallest = min(range(len(stretches)), key=lambda n: spans[n])
+        if spans[smallest] >= shortest:
+            return
+        before = spans[smallest - 1] if smallest > 0 else -1.0
+        after = spans[smallest + 1] if smallest + 1 < len(stretches) else -1.0
+        winner = stretches[smallest - 1] if before >= after else stretches[smallest + 1]
+        start, end = stretches[smallest]
         for i in range(start, end + 1):
-            labels[i] = replacement
+            labels[i] = labels[winner[0]]
 
 
 def runs(labels: list[Part | None]) -> list[tuple[int, int]]:

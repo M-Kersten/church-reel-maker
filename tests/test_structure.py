@@ -149,3 +149,29 @@ def test_the_summary_names_the_parts_and_when_they_are(service):
     line = structure.summary(structure.blocks(service))
     assert "preek" in line and "mededelingen" in line
     assert ":" in line, "the times are there for the model to place a moment"
+
+
+def test_a_stray_sentence_does_not_split_the_sermon_in_two(service):
+    """One mention of the collection in the middle of the preaching is a sentence."""
+    from backend.models import Segment as Seg
+
+    lines = list(service)
+    sermon_at = next(i for i, s in enumerate(lines) if "praten over rust" in s.text)
+    stray = lines[sermon_at + 3]
+    lines[sermon_at + 3] = Seg(start=stray.start, end=stray.end,
+                               text="En dat heeft niets met de collecte te maken.")
+    found = structure.blocks(lines)
+    sermon_blocks = [b for b in found if b.part == "preek"]
+    assert len(sermon_blocks) == 1, "the preaching stays one block"
+    assert not any(b.part == "mededelingen" and b.seconds < 20 for b in found)
+
+
+def test_short_islands_are_folded_into_the_longer_neighbour():
+    from backend.models import Segment as Seg
+
+    long_before = [Seg(start=i * 10.0, end=i * 10.0 + 9.0, text="Vandaag wil ik praten over rust.")
+                   for i in range(20)]
+    island = [Seg(start=200.0, end=205.0, text="De collecte is voor de diaconie.")]
+    short_after = [Seg(start=210.0, end=219.0, text="Laten we bidden.")]
+    labels = structure.label_segments(long_before + island + short_after)
+    assert labels[20] == labels[19], "the island joined the long stretch, not the short one"
