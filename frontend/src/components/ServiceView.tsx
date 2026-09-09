@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, serviceApi, type ClipCandidate, type Service } from '../api'
+import { useChurch } from '../church'
 import { formatTime } from '../subtitleLayout'
 import ClipSuggestions from './ClipSuggestions'
+import StationServices from './StationServices'
 import Steps from './Steps'
 
 const STORAGE_KEY = 'church-reel-maker.service'
@@ -74,6 +76,7 @@ export default function ServiceView({ onOpenClip }: Props) {
   // Most churches already publish the service somewhere, so the link is the shorter way in.
   const [how, setHow] = useState<'link' | 'file'>('link')
   const [link, setLink] = useState('')
+  const church = useChurch()
   const [offline, setOffline] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -151,13 +154,13 @@ export default function ServiceView({ onOpenClip }: Props) {
     }
   }
 
-  const fetchLink = async () => {
-    if (!link.trim()) return
+  const fetchFrom = async (url: string) => {
+    if (!url.trim()) return
     setError(null)
     try {
       const s = service && !service.sourceVideo ? service : await serviceApi.create()
       autoChain.current = true
-      adopt(await serviceApi.link(s.id, link.trim()))
+      adopt(await serviceApi.link(s.id, url.trim()))
       setLink('')
     } catch (e) {
       fail(e)
@@ -235,8 +238,15 @@ export default function ServiceView({ onOpenClip }: Props) {
       )}
 
       {!showSource ? null : how === 'link' && !hasVideo && uploading === null ? (
+        <>
+        <StationServices
+          key={church?.kerkdienstgemistStation ?? ''}
+          station={church?.kerkdienstgemistStation ?? ''}
+          disabled={busy}
+          onPick={fetchFrom}
+        />
         <div className="paste">
-          <label htmlFor="link"><strong>Plak het adres van de dienst</strong></label>
+          <label htmlFor="link"><strong>Of plak het adres van een dienst</strong></label>
           <div className="row">
             <input
               id="link"
@@ -245,9 +255,9 @@ export default function ServiceView({ onOpenClip }: Props) {
               disabled={busy}
               placeholder="https://kerkdienstgemist.nl/stations/…/events/recording/…"
               onChange={(e) => setLink(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchLink()}
+              onKeyDown={(e) => e.key === 'Enter' && fetchFrom(link)}
             />
-            <button className="primary" disabled={busy || !link.trim()} onClick={fetchLink}>Ophalen</button>
+            <button className="primary" disabled={busy || !link.trim()} onClick={() => fetchFrom(link)}>Ophalen</button>
           </div>
           <p className="hint">
             Kerkdienstgemist, YouTube, Vimeo, Facebook of een directe link naar een mp4. Bij
@@ -256,6 +266,7 @@ export default function ServiceView({ onOpenClip }: Props) {
             tabblad hiernaast.
           </p>
         </div>
+        </>
       ) : (
         <label
           className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}

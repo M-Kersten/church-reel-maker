@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test": "npm run typecheck && node --disable-warning=ExperimentalWarning test/mirror.ts ../tests/fixtures/mirror.json && node --disable-warning=ExperimentalWarning test/styles.ts"
+    "test": "npm run typecheck && node --disable-warning=ExperimentalWarning test/mirror.ts ../tests/fixtures/mirror.json && node --disable-warning=ExperimentalWarning test/styles.ts && node --disable-warning=ExperimentalWarning test/dates.ts"
   },
   "dependencies": {
     "react": "^19.2.8",

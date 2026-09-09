@@ -150,6 +150,17 @@ None, the link falls through to the ordinary route, and the reader gets the note
 kerkdienstgemist-recording.json` is a real answer, with the signatures scrubbed, so the
 tests parse the shape that was actually there.
 
+The same API answers `GET /api/v2/stations/{station}` and `.../recordings?include=media`,
+so a church that fills in its **station number** once (brand → Gegevens) gets its own recent
+services listed on the service page, each one fetchable with a button. The number is the one
+in the address of the church's page: `kerkdienstgemist.nl/stations/1341` → `1341`. Without
+it, that block explains where to find it and links to the site. Private and locked
+recordings are left out of the list, since they cannot be fetched anyway.
+
+Times are read from the stamp as written (`2026-08-30T10:00:00+02:00` → "zondag 30 augustus
+· 10:00") rather than through `Date`, so a service at ten o'clock says ten o'clock whatever
+timezone the computer looking at it is set to; `frontend/test/dates.ts` pins that down.
+
 Kerkomroep has no such resolver, so it still gets a note pointing at its own download.
 
 ## Full service clip discovery
@@ -413,6 +424,7 @@ GET  /templates/...                 fonts and outro.mp4 (for the preview)
 POST /services                      create an empty service
 POST /services/{id}/upload          multipart upload of the full recording
 POST /services/{id}/link            fetch the recording from a link (body: {"url"}), as a job
+GET  /kerkdienstgemist/stations/{id}  a church's recent services, ready to pick from
 POST /services/{id}/transcribe      background transcription (status: transcribing -> transcribed)
 POST /services/{id}/analyze         background LLM analysis (status: analyzing -> ready)
 GET  /services/{id}                 service + transcript + running job progress

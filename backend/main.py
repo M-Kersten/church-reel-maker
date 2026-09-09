@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import brands, clips, discovery, fetch, fonts, health, outro, renderer, storage, transcription, wordlearn
+from . import brands, clips, discovery, fetch, fonts, health, kerkdienstgemist, outro, renderer, storage, transcription, wordlearn
 from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
@@ -675,6 +675,22 @@ def adopt_recording(service: Service, target: Path, title: str) -> None:
     service.transcript = None
     service.candidates = []
     set_status(service, "uploaded")
+
+
+@app.get("/kerkdienstgemist/stations/{station_id}")
+def read_station(station_id: str):
+    """The services this church has standing, so nobody has to go and look them up."""
+    try:
+        found = kerkdienstgemist.station(station_id)
+    except kerkdienstgemist.NotFound as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {
+        "id": found.id,
+        "name": found.name,
+        "url": found.url,
+        "services": [{"id": s.id, "title": s.title, "when": s.when, "url": s.url,
+                      "duration": s.duration} for s in found.services],
+    }
 
 
 @app.post("/services/{service_id}/link", response_model=ServiceDetail)

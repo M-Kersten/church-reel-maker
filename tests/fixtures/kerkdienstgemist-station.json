@@ -1,0 +1,81 @@
+{
+  "jsonapi": {
+    "version": "1.0"
+  },
+  "meta": {
+    "copyright": "Copyright (C) Kerkdienst Gemist B.V. 2015 - 2026"
+  },
+  "links": {
+    "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341",
+    "search": "https://api.kerkdienstgemist.nl/api/v2/search?station=1&station_id=1341"
+  },
+  "data": {
+    "id": "1341",
+    "type": "stations",
+    "attributes": {
+      "name": "Nieuwe Kerk Utrecht (Wittevrouwen)",
+      "description": "<p>Diensten: Zondag: 10:00</p>\n<p>De Nieuwe Kerk is onderdeel van de Protestantse Gemeente Utrecht (PGU).</p>\n<p>De Nieuwe Kerk is een gemeenschap van Jezus Christus waar mensen thuiskomen, God eren en bouwen aan Zijn Koninkrijk.</p>\n<p>Via deze stream kijkt u rechtstreeks mee met de erediensten van Nieuwe Kerk Wittevrouwen. Nieuwe Kerk Wittevrouwen is onderdeel van de Nieuwe Kerk Utrecht.</p>",
+      "private": false,
+      "requests_disabled": false,
+      "address": {
+        "street1": "Bollenhofsestraat 138a",
+        "street2": "",
+        "city": "Utrecht",
+        "state": "",
+        "postal_code": "3572VT",
+        "country": "Nederland",
+        "latitude": 52.0992,
+        "longitude": 5.13486
+      },
+      "homepage": "http://www.nk-utrecht.nl",
+      "denominations": [
+        "Protestantse Gemeente (PKN)"
+      ],
+      "contact": {
+        "email": "communicatie@nk-utrecht.nl",
+        "phone": "",
+        "description": ""
+      },
+      "recurring_events": [
+        {
+          "day_of_week": "0",
+          "time": "10:00",
+          "recurrence": "WEEKLY"
+        }
+      ],
+      "image": {
+        "large": "https://img.kerkdienstgemist.nl/90030141/images/large_josvandijknet-4jpg_18887636561_o.jpg?v=1788926413",
+        "medium": "https://img.kerkdienstgemist.nl/90030141/images/medium_josvandijknet-4jpg_18887636561_o.jpg?v=1788926413",
+        "small": "https://img.kerkdienstgemist.nl/90030141/images/small_josvandijknet-4jpg_18887636561_o.jpg?v=1788926413",
+        "thumb": "https://img.kerkdienstgemist.nl/90030141/images/thumb_josvandijknet-4jpg_18887636561_o.jpg?v=1788926413"
+      }
+    },
+    "relationships": {
+      "streams": {
+        "links": {
+          "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/streams"
+        }
+      },
+      "events": {
+        "links": {
+          "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/events"
+        }
+      },
+      "recordings": {
+        "links": {
+          "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings"
+        }
+      },
+      "integrations": {
+        "links": {
+          "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/integrations"
+        }
+      },
+      "assignments": {}
+    },
+    "links": {
+      "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+    }
+  },
+  "included": []
+}

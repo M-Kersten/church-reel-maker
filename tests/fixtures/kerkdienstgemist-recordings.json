@@ -1,0 +1,828 @@
+{
+  "jsonapi": {
+    "version": "1.0"
+  },
+  "meta": {
+    "copyright": "Copyright (C) Kerkdienst Gemist B.V. 2015 - 2026",
+    "pagination": {
+      "first": "1",
+      "page": "1",
+      "size": "10",
+      "last": "3",
+      "prev": null,
+      "next": "2",
+      "total_entries": 30
+    }
+  },
+  "links": {
+    "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings?include=media&page%5Bsize%5D=6",
+    "first": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings?include=media",
+    "last": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings?include=media&page=3",
+    "prev": null,
+    "next": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings?include=media&page=2"
+  },
+  "data": [
+    {
+      "id": "178868160001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-09-06T10:00:00+02:00",
+        "end_at": "2026-09-06T11:29:58+02:00",
+        "available_until": "2027-03-06",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3409950",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178868160001341"
+      }
+    },
+    {
+      "id": "178807680001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-08-30T10:00:00+02:00",
+        "end_at": "2026-08-30T11:35:53+02:00",
+        "available_until": "2027-02-28",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3404469",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178807680001341"
+      }
+    },
+    {
+      "id": "178747200001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-08-23T10:00:00+02:00",
+        "end_at": "2026-08-23T11:19:21+02:00",
+        "available_until": "2027-02-23",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3398715",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178747200001341"
+      }
+    },
+    {
+      "id": "178686720001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-08-16T10:00:00+02:00",
+        "end_at": "2026-08-16T11:10:13+02:00",
+        "available_until": "2027-02-16",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3393247",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178686720001341"
+      }
+    },
+    {
+      "id": "178626240001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-08-09T10:00:00+02:00",
+        "end_at": "2026-08-09T11:11:17+02:00",
+        "available_until": "2027-02-09",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3388479",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178626240001341"
+      }
+    },
+    {
+      "id": "178565762101341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-08-02T10:00:21+02:00",
+        "end_at": "2026-08-02T11:16:34+02:00",
+        "available_until": "2027-02-02",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3383951",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178565762101341"
+      }
+    },
+    {
+      "id": "178565760001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-08-02T10:00:00+02:00",
+        "end_at": "2026-08-02T11:16:25+02:00",
+        "available_until": "2027-02-02",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3383950",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178565760001341"
+      }
+    },
+    {
+      "id": "178505280001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-07-26T10:00:00+02:00",
+        "end_at": "2026-07-26T11:14:27+02:00",
+        "available_until": "2027-01-26",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3378826",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178505280001341"
+      }
+    },
+    {
+      "id": "178505262001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-07-26T09:57:00+02:00",
+        "end_at": "2026-07-26T11:11:27+02:00",
+        "available_until": "2027-01-26",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3378834",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178505262001341"
+      }
+    },
+    {
+      "id": "178444800001341",
+      "type": "recordings",
+      "attributes": {
+        "start_at": "2026-07-19T10:00:00+02:00",
+        "end_at": "2026-07-19T11:12:24+02:00",
+        "available_until": "2027-01-19",
+        "title": "Kerkdienst ochtend",
+        "description": "",
+        "artist": "",
+        "private": false
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        },
+        "media": {
+          "data": [
+            {
+              "id": "3374154",
+              "type": "video_files"
+            }
+          ]
+        }
+      },
+      "links": {
+        "self": "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings/178444800001341"
+      }
+    }
+  ],
+  "included": [
+    {
+      "id": "3409950",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-09-06T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-09-06-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4.mp4/playlist.m3u8?sig=02n_xs_qto4wiDfP-vgaAQ&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260906075700_15205940-mp4.mp4&origin=p-video-vod-192-168-82-208.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=mz4-kAWMVzgo6BY1vVoYRw&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260906075700_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 5398,
+        "sermon_start_time": 1767,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260906075700_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3404469",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-08-30T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-08-30-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4.mp4/playlist.m3u8?sig=AfEtR1ccu6OekfY6b88tZA&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260830075816_15205940-mp4.mp4&origin=p-video-vod-192-168-23-70.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=P-wI1JnM3tKEADUY0szP5Q&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260830075816_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 5753,
+        "sermon_start_time": 2822,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260830075816_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3398715",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-08-23T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-08-23-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4.mp4/playlist.m3u8?sig=Y1LuqQToD7c_6dYhh0X3JA&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260823075700_15205940-mp4.mp4&origin=p-video-vod-192-168-82-208.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=e0kbbzVjuJYgsTK7rL-i_w&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260823075700_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4761,
+        "sermon_start_time": 1770,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260823075700_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3393247",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-08-16T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-08-16-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4.mp4/playlist.m3u8?sig=QlAI-ECl9BcoEPNxsM5cNQ&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260816075700_15205940-mp4.mp4&origin=p-video-vod-192-168-23-70.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=7ic5MsdLUc11YOGr6zSGGQ&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260816075700_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4213,
+        "sermon_start_time": 1465,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260816075700_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3388479",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-08-09T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-08-09-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4.mp4/playlist.m3u8?sig=qP8zlLuSWUU656wpnS9xxg&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260809075700_15205940-mp4.mp4&origin=p-video-vod-192-168-82-208.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=mALAXiT48tSp_Yvx_DMszA&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260809075700_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4277,
+        "sermon_start_time": 1447,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260809075700_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3383951",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-08-02T10:00:21+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-08-02-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4.mp4/playlist.m3u8?sig=QnIWKRlKuDFUKWWHaT0mQA&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260802080021_16322537-mp4.mp4&origin=p-video-vod-192-168-23-70.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=8xAcAcj34DoMbksyD-3Iow&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260802080021_16322537-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4573,
+        "sermon_start_time": 1342,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080021_16322537-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3383950",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-08-02T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-08-02-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4.mp4/playlist.m3u8?sig=PHWns_VmTHw2v6p35jmRWw&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260802080009_15205940-mp4.mp4&origin=p-video-vod-192-168-82-208.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=31MWT1hL4gnkJxcuh4VpFQ&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260802080009_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4585,
+        "sermon_start_time": 1357,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260802080009_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3378826",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-07-26T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-07-26-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4.mp4/playlist.m3u8?sig=USlXwAWgpfnis_7pwEriGA&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260726075700_15205940-mp4.mp4&origin=p-video-vod-192-168-82-208.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=mSteChp5AdOja_tVf9yMWg&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260726075700_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4467,
+        "sermon_start_time": 1785,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3378834",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-07-26T09:57:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-07-26-0957.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4.mp4/playlist.m3u8?sig=nX7xW8wjm1LH5Q4xN9mEkg&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260726075700_16319499-mp4.mp4&origin=p-video-vod-192-168-23-70.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=XedOsV5NP0KnClwviBS6xA&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260726075700_16319499-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4467,
+        "sermon_start_time": 1785,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260726075700_16319499-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    },
+    {
+      "id": "3374154",
+      "type": "video_files",
+      "attributes": {
+        "content_type": "video/mp4",
+        "recorded_at": "2026-07-19T10:00:00+02:00",
+        "private": false,
+        "locked": false,
+        "download_url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4.mp4?response-content-disposition=attachment%3Bfilename%3D2026-07-19-1000.mp4&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+        "sources": [
+          {
+            "type": "hls",
+            "file": "https://vodcdn.kerkdienstgemist.nl/vodcdn/_definst_/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4.mp4/playlist.m3u8?sig=vgbJHPmKH3az9GR3qSGuwQ&expires=1788969022&clientid=e0af3ba4411ef4d4e346a30adb105370&stream=mp4:amazons3-media.kerkdienstgemist.nl-90030141-v1100699-20260719080002_15205940-mp4.mp4&origin=p-video-vod-192-168-82-208.video.kerkdienstgemist.nl&ssl=1"
+          },
+          {
+            "type": "rtmp",
+            "file": "rtmp://rtmp-not-supported:1935/vod?sig=sLy3XdSPEN4Hw6nEwIMraA&expires=1788969022&clientid=e0af3ba4411e&stream=90030141-v1100699-20260719080002_15205940-mp4.mp4/mp4:amazons3/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4.mp4"
+          },
+          {
+            "type": "mp4",
+            "file": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+          }
+        ],
+        "duration": 4344,
+        "sermon_start_time": 1880,
+        "thumbnails": {
+          "url": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4/thumbnails.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "tile": {
+            "x": 10,
+            "y": 10
+          },
+          "width": 1600,
+          "height": 900
+        },
+        "poster": {
+          "large": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4/poster_large.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "medium": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4/poster_medium.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "small": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4/poster_small.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED",
+          "thumb": "https://s3.eu-west-1.amazonaws.com/media.kerkdienstgemist.nl/90030141-v1100699/20260719080002_15205940-mp4/poster_thumb.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=SCRUBBED&X-Amz-Date=20260909T125022Z&X-Amz-Expires=10800&X-Amz-SignedHeaders=host&X-Amz-Signature=SCRUBBED"
+        }
+      },
+      "relationships": {
+        "station": {
+          "links": {
+            "related": "https://api.kerkdienstgemist.nl/api/v2/stations/1341"
+          }
+        }
+      }
+    }
+  ]
+}

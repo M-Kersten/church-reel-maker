@@ -194,6 +194,26 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .drop.compact { padding: 0.8rem 1.1rem; text-align: left; display: flex; align-items: center; gap: 0.8rem; }
 .drop input { display: none; }
 
+/* the services this church has standing on its own page, ready to pick */
+.station {
+  border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.3rem;
+  background: var(--white); margin-bottom: 0.9rem;
+}
+.station > header { display: flex; align-items: baseline; gap: 0.8rem; margin-bottom: 0.5rem; }
+.station > header strong { color: var(--purple); font-size: 1rem; }
+.station > header a { margin-left: auto; font-size: 0.82rem; }
+.station ul { list-style: none; margin: 0; padding: 0; }
+.station li { display: flex; align-items: center; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
+.station li:last-child { border-bottom: none; }
+.station .what { flex: 1; display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+.station .what strong { font-size: 0.92rem; }
+.station .row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.station > .hint { margin-top: 0.7rem; }
+.empty-station { background: var(--lavender); border-color: transparent; display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; }
+.empty-station > div:first-child { flex: 1; min-width: 18rem; }
+.empty-station strong { color: var(--purple); }
+.empty-station .hint { margin-top: 0.3rem; max-width: 62ch; }
+
 /* two ways in: the link the church already publishes, or a file from this computer */
 .source-pick { margin-bottom: 0.9rem; }
 .paste { border: 1px solid var(--line); border-radius: 14px; padding: 1.4rem 1.5rem; background: var(--white); margin-bottom: 1.3rem; }

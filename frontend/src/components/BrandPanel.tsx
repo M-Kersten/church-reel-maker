@@ -6,15 +6,17 @@ import ChurchTab from './brand/ChurchTab'
 import OutroTab from './brand/OutroTab'
 import WordsTab, { type WordGroup } from './brand/WordsTab'
 
-type Tab = 'church' | 'words' | 'outro'
+export type BrandTab = 'church' | 'words' | 'outro'
 
-const TABS: { id: Tab; label: string; says: string }[] = [
+const TABS: { id: BrandTab; label: string; says: string }[] = [
   { id: 'church', label: 'Gegevens', says: 'Naam, diensttijden en Instagram van deze kerk' },
   { id: 'words', label: 'Woorden', says: 'Namen die de computer bij het uitschrijven moet kennen' },
   { id: 'outro', label: 'Afsluiter', says: 'Het eindscherm dat achter elke video komt' },
 ]
 
 interface Props {
+  /** Which tab to open on, when something sent you here for one of them. */
+  tab?: BrandTab
   onClose: () => void
 }
 
@@ -24,11 +26,11 @@ interface Props {
  * page, where the third drowned out the first two. One tab each now, with the brand you are
  * editing named above them and the save button always in view below.
  */
-export default function BrandPanel({ onClose }: Props) {
+export default function BrandPanel({ tab: opensOn = 'church', onClose }: Props) {
   const families = useFonts()
   // The made end screen is a file on disk; bumping this asks the browser for the new one.
   const [version, setVersion] = useState(0)
-  const [tab, setTab] = useState<Tab>('church')
+  const [tab, setTab] = useState<BrandTab>(opensOn)
   const [brands, setBrands] = useState<BrandSummary[]>([])
   const [brand, setBrand] = useState<Brand | null>(null)
   const [dirty, setDirty] = useState(false)

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useChurch } from './church'
-import BrandPanel from './components/BrandPanel'
+import BrandPanel, { type BrandTab } from './components/BrandPanel'
 import ClipEditor from './components/ClipEditor'
 import ServiceView from './components/ServiceView'
 import StoragePanel from './components/StoragePanel'
@@ -49,7 +49,18 @@ export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [tidying, setTidying] = useState(false)
   const [branding, setBranding] = useState(false)
+  const [brandTab, setBrandTab] = useState<BrandTab>('church')
   const church = useChurch()
+
+  // Other parts of the page can send you here, on the tab that holds what they meant.
+  useEffect(() => {
+    const open = (e: Event) => {
+      setBrandTab(((e as CustomEvent).detail as BrandTab) ?? 'church')
+      setBranding(true)
+    }
+    window.addEventListener('open-brand', open)
+    return () => window.removeEventListener('open-brand', open)
+  }, [])
 
   const switchMode = (next: Mode) => {
     setMode(next)
@@ -102,7 +113,10 @@ export default function App() {
           <button
             aria-haspopup="dialog"
             title="De gegevens van de kerk, de woorden die hier vallen en het eindscherm achter elke video"
-            onClick={() => setBranding(true)}
+            onClick={() => {
+              setBrandTab('church')
+              setBranding(true)
+            }}
           >
             <BrandIcon /> <span>Merk instellen</span>
           </button>
@@ -118,7 +132,7 @@ export default function App() {
       <main className="page">
         {mode === 'service' ? <ServiceView onOpenClip={openClip} /> : <ClipEditor projectId={projectId} onProjectChange={setProjectId} />}
       </main>
-      {branding && <BrandPanel onClose={() => setBranding(false)} />}
+      {branding && <BrandPanel tab={brandTab} onClose={() => setBranding(false)} />}
       {tidying && <StoragePanel onClose={() => setTidying(false)} />}
     </>
   )

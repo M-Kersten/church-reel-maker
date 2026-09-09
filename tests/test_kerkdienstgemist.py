@@ -152,3 +152,126 @@ def test_a_failure_after_resolving_still_names_the_site_you_pasted(tmp_path, mon
         fetch.fetch(PAGE, tmp_path)
     assert "Kerkdienstgemist" in str(caught.value)
     assert "amazonaws" not in str(caught.value)
+
+
+# --- the church's own list of services ------------------------------------------
+
+ABOUT = json.loads((Path(__file__).parent / "fixtures" / "kerkdienstgemist-station.json")
+                   .read_text(encoding="utf-8"))
+LISTING = json.loads((Path(__file__).parent / "fixtures" / "kerkdienstgemist-recordings.json")
+                     .read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def listed(monkeypatch):
+    """Answer the two calls a listing takes, and record what was asked."""
+    asked: list[str] = []
+
+    def reply(url, timeout=kdg.TIMEOUT):
+        asked.append(url)
+        return copy.deepcopy(LISTING if url.endswith("/recordings?include=media") else ABOUT)
+
+    monkeypatch.setattr(kdg, "ask", reply)
+    return asked
+
+
+def test_a_station_number_brings_back_the_church_and_its_services(listed):
+    found = kdg.station("1341")
+    assert found.name == "Nieuwe Kerk Utrecht (Wittevrouwen)"
+    assert found.url == "https://kerkdienstgemist.nl/stations/1341"
+    assert len(found.services) == 10
+    assert listed == ["https://api.kerkdienstgemist.nl/api/v2/stations/1341",
+                      "https://api.kerkdienstgemist.nl/api/v2/stations/1341/recordings?include=media"]
+
+
+def test_each_service_carries_what_it_takes_to_choose_and_to_fetch(listed):
+    first = kdg.station("1341").services[0]
+    assert first.title == "Kerkdienst ochtend"
+    assert first.when.startswith("2026-09-06T10:00")
+    assert first.duration == 5398
+    # The page address, which is the one thing the app already knows how to fetch.
+    assert first.url == f"https://kerkdienstgemist.nl/stations/1341/events/recording/{first.id}"
+
+
+def test_the_newest_service_is_at_the_top(listed):
+    when = [s.when for s in kdg.station("1341").services]
+    assert when == sorted(when, reverse=True)
+
+
+@pytest.mark.parametrize("where, flag", [
+    ("recording", "private"), ("video", "locked"), ("video", "private"),
+])
+def test_a_service_that_cannot_be_had_is_left_out(monkeypatch, where, flag):
+    shut = copy.deepcopy(LISTING)
+    if where == "recording":
+        shut["data"][0]["attributes"][flag] = True
+    else:
+        held = shut["data"][0]["relationships"]["media"]["data"][0]["id"]
+        next(m for m in shut["included"] if m["id"] == held)["attributes"][flag] = True
+
+    monkeypatch.setattr(kdg, "ask",
+                        lambda url, timeout=30: copy.deepcopy(shut if "recordings" in url else ABOUT))
+    left = kdg.station("1341").services
+    assert len(left) == 9
+    assert LISTING["data"][0]["id"] not in [s.id for s in left]
+
+
+@pytest.mark.parametrize("typed", ["", "  ", "abc", "13 41", "1341x", "-1"])
+def test_a_number_that_is_not_a_number_never_reaches_the_platform(monkeypatch, typed):
+    monkeypatch.setattr(kdg, "ask", lambda *a, **k: pytest.fail("should not have asked"))
+    with pytest.raises(kdg.NotFound) as caught:
+        kdg.station(typed)
+    assert "cijfers" in str(caught.value)
+
+
+def test_a_church_that_is_not_there_says_so_with_the_number_in_it(monkeypatch):
+    def gone(url, timeout=30):
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(kdg, "ask", gone)
+    with pytest.raises(kdg.NotFound) as caught:
+        kdg.station("999999")
+    assert "999999" in str(caught.value)
+
+
+def test_no_connection_says_so_rather_than_blaming_the_number(monkeypatch):
+    def down(url, timeout=30):
+        raise urllib.error.URLError("no route to host")
+
+    monkeypatch.setattr(kdg, "ask", down)
+    with pytest.raises(kdg.NotFound) as caught:
+        kdg.station("1341")
+    assert "verbinding" in str(caught.value)
+
+
+def test_a_shape_we_no_longer_recognise_points_at_pasting_the_address(monkeypatch):
+    monkeypatch.setattr(kdg, "ask", lambda url, timeout=30: {"data": "not an object any more"})
+    with pytest.raises(kdg.NotFound) as caught:
+        kdg.station("1341")
+    assert "adres van de dienst" in str(caught.value)
+
+
+def test_the_endpoint_hands_the_page_what_it_needs(listed):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    with TestClient(app) as client:
+        answer = client.get("/kerkdienstgemist/stations/1341")
+    assert answer.status_code == 200
+    said = answer.json()
+    assert said["name"] == "Nieuwe Kerk Utrecht (Wittevrouwen)"
+    assert len(said["services"]) == 10
+    assert set(said["services"][0]) == {"id", "title", "when", "url", "duration"}
+
+
+def test_a_number_the_platform_will_not_talk_about_is_a_400_with_the_reason(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    monkeypatch.setattr(kdg, "ask", lambda *a, **k: pytest.fail("should not have asked"))
+    with TestClient(app) as client:
+        answer = client.get("/kerkdienstgemist/stations/nope")
+    assert answer.status_code == 400
+    assert "cijfers" in answer.json()["detail"]

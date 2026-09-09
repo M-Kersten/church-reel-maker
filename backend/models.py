@@ -169,6 +169,9 @@ class ChurchInfo(BaseModel):
     churchName: str = "Example Church"
     serviceTimes: list[str] = ["09:30", "11:30"]
     instagram: str = "@examplechurch"
+    # The number in the address of this church's page on kerkdienstgemist.nl. With it, the
+    # services can be listed and fetched without leaving the app.
+    kerkdienstgemistStation: str = ""
 
 
 # --- storage -----------------------------------------------------------------

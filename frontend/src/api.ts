@@ -238,6 +238,24 @@ export interface ChurchInfo {
   churchName: string
   serviceTimes: string[]
   instagram: string
+  /** The number in the address of this church's page on kerkdienstgemist.nl. */
+  kerkdienstgemistStation: string
+}
+
+/** One service standing on a church's page there. */
+export interface StationService {
+  id: string
+  title: string
+  when: string
+  url: string
+  duration: number | null
+}
+
+export interface StationServices {
+  id: string
+  name: string
+  url: string
+  services: StationService[]
 }
 
 /** An error from the API. `offline` means the app itself could not be reached. */
@@ -432,6 +450,8 @@ export const serviceApi = {
     upload<Service>(`/services/${id}/upload`, file, onProgress),
   /** Fetch the recording from where the church already publishes it. */
   link: (id: string, url: string) => request<Service>(`/services/${id}/link`, json('POST', { url })),
+  /** The services standing on this church's own page at kerkdienstgemist. */
+  station: (station: string) => request<StationServices>(`/kerkdienstgemist/stations/${encodeURIComponent(station)}`),
   transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),
   setAccuracy: (id: string, accurate: boolean) =>
     request<Service>(`/services/${id}/accuracy`, json('PUT', { accurate })),
