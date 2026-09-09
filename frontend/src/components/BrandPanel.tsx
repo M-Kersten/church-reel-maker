@@ -3,7 +3,6 @@ import { api, type Brand, type BrandSummary, type ChurchInfo, type FontWeight, t
 import { announceBrandChange } from '../church'
 import { WEIGHT_LABELS, resolveWeight, useFonts, weightsOf } from '../fonts'
 import { cssWeight } from '../subtitleLayout'
-import Section from './Section'
 
 const BACKGROUNDS: { value: OutroConfig['background']['type']; label: string }[] = [
   { value: 'gradient', label: 'Kleurverloop' },
@@ -29,17 +28,20 @@ const newLine = (y: number, weight: FontWeight): OutroLine => ({
 })
 
 interface Props {
-  outroUrl: string
-  /** Called after saving, so the preview elsewhere reloads the new end screen. */
-  onRebuilt: () => void
+  onClose: () => void
 }
 
 /**
- * A brand holds everything that makes a video belong to one church: the details, the end
- * screen, and the defaults for new clips. Several churches can live side by side here.
+ * A brand holds everything that makes a video belong to one church: the details, the words
+ * it uses, and the end screen behind every video. It sits apart from the clip you are
+ * making, because it is set once and then holds for every clip afterwards. Several churches
+ * can live side by side here.
  */
-export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
+export default function BrandPanel({ onClose }: Props) {
   const families = useFonts()
+  // The made end screen is a file on disk; bumping this asks the browser for the new one.
+  const [version, setVersion] = useState(0)
+  const outroUrl = api.outroUrl(version)
   const [brands, setBrands] = useState<BrandSummary[]>([])
   const [brand, setBrand] = useState<Brand | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -120,7 +122,7 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
       await openBrand(id)
       setBrands(await api.brands())
       announceBrandChange()
-      onRebuilt()
+      setVersion((v) => v + 1)
     } catch (e) {
       fail(e)
     } finally {
@@ -181,7 +183,7 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
       setDirty(false)
       setSaved(true)
       announceBrandChange()
-      onRebuilt()
+      setVersion((v) => v + 1)
     } catch (e) {
       fail(e)
     } finally {
@@ -205,9 +207,17 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
 
   if (!brand || !config) {
     return (
-      <Section step={6} title="Merk en afsluiter" intro="De gegevens van de kerk en het eindscherm van elke video.">
-        {error ? <div className="error">{error}</div> : <p className="empty">Bezig met laden…</p>}
-      </Section>
+      <div className="sheet" role="dialog" aria-label="Merk van de kerk">
+        <div className="sheet-box wide">
+          <header>
+            <div>
+              <h2>Merk van de kerk</h2>
+            </div>
+            <button className="bare" onClick={onClose} aria-label="Sluiten">✕</button>
+          </header>
+          {error ? <div className="error">{error}</div> : <p className="empty">Bezig met laden…</p>}
+        </div>
+      </div>
     )
   }
 
@@ -215,11 +225,20 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
   const setBackground = (patch: Partial<OutroConfig['background']>) => edit({ background: { ...background, ...patch } })
 
   return (
-    <Section
-      step={6}
-      title="Merk en afsluiter"
-      intro="Een merk bevat de gegevens van de kerk en het eindscherm dat achter elke video komt. Werk je voor meerdere kerken of locaties, maak dan per kerk een merk aan en wissel hier."
-    >
+    <div className="sheet" role="dialog" aria-label="Merk van de kerk">
+      <div className="sheet-box wide">
+        <header>
+          <div>
+            <h2>Merk van de kerk</h2>
+            <p className="intro">
+              De gegevens van de kerk, de woorden die in deze gemeente vallen en het eindscherm
+              achter elke video. Werk je voor meerdere kerken of locaties, maak dan per kerk een
+              merk aan en wissel hier.
+            </p>
+          </div>
+          <button className="bare" onClick={onClose} aria-label="Sluiten">✕</button>
+        </header>
+
       <div className="brand-row">
         <label htmlFor="brand">Merk</label>
         <select id="brand" value={brand.id} disabled={busy} onChange={(e) => switchBrand(e.target.value)}>
@@ -514,7 +533,8 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
           <p className="hint">Liever je eigen filmpje? Zet het als outro.mp4 in de map templates en zet generate op false in templates/outro.json.</p>
         </div>
       </div>
-    </Section>
+      </div>
+    </div>
   )
 }
 

@@ -4,7 +4,6 @@ import { useChurch } from '../church'
 import FramingPanel from './FramingPanel'
 import LogoPanel from './LogoPanel'
 import MusicPanel from './MusicPanel'
-import BrandPanel from './BrandPanel'
 import RenderControls from './RenderControls'
 import StylePanel from './StylePanel'
 import SubtitleEditor from './SubtitleEditor'
@@ -83,6 +82,13 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       })
       .catch(() => localStorage.removeItem(STORAGE_KEY))
   }, [projectId, project?.id, adopt])
+
+  // The brand lives in its own menu now; when it is saved the end screen is made again.
+  useEffect(() => {
+    const again = () => setOutroVersion((v) => v + 1)
+    window.addEventListener('brand-changed', again)
+    return () => window.removeEventListener('brand-changed', again)
+  }, [])
 
   const upload = async (file: File) => {
     setError(null)
@@ -368,7 +374,6 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
             <StylePanel style={style} onChange={changeStyle} />
             <LogoPanel watermark={watermark} onChange={changeWatermark} />
             <MusicPanel music={music} onChange={changeMusic} />
-            <BrandPanel outroUrl={api.outroUrl(outroVersion)} onRebuilt={() => setOutroVersion((v) => v + 1)} />
           </div>
         </div>
       )}

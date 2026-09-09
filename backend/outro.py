@@ -207,8 +207,38 @@ def ffmpeg_binary() -> str:
                        "of installeer FFmpeg en zet het in PATH.")
 
 
+def logo_file(config: OutroConfig) -> Path | None:
+    """The logo image on disk, or None when the end screen has no logo."""
+    if not config.logo.file:
+        return None
+    logo = TEMPLATES_DIR / "logos" / config.logo.file
+    if not logo.is_file():
+        logo = TEMPLATES_DIR / config.logo.file  # older configs pointed straight at templates/
+    if not logo.is_file():
+        raise RuntimeError(f"Het logobestand {config.logo.file} staat niet in templates/logos.")
+    return logo
+
+
+def logo_chain(config: OutroConfig, scale: float) -> str:
+    """Scale the logo and let it come up and go again with the text.
+
+    The text fades because libass draws it with \\fad; the logo is a picture, so it needs
+    its own fade over the alpha channel. Both use the same number of seconds, so the end
+    screen arrives as one thing instead of a logo that is simply there from frame one.
+    """
+    steps = [f"scale={int(config.logo.width * scale)}:-1", "format=rgba"]
+    if config.fade > 0:
+        out = max(0.0, config.duration - config.fade)
+        steps.append(f"fade=t=in:st=0:d={config.fade}:alpha=1")
+        steps.append(f"fade=t=out:st={out}:d={config.fade}:alpha=1")
+    return ",".join(steps)
+
+
 def background_still(config: OutroConfig, width: int, height: int, destination: Path) -> None:
-    """Draw the background and the logo once, as a single image the camera can move over."""
+    """Draw the background once, as a single image the camera can move over.
+
+    The logo is not in here: it has to fade, and a still cannot.
+    """
     background = config.background
     inputs: list[str] = []
     chain: list[str] = []
@@ -226,19 +256,7 @@ def background_still(config: OutroConfig, width: int, height: int, destination: 
         color = background.color.lstrip("#")
         inputs += ["-f", "lavfi", "-i", f"color=c=0x{color}:s={width}x{height}:d=1"]
 
-    filters = [f"[0:v]{','.join(chain)}[bg]" if chain else "[0:v]null[bg]"]
-    if config.logo.file:
-        logo = TEMPLATES_DIR / "logos" / config.logo.file
-        if not logo.is_file():
-            logo = TEMPLATES_DIR / config.logo.file  # older configs pointed straight at templates/
-        if not logo.is_file():
-            raise RuntimeError(f"Het logobestand {config.logo.file} staat niet in templates/logos.")
-        inputs += ["-i", str(logo)]
-        scale = width / WIDTH
-        filters.append(f"[1:v]scale={int(config.logo.width * scale)}:-1[logo]")
-        filters.append(f"[bg][logo]overlay=x=(W-w)/2:y={int(config.logo.y * scale)}-h/2[out]")
-    else:
-        filters.append("[bg]null[out]")
+    filters = [f"[0:v]{','.join(chain)}[out]" if chain else "[0:v]null[out]"]
 
     command = [ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error", *inputs,
                "-filter_complex", ";".join(filters), "-map", "[out]",
@@ -247,6 +265,33 @@ def background_still(config: OutroConfig, width: int, height: int, destination: 
     if result.returncode != 0:
         raise RuntimeError("De achtergrond van de afsluiter kon niet gemaakt worden: "
                            + result.stderr.strip()[-800:])
+
+
+def build_command(config: OutroConfig, still: Path, ass: Path, width: int, destination: Path) -> list[str]:
+    """The FFmpeg call that turns the background still into the end screen.
+
+    Order matters. The logo is laid on the background first, so the camera carries it along
+    exactly as it carries the background; the text comes last, drawn by libass at the size
+    of the finished frame so it stays sharp.
+    """
+    inputs = ["-loop", "1", "-t", f"{config.duration}", "-r", str(FPS), "-i", str(still)]
+    logo = logo_file(config)
+    steps = ["[0:v]null[card]"]
+    if logo:
+        inputs += ["-loop", "1", "-t", f"{config.duration}", "-r", str(FPS), "-i", str(logo)]
+        scale = width / WIDTH
+        steps = [f"[1:v]{logo_chain(config, scale)}[logo]",
+                 f"[0:v][logo]overlay=x=(W-w)/2:y={int(config.logo.y * scale)}-h/2:format=auto[card]"]
+    audio = 2 if logo else 1  # the silent track comes after the picture inputs
+    inputs += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
+    steps.append(f"[card]{motion_filter(config.motion, config.duration)},setsar=1,"
+                 f"ass=filename='{filter_path(ass)}':fontsdir='{filter_path(FONTS_DIR)}',"
+                 f"format=yuv420p[v]")
+    return [ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error", *inputs,
+            "-filter_complex", ";".join(steps), "-map", "[v]", "-map", f"{audio}:a",
+            "-t", f"{config.duration}", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+            "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "aac", "-b:a", "96k", "-ar", "48000",
+            "-movflags", "+faststart", str(destination)]
 
 
 def build(config: OutroConfig | None = None, church: ChurchInfo | None = None) -> Path:
@@ -262,17 +307,9 @@ def build(config: OutroConfig | None = None, church: ChurchInfo | None = None) -
     still_path = OUTRO_PATH.with_suffix(".bg.png")
     temp = OUTRO_PATH.with_suffix(".part.mp4")
     try:
-        background_still(config, BIG_W if moving else WIDTH, BIG_H if moving else HEIGHT, still_path)
-        # The text is drawn after the move, at the size of the finished video, so it stays crisp.
-        chain = (f"{motion_filter(config.motion, config.duration)},setsar=1,"
-                 f"ass=filename='{filter_path(ass_path)}':fontsdir='{filter_path(FONTS_DIR)}',format=yuv420p")
-        command = [ffmpeg_binary(), "-y", "-hide_banner", "-loglevel", "error",
-                   "-loop", "1", "-t", f"{config.duration}", "-r", str(FPS), "-i", str(still_path),
-                   "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-                   "-vf", chain, "-map", "0:v", "-map", "1:a",
-                   "-t", f"{config.duration}", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                   "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "aac", "-b:a", "96k", "-ar", "48000",
-                   "-movflags", "+faststart", str(temp)]
+        width = BIG_W if moving else WIDTH
+        background_still(config, width, BIG_H if moving else HEIGHT, still_path)
+        command = build_command(config, still_path, ass_path, width, temp)
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             temp.unlink(missing_ok=True)
