@@ -59,20 +59,34 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 /* app bar. Named appbar, not bar: a progress track is also a .bar, and this block's
    padding used to land on it and squeeze its 6px of height down to nothing. */
 .appbar {
-  position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 1.5rem;
-  background: var(--deep); padding: 0.75rem 1.5rem; color: var(--white);
+  position: sticky; top: 0; z-index: 30; display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.75rem 1.5rem; background: var(--deep); padding: 0.75rem 1.5rem; color: var(--white);
 }
 .brand { display: flex; align-items: center; gap: 0.65rem; }
 .brand svg { display: block; }
 .brand .name { font-weight: 800; color: var(--white); letter-spacing: -0.03em; line-height: 1.1; font-size: 1.02rem; }
 .brand .church { font-size: 0.75rem; color: rgba(237, 230, 244, 0.65); line-height: 1.2; }
-.appbar nav { display: flex; gap: 1.4rem; margin-left: auto; }
-.appbar nav button {
-  border: none; background: none; padding: 0.4rem 0; color: rgba(237, 230, 244, 0.7); font-weight: 600;
-  border-bottom: 2px solid transparent; border-radius: 0;
+/* The two workspaces: one switch, sitting next to the name, with the one you are on
+   filled in. The two panels below look nothing like it on purpose. */
+.appbar .pages { display: flex; gap: 0.25rem; padding: 0.25rem; border-radius: 11px; background: rgba(255, 255, 255, 0.09); }
+.appbar .pages button {
+  display: inline-flex; align-items: center; gap: 0.45rem; border: none; border-radius: 8px;
+  background: none; color: rgba(237, 230, 244, 0.72); font-weight: 600; padding: 0.42rem 0.85rem;
 }
-.appbar nav button:hover { color: var(--white); }
-.appbar nav button.active { color: var(--white); border-bottom-color: var(--gold); }
+.appbar .pages button:hover:not(.on) { color: var(--white); background: rgba(255, 255, 255, 0.1); }
+.appbar .pages button.on { background: var(--white); color: var(--purple); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.22); }
+
+/* The two panels: outlined, never filled, and they say what they do rather than what they are. */
+/* Stays at the right edge, on its own row too when the bar has to wrap. */
+.appbar .tools { display: flex; gap: 0.5rem; margin-left: auto; }
+.appbar .tools button {
+  display: inline-flex; align-items: center; gap: 0.42rem; padding: 0.4rem 0.7rem; border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.24); background: none; color: rgba(237, 230, 244, 0.82);
+  font-size: 0.85rem; font-weight: 600;
+}
+.appbar .tools button:hover { border-color: rgba(255, 255, 255, 0.55); background: rgba(255, 255, 255, 0.1); color: var(--white); }
+.appbar .tools svg { flex: none; opacity: 0.85; }
+@media (max-width: 720px) { .appbar .pages button { padding: 0.4rem 0.7rem; } }
 
 .page { max-width: 1240px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .page-head { margin-bottom: 1.8rem; }
@@ -269,8 +283,6 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .learn .was { color: var(--muted); text-decoration: line-through; }
 
 /* opruimen */
-.tidy-open { color: rgba(237, 230, 244, 0.8); font-weight: 500; }
-.tidy-open:hover:not(:disabled) { color: var(--white); border-color: transparent; background: rgba(255, 255, 255, 0.1); }
 .sheet {
   position: fixed; inset: 0; z-index: 40; background: rgba(23, 18, 29, 0.55);
   display: flex; align-items: flex-start; justify-content: center; padding: 4rem 1.2rem 2rem; overflow-y: auto;

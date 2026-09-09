@@ -99,14 +99,16 @@ def test_a_changed_way_of_drawing_rebuilds_the_end_screen(monkeypatch, tmp_path)
     monkeypatch.setattr(outro, "build", lambda *a, **k: built.append("built") or video)
     monkeypatch.setattr(outro.brands, "migrate", lambda: None)
 
-    # The video is younger than the brand, so nothing but the code can ask for a rebuild.
-    old = video.stat().st_mtime
+    # Ages are set against the code's own file, so the test does not depend on when it runs.
+    code = Path(outro.__file__).stat().st_mtime
     for source in (outro.brands.ACTIVE_FILE, outro.brands.path_for(outro.brands.active().id)):
         if source.is_file():
-            os.utime(source, (old - 100, old - 100))
+            os.utime(source, (code - 100, code - 100))
+
+    os.utime(video, (code + 100, code + 100))  # made after the last change to any of it
     outro.ensure_outro()
     assert built == [], "nothing changed, nothing is remade"
 
-    os.utime(video, (old - 100, old - 100))  # this file is now older than backend/outro.py
+    os.utime(video, (code - 100, code - 100))  # made before backend/outro.py last changed
     outro.ensure_outro()
     assert built == ["built"]

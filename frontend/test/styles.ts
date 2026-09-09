@@ -48,9 +48,33 @@ if (/(?:^|\})\s*\.bar\s*\{/m.test(css)) {
     + 'the .bar. Giving both the same name flattens the track.')
 }
 
+/**
+ * The header holds two kinds of button that must never look alike: the switch between the
+ * two workspaces, and the two panels that open on top of your work. They used to share one
+ * style, and nobody could tell from the bar which of the four would change the page and
+ * which would open a window. Each kind states its own fill and border, so a change to one
+ * cannot quietly restyle the other.
+ */
+const KINDS = ['.appbar .pages button', '.appbar .tools button']
+
+for (const kind of KINDS) {
+  const body = ruleBody(kind)
+  if (body === null) {
+    problems.push(`${kind} has no rule of its own, so it looks like whatever else matches it.`)
+    continue
+  }
+  for (const property of ['background', 'border']) {
+    if (!new RegExp(`(^|;)\\s*${property}\\s*:`).test(body)) {
+      problems.push(`${kind} does not state its own ${property}, so it can end up looking `
+        + 'like the other kind of header button.')
+    }
+  }
+}
+
 if (problems.length) {
-  console.error('Progress tracks are not safe from the rest of the stylesheet:\n')
+  console.error('The stylesheet leaves something to be decided elsewhere:\n')
   console.error(problems.map((p) => `  ${p}`).join('\n'))
   process.exit(1)
 }
-console.log(`${TRACKS.length} progress tracks state their own box`)
+console.log(`${TRACKS.length} progress tracks state their own box, `
+  + `${KINDS.length} kinds of header button state their own look`)
