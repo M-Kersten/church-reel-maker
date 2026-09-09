@@ -26,7 +26,7 @@ export default function App() {
 
   return (
     <>
-      <header className="bar">
+      <header className="appbar">
         <div className="brand">
           <svg width="24" height="28" viewBox="0 0 24 28" aria-hidden="true">
             <path d="M12 1C6.2 1 1.5 5.7 1.5 11.5V27h21V11.5C22.5 5.7 17.8 1 12 1Z" fill="#FFFFFF" />

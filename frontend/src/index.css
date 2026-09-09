@@ -56,8 +56,9 @@ input[type='color'] { padding: 2px; width: 2.4rem; height: 1.9rem; }
 input[type='range'] { padding: 0; border: none; accent-color: var(--purple); background: transparent; }
 input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem; }
 
-/* app bar */
-.bar {
+/* app bar. Named appbar, not bar: a progress track is also a .bar, and this block's
+   padding used to land on it and squeeze its 6px of height down to nothing. */
+.appbar {
   position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 1.5rem;
   background: var(--deep); padding: 0.75rem 1.5rem; color: var(--white);
 }
@@ -65,13 +66,13 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .brand svg { display: block; }
 .brand .name { font-weight: 800; color: var(--white); letter-spacing: -0.03em; line-height: 1.1; font-size: 1.02rem; }
 .brand .church { font-size: 0.75rem; color: rgba(237, 230, 244, 0.65); line-height: 1.2; }
-.bar nav { display: flex; gap: 1.4rem; margin-left: auto; }
-.bar nav button {
+.appbar nav { display: flex; gap: 1.4rem; margin-left: auto; }
+.appbar nav button {
   border: none; background: none; padding: 0.4rem 0; color: rgba(237, 230, 244, 0.7); font-weight: 600;
   border-bottom: 2px solid transparent; border-radius: 0;
 }
-.bar nav button:hover { color: var(--white); }
-.bar nav button.active { color: var(--white); border-bottom-color: var(--gold); }
+.appbar nav button:hover { color: var(--white); }
+.appbar nav button.active { color: var(--white); border-bottom-color: var(--gold); }
 
 .page { max-width: 1240px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .page-head { margin-bottom: 1.8rem; }
@@ -151,7 +152,7 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 
 /* progress bar */
 .progress { margin-top: 0.8rem; }
-.progress .bar { height: 6px; background: var(--lavender); border-radius: 3px; overflow: hidden; }
+.progress .bar { height: 6px; padding: 0; background: var(--lavender); border-radius: 3px; overflow: hidden; }
 .progress .bar div { height: 100%; background: var(--purple); transition: width 0.3s; }
 /* Nothing measurable yet (the speech model is warming up): show that work is happening. */
 .progress.waiting .bar { position: relative; }
@@ -462,7 +463,7 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 }
 /* upload progress */
 .uploading { display: flex; align-items: center; gap: 0.8rem; justify-content: center; }
-.uploading .bar { flex: 1; max-width: 18rem; height: 6px; background: var(--lavender); border-radius: 3px; overflow: hidden; }
+.uploading .bar { flex: 1; max-width: 18rem; height: 6px; padding: 0; background: var(--lavender); border-radius: 3px; overflow: hidden; }
 .uploading .bar div { height: 100%; background: var(--purple); transition: width 0.2s; }
 /* cost note under the analysis button */
 .cost { margin-top: 0.7rem; font-size: 0.85rem; color: var(--muted); max-width: 62ch; }

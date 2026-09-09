@@ -16,3 +16,9 @@ difference, because those two files are hand-kept copies of `subtitles.py` and
 
 `fixtures/subtitles.ass` is the same idea for the whole subtitle path: a frozen transcript
 whose generated ASS is compared byte for byte. Delete it to record a new baseline.
+
+`frontend/test/styles.ts` guards one thing the type checker cannot see: a rule reaching an
+element through a shared class name. The page header used to be `.bar`, and so is a progress
+track, so the header's padding took the track's whole 6px of height and every progress bar in
+the app was an empty groove while the percentage beside it read correctly. A track must now
+state its own box.
