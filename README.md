@@ -128,7 +128,13 @@ Each line can appear in one of four ways, with the speed (60–600 ms) set along
 
 ## Bringing the recording in
 
-Two ways, and the link is the default one. Most churches already publish the service, so
+One service is open at a time. **Andere dienst kiezen** puts it away and brings the chooser
+back; it is not a delete, so the recording, its text and its clips stay where they are and
+the service reappears under **Eerder mee gewerkt**, which is `GET /services`. Throwing one
+away is still **Ruimte vrijmaken**, which knows which recordings are held by clips that have
+not been made yet.
+
+Two ways in, and the link is the default one. Most churches already publish the service, so
 pasting that address saves finding the file on disk and waiting out a two-gigabyte copy.
 
 The downloading is `yt-dlp`'s job (`backend/fetch.py`): YouTube, Vimeo, Facebook, a direct
@@ -423,6 +429,7 @@ GET  /templates/...                 fonts and outro.mp4 (for the preview)
 
 POST /services                      create an empty service
 POST /services/{id}/upload          multipart upload of the full recording
+GET  /services                      services worked on before, newest first (?limit=12)
 POST /services/{id}/link            fetch the recording from a link (body: {"url"}), as a job
 GET  /kerkdienstgemist/stations/{id}  a church's recent services, ready to pick from
 POST /services/{id}/transcribe      background transcription (status: transcribing -> transcribed)

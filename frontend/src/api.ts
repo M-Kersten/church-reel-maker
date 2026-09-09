@@ -242,6 +242,18 @@ export interface ChurchInfo {
   kerkdienstgemistStation: string
 }
 
+/** A service that has been worked on before, to go back to. */
+export interface ServiceSummary {
+  id: string
+  title: string
+  status: ServiceStatus
+  createdAt: string
+  duration: number | null
+  hasFootage: boolean
+  clips: number
+  moments: number
+}
+
 /** One service standing on a church's page there. */
 export interface StationService {
   id: string
@@ -444,6 +456,8 @@ export interface Service {
 
 export const serviceApi = {
   create: () => request<Service>('/services', { method: 'POST' }),
+  /** The services worked on before, newest first, so closing one is not losing it. */
+  recent: () => request<ServiceSummary[]>('/services'),
   get: (id: string) => request<Service>(`/services/${id}`),
   status: (id: string) => request<ServiceProgress>(`/services/${id}/status`),
   upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>

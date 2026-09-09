@@ -194,6 +194,23 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .drop.compact { padding: 0.8rem 1.1rem; text-align: left; display: flex; align-items: center; gap: 0.8rem; }
 .drop input { display: none; }
 
+/* the recording you have open, with the way back to choosing another */
+.open-service { display: flex; align-items: stretch; gap: 0.6rem; margin-bottom: 1.3rem; }
+.open-service .drop { flex: 1; margin-bottom: 0; }
+.open-service > button { flex: none; align-self: center; }
+
+/* services worked on before, kept one click away */
+.earlier { margin-bottom: 1.3rem; }
+.earlier > .meta { margin-bottom: 0.4rem; }
+.earlier .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.earlier .chip {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem;
+  padding: 0.45rem 0.75rem; border-radius: 10px; text-align: left;
+}
+.earlier .chip strong { font-size: 0.88rem; }
+.earlier .chip .meta { font-size: 0.76rem; }
+.earlier > .hint { margin-top: 0.5rem; }
+
 /* the services this church has standing on its own page, ready to pick */
 .station {
   border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.3rem;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, serviceApi, type ClipCandidate, type Service } from '../api'
+import { ApiError, serviceApi, type ClipCandidate, type Service, type ServiceSummary } from '../api'
 import { useChurch } from '../church'
 import { formatTime } from '../subtitleLayout'
 import ClipSuggestions from './ClipSuggestions'
@@ -76,6 +76,7 @@ export default function ServiceView({ onOpenClip }: Props) {
   // Most churches already publish the service somewhere, so the link is the shorter way in.
   const [how, setHow] = useState<'link' | 'file'>('link')
   const [link, setLink] = useState('')
+  const [earlier, setEarlier] = useState<ServiceSummary[]>([])
   const church = useChurch()
   const [offline, setOffline] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -104,6 +105,17 @@ export default function ServiceView({ onOpenClip }: Props) {
     if (!saved) return
     serviceApi.get(saved).then(setService).catch(() => localStorage.removeItem(STORAGE_KEY))
   }, [])
+
+  // What is there to go back to. Asked again whenever you are between services, so one you
+  // just put away shows up in the list right below.
+  useEffect(() => {
+    if (service?.sourceVideo) return
+    let alive = true
+    serviceApi.recent().then((list) => alive && setEarlier(list)).catch(() => alive && setEarlier([]))
+    return () => {
+      alive = false
+    }
+  }, [service?.sourceVideo, service?.id])
 
   // Poll while a job runs; chain transcribe -> analyze automatically after an upload.
   useEffect(() => {
@@ -166,6 +178,34 @@ export default function ServiceView({ onOpenClip }: Props) {
       fail(e)
       autoChain.current = false
     }
+  }
+
+  /**
+   * Put the current service away so another can be picked. Nothing is deleted: it comes
+   * back under "Eerder mee gewerkt". Work that is still running is stopped first, because
+   * waiting out a half-minute stop and then pressing this again is two steps too many.
+   */
+  const pickAnother = async () => {
+    if (service && BUSY.has(service.status)) {
+      if (!window.confirm(`"${service.title}" is nog bezig. Stoppen en een andere dienst kiezen?`)) return
+      try {
+        await serviceApi.stop(service.id)
+      } catch (e) {
+        fail(e)  // it kept running, so leave it in view rather than pretend otherwise
+        return
+      }
+    }
+    setService(null)
+    setError(null)
+    setLink('')
+    autoChain.current = false
+    dirty.current = false
+    localStorage.removeItem(STORAGE_KEY)
+  }
+
+  const openEarlier = (id: string) => {
+    setError(null)
+    serviceApi.get(id).then(adopt).catch(fail)
   }
 
   const run = (action: (id: string) => Promise<Service>) => {
@@ -268,31 +308,47 @@ export default function ServiceView({ onOpenClip }: Props) {
         </div>
         </>
       ) : (
-        <label
-          className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setDragging(true)
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-        >
-          <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" disabled={uploading !== null || busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-          {uploading !== null ? (
-            <span className="uploading">
-              <strong>Bezig met uploaden…</strong>
-              <span className="bar"><span style={{ display: 'block', height: '100%', background: 'var(--purple)', width: `${Math.round(uploading * 100)}%` }} /></span>
-              <span className="meta">{Math.round(uploading * 100)}%</span>
-            </span>
-          ) : hasVideo ? (
-            <span className="meta">Sleep hier een andere opname om met een nieuwe dienst te beginnen.</span>
-          ) : (
-            <>
-              <strong>Sleep hier de opname van de hele dienst, of klik om een bestand te kiezen</strong>
-              <span className="hint">Daarna loopt het vanzelf door: uitschrijven, en dan zoeken naar bruikbare momenten.</span>
-            </>
+        <div className={hasVideo ? 'open-service' : ''}>
+          <label
+            className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+          >
+            <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" disabled={uploading !== null || busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+            {uploading !== null ? (
+              <span className="uploading">
+                <strong>Bezig met uploaden…</strong>
+                <span className="bar"><span style={{ display: 'block', height: '100%', background: 'var(--purple)', width: `${Math.round(uploading * 100)}%` }} /></span>
+                <span className="meta">{Math.round(uploading * 100)}%</span>
+              </span>
+            ) : hasVideo ? (
+              <span className="meta">Sleep hier een andere opname, of klik om een bestand te kiezen.</span>
+            ) : (
+              <>
+                <strong>Sleep hier de opname van de hele dienst, of klik om een bestand te kiezen</strong>
+                <span className="hint">Daarna loopt het vanzelf door: uitschrijven, en dan zoeken naar bruikbare momenten.</span>
+              </>
+            )}
+          </label>
+          {/* The button sits outside the label, or clicking it would open the file chooser. */}
+          {hasVideo && (
+            <button
+              className="small"
+              title="Deze dienst blijft bewaard; je kunt hem hieronder weer openen"
+              onClick={pickAnother}
+            >
+              Andere dienst kiezen
+            </button>
           )}
-        </label>
+        </div>
+      )}
+
+      {showSource && !hasVideo && uploading === null && (
+        <Earlier services={earlier} disabled={busy} onOpen={openEarlier} />
       )}
 
       {service && (hasVideo || service.status === 'fetching' || service.status === 'error') && (
@@ -429,6 +485,58 @@ export default function ServiceView({ onOpenClip }: Props) {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+const SHORT: Partial<Record<Service['status'], string>> = {
+  uploaded: 'nog niet uitgeschreven',
+  transcribed: 'uitgeschreven',
+  ready: 'momenten gevonden',
+  complete: 'clips gemaakt',
+  error: 'liep vast',
+}
+
+/** What a service is worth coming back for, in one line. */
+function tells(s: ServiceSummary): string {
+  const bits: string[] = []
+  if (s.duration) bits.push(`${Math.round(s.duration / 60)} min`)
+  if (s.clips > 0) bits.push(`${s.clips} clip${s.clips === 1 ? '' : 's'} gemaakt`)
+  else if (s.moments > 0) bits.push(`${s.moments} momenten gevonden`)
+  else if (SHORT[s.status]) bits.push(SHORT[s.status]!)
+  if (!s.hasFootage) bits.push('opname opgeruimd')
+  return bits.join(' · ')
+}
+
+/**
+ * The services worked on before. Putting one away to start another should not mean losing
+ * it: the text cost half an hour and the found moments cost money, so they stay one click
+ * away for as long as they are on disk.
+ */
+function Earlier({ services, disabled, onOpen }: {
+  services: ServiceSummary[]
+  disabled: boolean
+  onOpen: (id: string) => void
+}) {
+  if (services.length === 0) return null
+  return (
+    <div className="earlier">
+      <p className="meta">Eerder mee gewerkt</p>
+      <div className="chips">
+        {services.map((s) => (
+          <button
+            key={s.id}
+            className="chip"
+            disabled={disabled}
+            title={`${s.title} · ${new Date(s.createdAt).toLocaleDateString('nl-NL')}`}
+            onClick={() => onOpen(s.id)}
+          >
+            <strong>{s.title}</strong>
+            <span className="meta">{tells(s)}</span>
+          </button>
+        ))}
+      </div>
+      <p className="hint">Weggooien doe je bij Ruimte vrijmaken, boven in de balk.</p>
     </div>
   )
 }

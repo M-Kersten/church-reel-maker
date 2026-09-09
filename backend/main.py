@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 from . import brands, clips, discovery, fetch, fonts, health, kerkdienstgemist, outro, renderer, storage, transcription, wordlearn
 from .jobs import Cancelled, Estimator, Job, JobManager
-from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
+from .models import (ROOT, SERVICES_DIR, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
                      recover_services, save_project, save_service, save_service_transcript, save_transcript, service_dir)
@@ -635,6 +635,37 @@ def run_service_job(service: Service, busy_status: str, done_status: str, work) 
 @app.post("/services", response_model=ServiceDetail)
 def create_service():
     return service_detail(new_service())
+
+
+@app.get("/services")
+def list_services(limit: int = 12):
+    """The services that have been worked on, newest first.
+
+    Closing one and picking another should not mean losing it, so this is what the service
+    page offers to go back to. A service without a recording never got off the ground and is
+    left out; a recording that has since been cleaned up is still listed, because its text
+    and its clips are the part worth returning to.
+    """
+    found: list[dict] = []
+    for path in SERVICES_DIR.glob("*/service.json"):
+        try:
+            service = Service.model_validate_json(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001  a damaged file should not empty the list
+            continue
+        if not service.sourceVideo:
+            continue
+        found.append({
+            "id": service.id,
+            "title": service.title,
+            "status": service.status,
+            "createdAt": service.createdAt,
+            "duration": service.sourceInfo.duration if service.sourceInfo else None,
+            "hasFootage": (service_dir(service.id) / service.sourceVideo).is_file(),
+            "clips": len(service.clips),
+            "moments": len(service.candidates),
+        })
+    found.sort(key=lambda s: s["createdAt"], reverse=True)
+    return found[:max(1, min(limit, 50))]
 
 
 @app.get("/services/{service_id}", response_model=ServiceDetail)
