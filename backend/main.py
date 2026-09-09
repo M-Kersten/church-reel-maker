@@ -673,7 +673,11 @@ def read_service_source(service_id: str):
     service = get_service(service_id)
     if not service.sourceVideo:
         raise HTTPException(404, "Er is nog geen video geüpload")
-    return FileResponse(service_dir(service.id) / service.sourceVideo)
+    path = service_dir(service.id) / service.sourceVideo
+    if not path.is_file():
+        raise HTTPException(404, "De opname van deze dienst staat niet meer op de schijf. "
+                                 "Upload hem opnieuw als je er nog fragmenten uit wilt halen.")
+    return FileResponse(path)
 
 
 @app.post("/services/{service_id}/transcribe", response_model=ServiceDetail)

@@ -1,3 +1,4 @@
 # Only needed to run the tests; the launcher does not install these.
 -r requirements.txt
 pytest>=8.0
+httpx>=0.27  # for FastAPI's TestClient

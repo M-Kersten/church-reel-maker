@@ -177,3 +177,17 @@ def test_the_sweep_says_what_it_did(disk):
     said = storage.sweep()
     assert "werkbestanden" in said
     assert storage.sweep() == "", "nothing left to say the second time"
+
+
+def test_a_missing_recording_is_reported_rather_than_crashing(disk):
+    """After a cleanup, or a file deleted by hand, the preview must not get a 500."""
+    from fastapi.testclient import TestClient
+
+    a_service()
+    (models.service_dir("service-1") / "source.mp4").unlink()
+    from backend import main
+
+    with TestClient(main.app) as client:
+        response = client.get("/services/service-1/source")
+    assert response.status_code == 404
+    assert "niet meer op de schijf" in response.json()["detail"]
