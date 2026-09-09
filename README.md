@@ -83,6 +83,7 @@ Environment variables for transcription:
 | `WHISPER_DEVICE` | `cpu` | `cuda` when a GPU with CUDA is available. |
 | `WHISPER_COMPUTE_TYPE` | `int8` on CPU, `float16` on GPU | |
 | `WHISPER_BATCH_SIZE` | twice the core count, at most 8 | How many 30-second windows are decoded together. |
+| `HF_TOKEN` | none | Optional [Hugging Face token](https://huggingface.co/settings/tokens). The speech model is public and downloads without one; a token only lifts the rate limit and makes the first download quicker. Without one their client prints "you are sending unauthenticated requests" on every run, which the app keeps out of the window because nothing is wrong. |
 
 Transcription runs through faster-whisper's batched pipeline: windows go through the encoder
 together instead of one after another. Measured on four cores with the `small` model over eight

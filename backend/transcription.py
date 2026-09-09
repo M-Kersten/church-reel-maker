@@ -1,10 +1,12 @@
 """Dutch speech-to-text with faster-whisper."""
 
 import json
+import logging
 import os
 import re
 import subprocess
 import threading
+import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable
@@ -141,11 +143,29 @@ def batch_size(accurate: bool = False) -> int:
     return max(2, room // 2) if accurate else room
 
 
+def quiet_hub_notices() -> None:
+    """Keep Hugging Face's housekeeping advice out of the window a volunteer is watching.
+
+    The speech model is public and downloads perfectly well without an account, but their
+    client asks for an access token on every run. A warning in the black window reads like
+    something is broken when nothing is. Put HF_TOKEN in config.env and this stops at the
+    source, and the first download goes quicker; without one, it is only noise.
+    """
+    if os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN"):
+        return
+    # It has arrived over both channels depending on the version, so close both.
+    for pattern in (r".*unauthenticated requests.*", r".*HF_TOKEN.*", r".*higher rate limits.*"):
+        warnings.filterwarnings("ignore", message=pattern)
+    for name in ("huggingface_hub", "huggingface_hub.file_download", "huggingface_hub._http", "hf_xet"):
+        logging.getLogger(name).setLevel(logging.ERROR)
+
+
 def get_model(size: str | None = None):
     """The loaded model of this size, kept for the life of the process."""
     size = size or MODEL_SIZE
     with _models_lock:
         if size not in _models:
+            quiet_hub_notices()
             from faster_whisper import WhisperModel
 
             try:

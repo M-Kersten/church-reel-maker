@@ -143,3 +143,54 @@ def test_the_reported_dict_hides_the_bookkeeping():
     from backend.jobs import Job
     keys = set(Job(status="running").to_dict())
     assert keys == {"status", "progress", "message", "error", "canStop"}
+
+
+# --- keeping the window quiet ------------------------------------------------------
+
+def test_the_hub_notice_is_silenced_when_there_is_no_token(monkeypatch):
+    """A public model downloads fine without an account; the advice to get one is noise."""
+    import logging
+    import warnings
+
+    from backend import transcription
+
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.delenv("HUGGING_FACE_HUB_TOKEN", raising=False)
+    logging.getLogger("huggingface_hub").setLevel(logging.NOTSET)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        transcription.quiet_hub_notices()
+        warnings.warn("You are sending unauthenticated requests to the HF Hub.", UserWarning)
+        warnings.warn("Please set a HF_TOKEN to enable higher rate limits.", UserWarning)
+    assert caught == [], "neither wording should reach the window"
+    assert logging.getLogger("huggingface_hub").level >= logging.ERROR
+
+
+def test_a_real_warning_still_gets_through(monkeypatch):
+    import warnings
+
+    from backend import transcription
+
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        transcription.quiet_hub_notices()
+        warnings.warn("De schijf is bijna vol.", UserWarning)
+    assert len(caught) == 1
+
+
+def test_nothing_is_silenced_when_a_token_is_set(monkeypatch):
+    """With a token there is no notice to hide, and hiding messages is not free."""
+    import logging
+    import warnings
+
+    from backend import transcription
+
+    monkeypatch.setenv("HF_TOKEN", "hf_something")
+    logging.getLogger("huggingface_hub").setLevel(logging.NOTSET)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        transcription.quiet_hub_notices()
+        warnings.warn("You are sending unauthenticated requests to the HF Hub.", UserWarning)
+    assert len(caught) == 1
+    assert logging.getLogger("huggingface_hub").level == logging.NOTSET
