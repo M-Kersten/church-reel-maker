@@ -56,6 +56,13 @@ export default function BrandPanel({ onClose }: Props) {
     loadLogos()
   }, [])
 
+  // The panel is long; Escape gets you out of it wherever you have scrolled to.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [onClose])
+
   const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
   const config = brand?.outro ?? null
   const church = brand?.church ?? null
@@ -225,15 +232,14 @@ export default function BrandPanel({ onClose }: Props) {
   const setBackground = (patch: Partial<OutroConfig['background']>) => edit({ background: { ...background, ...patch } })
 
   return (
-    <div className="sheet" role="dialog" aria-label="Merk van de kerk">
+    <div className="sheet" role="dialog" aria-label="Merk van de kerk" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet-box wide">
         <header>
           <div>
             <h2>Merk van de kerk</h2>
             <p className="intro">
-              De gegevens van de kerk, de woorden die in deze gemeente vallen en het eindscherm
-              achter elke video. Werk je voor meerdere kerken of locaties, maak dan per kerk een
-              merk aan en wissel hier.
+              De gegevens van de kerk, de woorden die hier vallen en het eindscherm achter elke
+              video. Werk je voor meerdere kerken of locaties, maak er dan per kerk een aan.
             </p>
           </div>
           <button className="bare" onClick={onClose} aria-label="Sluiten">✕</button>

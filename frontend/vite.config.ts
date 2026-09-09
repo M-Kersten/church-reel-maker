@@ -7,10 +7,11 @@ const backend = 'http://127.0.0.1:8000'
 export default defineConfig({
   plugins: [react()],
   server: {
-    proxy: {
-      '/projects': backend,
-      '/church': backend,
-      '/templates': backend,
-    },
+    // Everything the API answers on. A route missing here fails in dev only, as index.html
+    // coming back where JSON was expected, so the list is kept complete on purpose.
+    proxy: Object.fromEntries(
+      ['/brands', '/church', '/fonts', '/health', '/logos', '/music', '/outro', '/projects',
+       '/services', '/storage', '/templates'].map((path) => [path, backend]),
+    ),
   },
 })

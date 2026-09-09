@@ -279,7 +279,14 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
   background: var(--white); border-radius: 16px; padding: 1.5rem 1.6rem; width: min(46rem, 100%);
   box-shadow: 0 18px 50px rgba(23, 18, 29, 0.3);
 }
-.sheet-box.wide { width: min(64rem, 100%); }
+/* The brand panel runs longer than the screen, so it scrolls inside itself and keeps its
+   header, with the way out, pinned to the top. */
+.sheet-box.wide { width: min(64rem, 100%); max-height: calc(100vh - 6rem); overflow-y: auto; }
+.sheet-box.wide > header {
+  position: sticky; top: -1.5rem; z-index: 2; background: var(--white);
+  margin: -1.5rem -1.6rem 1.1rem; padding: 1.5rem 1.6rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
 .sheet-box > header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.1rem; }
 .sheet-box h2 { margin: 0 0 0.35rem; }
 .sheet-box .intro { margin: 0; max-width: 62ch; }
@@ -399,7 +406,11 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 
 /* end screen editor */
 .outro-edit { display: grid; grid-template-columns: 190px 1fr; gap: 1.3rem; align-items: start; }
-@media (max-width: 720px) { .outro-edit { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+  /* One column, but the end screen keeps its thumbnail size instead of filling the width. */
+  .outro-edit { grid-template-columns: 1fr; }
+  .outro-edit > div:first-child { max-width: 190px; }
+}
 .endscreen { position: relative; width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden; background: #17121D; }
 .endscreen .line { position: absolute; line-height: 1.15; cursor: grab; touch-action: none; }
 .endscreen .line:hover { outline: 1px dashed rgba(255, 255, 255, 0.6); outline-offset: 3px; }
