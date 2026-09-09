@@ -13,7 +13,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Callable
 
-from .models import FONTS_DIR, TEMPLATES_DIR, CropWindow, MusicSettings, Output, VideoInfo, Watermark
+from .models import FONTS_DIR, TEMPLATES_DIR, CropWindow, MusicSettings, Output, Track, VideoInfo, Watermark
 
 ProgressCallback = Callable[[float, str], None]
 
@@ -71,13 +71,18 @@ def _rotation(stream: dict) -> int:
 # --- crop strategies ----------------------------------------------------------
 
 
-def build_crop_filter(info: VideoInfo, output: Output, crop_strategy: str = "static", tracking=None,
-                      crop: CropWindow | None = None) -> str:
-    """Return the FFmpeg filter chain that turns the source frame into output.width x output.height."""
-    if crop_strategy == "static":
+def build_crop_filter(info: VideoInfo, output: Output, crop_strategy: str = "static",
+                      track: Track | None = None, crop: CropWindow | None = None,
+                      commands: Path | None = None) -> str:
+    """Return the FFmpeg filter chain that turns the source frame into output.width x output.height.
+
+    A track without a path, or one asked for without somewhere to write its commands, falls
+    back to the static window rather than failing: a clip must always be renderable.
+    """
+    if crop_strategy == "tracked" and track and track.x and commands is not None:
+        return tracked_crop_filter(info, output, crop, track, commands)
+    if crop_strategy in {"static", "tracked"}:
         return static_crop_filter(info, output, crop)
-    if crop_strategy == "tracked":
-        raise NotImplementedError("tracked crop arrives in Part 2")
     raise ValueError(f"unknown crop strategy: {crop_strategy}")
 
 
@@ -125,14 +130,81 @@ def crop_geometry(info: VideoInfo, output: Output, crop: CropWindow | None) -> C
     scaled_h = max(2, half_up(info.height * scale / 2) * 2)
     crop_w = min(scaled_w, output.width)
     crop_h = min(scaled_h, output.height)
-    left = half_up(min(max(crop.x * scaled_w - crop_w / 2, 0), scaled_w - crop_w))
-    top = half_up(min(max(crop.y * scaled_h - crop_h / 2, 0), scaled_h - crop_h))
-    return CropGeometry(scaled_w, scaled_h, crop_w, crop_h, left, top)
+    return CropGeometry(scaled_w, scaled_h, crop_w, crop_h,
+                        edge_for(crop.x, scaled_w, crop_w), edge_for(crop.y, scaled_h, crop_h))
+
+
+def edge_for(centre: float, scaled: int, window: int) -> int:
+    """Where a window of `window` pixels starts when it is centred on `centre`, kept inside."""
+    return half_up(min(max(centre * scaled - window / 2, 0), scaled - window))
 
 
 def static_crop_filter(info: VideoInfo, output: Output, crop: CropWindow | None = None) -> str:
     g = crop_geometry(info, output, crop)
     return (f"scale={g.scaled_w}:{g.scaled_h},crop={g.crop_w}:{g.crop_h}:{g.left}:{g.top},"
+            f"pad={output.width}:{output.height}:(ow-iw)/2:(oh-ih)/2:color=black")
+
+
+COMMAND_FPS = 50.0  # how finely the path is handed to FFmpeg, whatever rate it was stored at
+
+
+def track_at(track: Track, seconds: float) -> float | None:
+    """Where the frame sits at `seconds`. Mirrored in frontend/src/track.ts.
+
+    The path is evenly spaced from the start of the clip, so the sample is found by dividing
+    rather than searching, and the two nearest are mixed. Before the first and after the last
+    it holds still.
+    """
+    if not track.x:
+        return None
+    place = max(0.0, seconds) * track.fps
+    first = int(math.floor(place))
+    if first >= len(track.x) - 1:
+        return track.x[-1]
+    if first + 1 in set(track.jumps):
+        return track.x[first]  # the frame jumped here; sliding into it would undo the cut
+    return track.x[first] + (track.x[first + 1] - track.x[first]) * (place - first)
+
+
+def track_commands(info: VideoInfo, output: Output, crop: CropWindow | None, track: Track) -> str:
+    """The script that walks the crop window along the path, one line per move.
+
+    Read finer than it was stored: sendcmd sets a value and leaves it there, so a path
+    handed over at its own twelve-and-a-half samples a second would step visibly on a fast
+    pan. Fifty a second is below what a pixel of movement can show. A line is only written
+    when the window would actually land on a different pixel, so a speaker standing still
+    still costs a handful of lines rather than one per frame.
+    """
+    g = crop_geometry(info, output, crop)
+    span = (len(track.x) - 1) / max(1e-6, track.fps)
+    lines, before = [], None
+    for step in range(int(span * COMMAND_FPS) + 1):
+        moment = step / COMMAND_FPS
+        x = track_at(track, moment)
+        if x is None:
+            break
+        edge = edge_for(x, g.scaled_w, g.crop_w)
+        if edge == before:
+            continue
+        lines.append(f"{moment:.4f} crop@track x {edge};")
+        before = edge
+    return "\n".join(lines) + "\n"
+
+
+def tracked_crop_filter(info: VideoInfo, output: Output, crop: CropWindow | None,
+                        track: Track, commands: Path) -> str:
+    """The same window as a static crop, told where to be as the clip plays.
+
+    sendcmd hands the crop a new x at each moment the path calls for one. Everything about
+    how that path was arrived at (dead zone, easing, cuts) lives in tracking.py; by the time
+    it gets here it is a list of positions and nothing else.
+    """
+    g = crop_geometry(info, output, crop)
+    commands.parent.mkdir(parents=True, exist_ok=True)
+    commands.write_text(track_commands(info, output, crop, track), encoding="utf-8")
+    start = edge_for(track.x[0], g.scaled_w, g.crop_w) if track.x else g.left
+    return (f"scale={g.scaled_w}:{g.scaled_h},sendcmd=f='{_ffpath(commands)}',"
+            f"crop@track={g.crop_w}:{g.crop_h}:{start}:{g.top},"
             f"pad={output.width}:{output.height}:(ow-iw)/2:(oh-ih)/2:color=black")
 
 
@@ -153,7 +225,7 @@ def build_command(
     output: Output,
     destination: Path,
     crop_strategy: str = "static",
-    tracking=None,
+    track: Track | None = None,
     crop: CropWindow | None = None,
     music: MusicSettings | None = None,
     watermark: Watermark | None = None,
@@ -181,7 +253,8 @@ def build_command(
     if logo_path is not None:
         inputs.append(logo_path)  # a still image; overlay repeats its single frame
 
-    crop_chain = build_crop_filter(source_info, output, crop_strategy, tracking, crop)
+    crop_chain = build_crop_filter(source_info, output, crop_strategy, track, crop,
+                                   commands=subtitles.with_name('track.cmd'))
     clip_label = "v0raw" if logo_path is not None else "v0"
     filters.append(
         f"[0:v]{crop_chain},fps={fps},setsar=1,format=yuv420p,"
@@ -288,7 +361,7 @@ def render_video(
     destination: Path,
     outro: Path | None = None,
     crop_strategy: str = "static",
-    tracking=None,
+    track: Track | None = None,
     crop: CropWindow | None = None,
     music: MusicSettings | None = None,
     watermark: Watermark | None = None,
@@ -300,7 +373,7 @@ def render_video(
     if outro_info is None:
         outro = None
     cmd, total = build_command(
-        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, tracking, crop, music,
+        source, source_info, subtitles, outro, outro_info, output, destination, crop_strategy, track, crop, music,
         watermark, source_start
     )
     tmp = destination.with_suffix(".part.mp4")

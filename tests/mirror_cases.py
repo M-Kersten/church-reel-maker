@@ -7,9 +7,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.models import CropWindow, Output, Style, VideoInfo  # noqa: E402
-from backend.renderer import crop_geometry  # noqa: E402
+from backend.models import Track  # noqa: E402
+from backend.renderer import crop_geometry, track_at  # noqa: E402
 from backend.subtitles import layout_text  # noqa: E402
-from tests.cases import CROP_SOURCES, CROP_WINDOWS, LAYOUT_SIZES, LAYOUT_TEXTS, OUTPUT  # noqa: E402
+from tests.cases import (CROP_SOURCES, CROP_WINDOWS, LAYOUT_SIZES, LAYOUT_TEXTS, OUTPUT,  # noqa: E402
+                         TRACKS, TRACK_TIMES)
 
 
 def build() -> dict:
@@ -29,8 +31,14 @@ def build() -> dict:
             crop.append({"source": [width, height], "window": [x, y, zoom],
                          "scaledW": g.scaled_w, "scaledH": g.scaled_h,
                          "cropW": g.crop_w, "cropH": g.crop_h, "left": g.left, "top": g.top})
+    track = []
+    for fps, xs, jumps in TRACKS:
+        path = Track(fps=fps, x=xs, jumps=jumps)
+        track.append({"track": {"fps": fps, "x": xs, "jumps": jumps},
+                      "at": [{"seconds": t, "x": track_at(path, t)} for t in TRACK_TIMES]})
+
     return {"output": {"width": output.width, "height": output.height, "fps": output.fps},
-            "layout": layout, "crop": crop}
+            "layout": layout, "crop": crop, "track": track}
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import brands, clips, discovery, fetch, fonts, health, kerkdienstgemist, outro, renderer, storage, transcription, wordlearn
+from . import brands, clips, discovery, fetch, fonts, health, kerkdienstgemist, outro, renderer, storage, tracking, transcription, wordlearn
 from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, SERVICES_DIR, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
@@ -251,6 +251,17 @@ def update_crop(project_id: str, crop: CropWindow):
     return detail(project)
 
 
+@app.put("/projects/{project_id}/framing", response_model=ProjectDetail)
+def update_framing(project_id: str, follow: bool = Body(default=False, embed=True)):
+    """Follow the speaker, or go back to the window the user set. Both stay on disk."""
+    project = get_project(project_id)
+    if follow and not (project.track and project.track.x):
+        raise HTTPException(400, "Er is nog geen pad om te volgen voor deze clip")
+    project.cropStrategy = "tracked" if follow else "static"
+    save_project(project)
+    return detail(project)
+
+
 @app.post("/projects/{project_id}/render")
 def render_project(project_id: str):
     project = get_project(project_id)
@@ -287,7 +298,7 @@ def render_project(project_id: str):
         renderer.render_video(
             source, info, subtitles, project.output, output_dir / "final.mp4",
             outro=outro if outro.is_file() else None,
-            crop_strategy=project.cropStrategy, tracking=project.tracking, crop=project.crop, music=project.music,
+            crop_strategy=project.cropStrategy, track=project.track, crop=project.crop, music=project.music,
             watermark=project.watermark,
             source_start=None if project.sourceVideo else source_start,
             on_progress=on_progress, should_stop=job.check,
@@ -903,6 +914,72 @@ def update_candidates(service_id: str, candidates: list[ClipCandidate]):
     return service.candidates
 
 
+def follow_speaker(project: Project, on_progress=None, should_stop=None, quiet: bool = True) -> Project:
+    """Look through a clip for the speaker and keep the path, if it is worth keeping.
+
+    Cutting a service into clips does this for every clip, and a clip that will not follow
+    is no reason to hold up the rest, so there `quiet` swallows the failure and leaves the
+    project as it was. Someone who pressed the button themselves is waiting for an answer,
+    and gets the reason instead.
+    """
+    try:
+        source, start, length = clips.source_of(project)
+        if project.sourceInfo is None:
+            return project
+        found = tracking.build(source, project.sourceInfo, project.output, project.crop or
+                               renderer.default_crop(project.sourceInfo, project.output),
+                               start=start or None, length=length,
+                               on_progress=on_progress, should_stop=should_stop)
+        project.track = found
+        project.cropStrategy = "tracked" if found.enough else "static"
+        save_project(project)
+    except Cancelled:
+        raise
+    except Exception as exc:  # noqa: BLE001  the clip is fine, it just will not follow
+        print(f"[volgen] {project.id}: {exc}")
+        if not quiet:
+            raise
+    return project
+
+
+def track_key(project_id: str) -> str:
+    """Looking for the speaker has its own progress, apart from rendering this clip."""
+    return f"{project_id}:track"
+
+
+@app.post("/projects/{project_id}/track")
+def track_project(project_id: str):
+    """Look for the speaker in this clip. Used for a clip that arrived on its own."""
+    project = load_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Clip niet gevonden")
+    if project.sourceInfo is None:
+        raise HTTPException(400, "Upload eerst een video")
+    if jobs.is_running(track_key(project.id)):
+        raise HTTPException(409, "Er wordt al naar de spreker gezocht")
+
+    def work(job: Job) -> None:
+        job.message = "De spreker wordt gezocht"
+
+        def on_progress(fraction: float, message: str) -> None:
+            job.advance(fraction)
+            job.message = message
+
+        follow_speaker(project, on_progress, job.check, quiet=False)
+
+    return jobs.start(track_key(project.id), work).to_dict()
+
+
+@app.get("/projects/{project_id}/track")
+def read_track(project_id: str):
+    """Where the tracking run got to, so the clip page can wait for it."""
+    project = load_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Clip niet gevonden")
+    return {"job": jobs.get(track_key(project.id)).to_dict(), "cropStrategy": project.cropStrategy,
+            "track": project.track.model_dump() if project.track else None}
+
+
 @app.post("/services/{service_id}/process-selected", response_model=ServiceDetail)
 def process_selected(service_id: str):
     """Hand every selected candidate to the existing clip pipeline (clips.create_clip)."""
@@ -918,12 +995,20 @@ def process_selected(service_id: str):
     def work(job: Job, service: Service) -> None:
         for n, cand in enumerate(selected, start=1):
             job.check()
-            job.progress, job.message = (n - 1) / len(selected), f"Fragment {n} van {len(selected)} wordt klaargezet"
+            share = (n - 1) / len(selected)
+            job.progress, job.message = share, f"Fragment {n} van {len(selected)} wordt klaargezet"
             project = clips.create_clip(
                 source, cand.start, cand.end, transcript, title=cand.title,
                 origin=ClipOrigin(serviceId=service.id, candidateId=cand.id, start=cand.start, end=cand.end),
                 source_info=service.sourceInfo,
             )
+            # The framing is worked out here, in a step where you are already waiting, so
+            # the clip opens with the speaker already followed rather than centred and lost.
+            def told(fraction: float, message: str, n=n, share=share) -> None:
+                job.progress = share + fraction / len(selected)
+                job.message = f"Fragment {n} van {len(selected)} · {message}"
+
+            follow_speaker(project, told, job.check)
             service.clips.append(ProcessedClip(
                 candidateId=cand.id, projectId=project.id, title=cand.title, start=cand.start, end=cand.end,
                 createdAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),

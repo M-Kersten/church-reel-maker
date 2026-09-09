@@ -1,7 +1,8 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import type { ChurchInfo, CropWindow, Output, Segment, Style, VideoInfo, Watermark } from '../api'
+import type { ChurchInfo, CropWindow, Output, Segment, Style, Track, VideoInfo, Watermark } from '../api'
 import { api } from '../api'
 import { canPan, clampCrop, cropGeometry } from '../crop'
+import { cropAt } from '../track'
 import { BACKGROUND_ALPHA, SAFE_MARGIN_BOTTOM, SAFE_MARGIN_SIDE, cssWeight, formatTime, layoutText } from '../subtitleLayout'
 
 export interface PreviewHandle {
@@ -17,6 +18,9 @@ interface Props {
   style: Style
   output: Output
   crop: CropWindow
+  /** The path found for this clip, and whether the frame is following it. */
+  track?: Track | null
+  following?: boolean
   watermark?: Watermark
   /** Seconds into the file where this clip starts; the preview stays in clip time. */
   sourceStart?: number
@@ -31,7 +35,8 @@ interface Props {
  * the same layout rules as the ASS file. When the clip ends the outro plays.
  */
 const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(props, ref) {
-  const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, crop, watermark, onCropChange, onTime, onPlayState } = props
+  const { sourceUrl, sourceInfo, outroUrl, church, segments, style, output, crop, track, following,
+          watermark, onCropChange, onTime, onPlayState } = props
   // Everything above this component counts from the start of the clip; the video element
   // counts from the start of the file it is playing, which for a clip cut from a service
   // is the whole recording.
@@ -134,7 +139,10 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
   const outline = style.outline * scale
 
   // Place the source inside the 9:16 frame exactly like the renderer's scale/crop/pad chain.
-  const g = cropGeometry(sourceInfo, output, crop)
+  // While following the speaker that window moves with the clip, so the preview shows what
+  // the finished video will do rather than where the frame happens to have been left.
+  const shown = cropAt(crop, track ?? null, Boolean(following), time)
+  const g = cropGeometry(sourceInfo, output, shown)
   const padX = (output.width - g.cropW) / 2
   const padY = (output.height - g.cropH) / 2
   const videoStyle: React.CSSProperties = {
@@ -143,19 +151,19 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
     left: (padX - g.left) * scale,
     top: (padY - g.top) * scale,
     display: phase === 'main' ? 'block' : 'none',
-    cursor: onCropChange ? 'grab' : 'pointer',
+    cursor: onCropChange && !following ? 'grab' : 'pointer',
   }
   const pan = canPan(sourceInfo, output, crop)
 
   // Drag the video to move the crop window; a click without movement toggles playback.
   const onPointerDown = (e: React.PointerEvent<HTMLVideoElement>) => {
-    if (!onCropChange) return
+    if (!onCropChange || following) return  // the path decides; dragging would fight it
     drag.current = { x: e.clientX, y: e.clientY, crop, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   const onPointerMove = (e: React.PointerEvent<HTMLVideoElement>) => {
     const d = drag.current
-    if (!d || !onCropChange) return
+    if (!d || !onCropChange || following) return
     const dx = e.clientX - d.x
     const dy = e.clientY - d.y
     if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return
@@ -261,7 +269,7 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
             ))}
           </div>
         )}
-        <span className="badge">{phase === 'main' ? `9:16 · ${portrait ? 'staand' : 'liggend'} · zoom ${crop.zoom.toFixed(2)}` : `Afsluiter · ${church?.churchName ?? ''}`}</span>
+        <span className="badge">{phase === 'main' ? `9:16 · ${following ? 'volgt de spreker' : portrait ? 'staand' : 'liggend'} · zoom ${crop.zoom.toFixed(2)}` : `Afsluiter · ${church?.churchName ?? ''}`}</span>
       </div>
       </div>
       <div className="transport">

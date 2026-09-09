@@ -43,3 +43,20 @@ CROP_WINDOWS = [
 ]
 
 OUTPUT = (1080, 1920, 30)
+
+# Paths for the crop to walk: (fps, positions, jumps). The preview reads these to draw the
+# frame where the render will put it, so the two readings have to agree to the pixel. The
+# awkward ones are the jumps (a camera cut, never slid into) and the ends of the path.
+TRACKS = [
+    (12.5, [0.5], []),
+    (12.5, [0.2, 0.8], []),
+    (12.5, [0.2, 0.8], [1]),                       # the frame jumped rather than panned
+    (12.5, [0.5] * 12, []),                        # somebody standing still
+    (12.5, [0.30, 0.31, 0.33, 0.36, 0.40, 0.45], []),
+    (12.5, [0.4, 0.4, 0.9, 0.9, 0.35, 0.35], [2, 4]),
+    (25.0, [0.1, 0.2, 0.3, 0.4], []),              # a path stored at another rate
+    (12.5, [], []),                                # nothing was found
+]
+
+# Moments to read each of them at, including before the start and past the end.
+TRACK_TIMES = [-1.0, 0.0, 0.01, 0.039, 0.04, 0.08, 0.121, 0.16, 0.24, 0.399, 0.4, 1.0, 30.0]

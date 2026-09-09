@@ -71,6 +71,24 @@ export interface CropWindow {
   zoom: number
 }
 
+/** The path the crop walks when it follows the speaker. Read with src/track.ts. */
+export interface Track {
+  /** Samples per second, evenly spaced from the start of the clip. */
+  fps: number
+  /** Centre of the frame, as a fraction of the scaled source. Same units as CropWindow.x. */
+  x: number[]
+  /** How much of the clip the speaker was actually found in, 0 to 1. */
+  coverage: number
+  /** "face" or "person": what it mostly had to go on. */
+  subject: string
+  /** Seconds where the camera changed. */
+  cuts: number[]
+  /** Samples the frame jumped to; nothing may interpolate across one. */
+  jumps: number[]
+  /** False: too little was found for this to be worth offering. */
+  enough: boolean
+}
+
 export interface Project {
   id: string
   createdAt: string
@@ -87,7 +105,7 @@ export interface Project {
   watermark: Watermark
   cropStrategy: 'static' | 'tracked'
   crop: CropWindow
-  tracking: string | null
+  track: Track | null
   transcriptData: Transcript | null
   /** Seconds into the source file where this clip begins; 0 when the clip owns its file. */
   sourceStart: number
@@ -344,6 +362,12 @@ export const api = {
     request<Transcript>(`/projects/${id}/transcript`, json('PUT', transcript)),
   saveStyle: (id: string, style: Style) => request<Project>(`/projects/${id}/style`, json('PUT', style)),
   saveCrop: (id: string, crop: CropWindow) => request<Project>(`/projects/${id}/crop`, json('PUT', crop)),
+  /** Follow the speaker, or go back to the window set by hand. */
+  setFraming: (id: string, follow: boolean) => request<Project>(`/projects/${id}/framing`, json('PUT', { follow })),
+  /** Look through this clip for the speaker. Runs as a job; watch it with trackStatus. */
+  track: (id: string) => request<RenderStatus>(`/projects/${id}/track`, { method: 'POST' }),
+  trackStatus: (id: string) =>
+    request<{ job: RenderStatus | null; cropStrategy: 'static' | 'tracked'; track: Track | null }>(`/projects/${id}/track`),
   saveMusic: (id: string, music: MusicSettings) => request<Project>(`/projects/${id}/music`, json('PUT', music)),
   saveMeta: (id: string, title: string, description: string) =>
     request<Project>(`/projects/${id}/meta`, json('PUT', { title, description })),

@@ -18,6 +18,10 @@ frontend/node_modules/.tmp/
 # service recordings and their transcripts
 services/
 
+# the person model is fetched on first use, like FFmpeg; the face model does ship with us
+vision/person.onnx
+vision/*.part
+
 # launcher: downloaded FFmpeg and personal settings
 tools/
 config.env

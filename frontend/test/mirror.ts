@@ -7,7 +7,8 @@
 import { readFileSync } from 'node:fs'
 import { cropGeometry } from '../src/crop.ts'
 import { layoutText } from '../src/subtitleLayout.ts'
-import type { CropWindow, Output, Style, VideoInfo } from '../src/api.ts'
+import { trackAt } from '../src/track.ts'
+import type { CropWindow, Output, Style, Track, VideoInfo } from '../src/api.ts'
 
 interface LayoutCase { text: string; size: number; lines: string[]; fontSize: number }
 interface CropCase {
@@ -20,7 +21,11 @@ interface CropCase {
   left: number
   top: number
 }
-interface Fixture { output: Output; layout: LayoutCase[]; crop: CropCase[] }
+interface TrackCase {
+  track: { fps: number; x: number[]; jumps: number[] }
+  at: { seconds: number; x: number | null }[]
+}
+interface Fixture { output: Output; layout: LayoutCase[]; crop: CropCase[]; track: TrackCase[] }
 
 const path = process.argv[2]
 if (!path) {
@@ -69,13 +74,33 @@ for (const c of fixture.crop) {
   }
 }
 
-const total = fixture.layout.length + fixture.crop.length
+const walk = (t: TrackCase['track']): Track => ({
+  fps: t.fps, x: t.x, jumps: t.jumps, coverage: 1, subject: 'face', cuts: [], enough: true,
+})
+
+let moments = 0
+for (const c of fixture.track) {
+  for (const m of c.at) {
+    moments += 1
+    const got = trackAt(walk(c.track), m.seconds)
+    const same = got === null ? m.x === null : m.x !== null && Math.abs(got - m.x) < 1e-9
+    if (!same) {
+      problems.push(
+        [`trackAt(${JSON.stringify(c.track.x)} at ${c.track.fps}/s, jumps ${JSON.stringify(c.track.jumps)}, ${m.seconds}s)`,
+         `  python: ${m.x}`,
+         `  ts:     ${got}`].join('\n'),
+      )
+    }
+  }
+}
+
+const total = fixture.layout.length + fixture.crop.length + moments
 if (problems.length) {
   console.error(`The preview and the renderer disagree on ${problems.length} of ${total} cases:`)
   console.error('')
   console.error(problems.join('\n\n'))
   console.error('')
-  console.error('subtitleLayout.ts must match subtitles.py, and crop.ts must match renderer.py.')
+  console.error('subtitleLayout.ts must match subtitles.py; crop.ts and track.ts must match renderer.py.')
   process.exit(1)
 }
 console.log(`preview matches the renderer on all ${total} cases`)

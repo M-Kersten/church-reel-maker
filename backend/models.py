@@ -22,7 +22,7 @@ TEMPLATES_DIR = ROOT / "templates"
 FONTS_DIR = TEMPLATES_DIR / "fonts"
 
 FontWeight = Literal["regular", "medium", "semibold", "bold", "extrabold"]
-CropStrategy = Literal["static", "tracked"]  # "tracked" is reserved for Part 2
+CropStrategy = Literal["static", "tracked"]  # "tracked": the crop follows the speaker
 
 
 Corner = Literal["topLeft", "topRight", "bottomLeft", "bottomRight"]
@@ -100,6 +100,25 @@ class ClipOrigin(BaseModel):
     end: float
 
 
+class Track(BaseModel):
+    """A path for the crop window to walk, one x per sample, evenly spaced from the start.
+
+    x is the centre of the frame as a fraction of the scaled source, the same units as
+    CropWindow.x, so a track and a static window are read the same way. The renderer and
+    the preview both interpolate between samples; frontend/src/track.ts is the copy.
+    """
+
+    fps: float = 12.5
+    x: list[float] = []
+    coverage: float = 0.0  # how much of the clip the speaker was actually found in
+    subject: str = ""  # "face" or "person": what it mostly had to go on
+    cuts: list[float] = []  # seconds where the camera changed
+    # Samples the frame jumped to rather than glided into. Nothing may interpolate across
+    # one, or a cut turns back into the fast pan across the room it was meant to replace.
+    jumps: list[int] = []
+    enough: bool = False  # False: found too little to be worth offering
+
+
 class CropWindow(BaseModel):
     """Where the 9:16 output frame sits on the source.
 
@@ -132,7 +151,7 @@ class Project(BaseModel):
     watermark: Watermark = Watermark()
     cropStrategy: CropStrategy = "static"
     crop: CropWindow | None = None  # None = default framing for the source (see renderer.default_crop)
-    tracking: str | None = None  # Part 2: file with the tracked crop path
+    track: Track | None = None  # the path the crop walks when cropStrategy is "tracked"
 
 
 class ProjectDetail(Project):

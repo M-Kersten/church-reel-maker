@@ -41,6 +41,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [outroVersion, setOutroVersion] = useState(0)
   // Bumped when subtitles are saved, so the word suggestions look again.
   const [transcriptSavedAt, setTranscriptSavedAt] = useState(0)
+  // The clip's own framing: whether it follows the speaker, and whether it is out looking.
+  const [searching, setSearching] = useState(false)
+  const [searchNote, setSearchNote] = useState('')
   const previewRef = useRef<PreviewHandle>(null)
   const dirty = useRef({ ...CLEAN })
 
@@ -166,6 +169,37 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const changeCrop = (next: CropWindow) => {
     dirty.current.crop = true
     setCrop(next)
+  }
+
+  const follow = (wanted: boolean) => {
+    if (!project) return
+    setError(null)
+    api.setFraming(project.id, wanted).then(setProject).catch(fail)
+  }
+
+  /** Look through the clip for the speaker; poll until the job is over. */
+  const search = async () => {
+    if (!project || searching) return
+    setError(null)
+    setSearchNote('')
+    setSearching(true)
+    try {
+      await api.track(project.id)
+      for (;;) {
+        await new Promise((wake) => setTimeout(wake, 1000))
+        const state = await api.trackStatus(project.id)
+        setSearchNote(state.job?.message ?? '')
+        if (!state.job || state.job.status !== 'running') {
+          setProject(await api.getProject(project.id))
+          if (state.job?.status === 'error' && state.job.error) setError(state.job.error)
+          break
+        }
+      }
+    } catch (e) {
+      fail(e)
+    } finally {
+      setSearching(false)
+    }
   }
   const changeSegments = (next: Segment[]) => {
     dirty.current.transcript = true
@@ -338,6 +372,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               style={style}
               output={project.output}
               crop={crop}
+              track={project.track}
+              following={project.cropStrategy === 'tracked'}
               watermark={watermark}
               sourceStart={project.sourceStart}
               onCropChange={changeCrop}
@@ -369,7 +405,13 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
               currentTime={currentTime}
               playing={playing}
               sourceStart={project.sourceStart}
+              track={project.track}
+              following={project.cropStrategy === 'tracked'}
+              searching={searching}
+              searchNote={searchNote}
               onChange={changeCrop}
+              onFollow={follow}
+              onSearch={search}
             />
             <StylePanel style={style} onChange={changeStyle} />
             <LogoPanel watermark={watermark} onChange={changeWatermark} />

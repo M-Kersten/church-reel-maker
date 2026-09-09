@@ -108,7 +108,7 @@ rather than standing still and then jumping.
 1. Drop a clip on the page. The original is stored under `projects/<id>/` and its metadata (size, duration, frame rate, audio) is read with ffprobe. The 9:16 preview appears right away.
 2. Click **Transcribe**. Audio is extracted with FFmpeg and transcribed with faster-whisper, language forced to `nl`. Words are grouped into short caption-sized segments. This runs as a background job with a progress bar, so you can keep working and even reload the page while it runs.
 3. Correct the subtitles. Each segment has editable start/end times (`mm:ss.s`) and text, plus **Split**, **Merge ↓** and delete. Click ▶ on a segment to jump the preview there. Edits are saved automatically.
-4. Set the framing. The **Framing** panel shows the whole source with the 9:16 output frame drawn on it: drag the frame (or drag the preview itself) to choose which part of the picture ends up in the reel, and use the zoom slider to crop in further or, at the low end, to fit the whole picture with black bars. Landscape clips start centred and filling the frame; portrait clips start with the whole picture visible. **Reset** returns to that default.
+4. Set the framing. The **Beeldkader** panel shows the whole source with the 9:16 output frame drawn on it, and two ways to place it. **Volg de spreker** lets the frame walk along the path found for this clip (see [Following the speaker](#following-the-speaker)); **Zelf kaderen** hands it back to you, so drag the frame (or drag the preview itself) to choose which part of the picture ends up in the reel, and use the zoom slider to crop in further or, at the low end, to fit the whole picture with black bars. Landscape clips start centred and filling the frame; portrait clips start with the whole picture visible. **Herstel** returns to that default.
 5. Pick a style: font, weight, size (24–200), text colour, outline size and colour, optional dark translucent background, and how a line appears. Subtitles always sit bottom-centre, above the safe margin that Reels and Shorts overlay with UI. A bigger font spreads over more lines (up to three) before anything is scaled down, so turning the size up really does make the text bigger on screen.
 6. Put the church logo in a corner if you want one. The **Logo in beeld** panel picks the corner, the width as a share of the frame, the opacity and the margin, and draws it straight into the preview. Files live in `templates/logos/` and are shared with the end screen.
 7. Click **Render video**. Rendering runs as a background job with a progress bar; when it finishes a download link for `final.mp4` appears.
@@ -461,10 +461,13 @@ backend/
   brands.py         brand presets: church, end screen, subtitle style, music
   health.py         the checks the interface shows
   clips.py          create_clip(source, start, end): cuts a range into a regular clip project
+  vision.py         the two ONNX detectors: faces (YuNet) and people (YOLOv10n)
+  tracking.py       detections -> one calm path for the crop window to walk
 frontend/src/
   App.tsx                      tab switch between Full service and Clip
   api.ts                       typed API client (projects + services)
   subtitleLayout.ts            layout constants shared with subtitles.py
+  crop.ts, track.ts            the crop window and the tracking path, mirrored from renderer.py
   components/ClipEditor.tsx    single-clip editor: project state, API calls, auto-save, render polling
   components/ServiceView.tsx   full-service upload, states, progress, processed clips
   components/ClipSuggestions.tsx  ranked candidate list: preview, select, adjust boundaries
@@ -482,6 +485,9 @@ frontend/src/
 templates/
   church.json, outro.json (created on first start), outro.example.json, make_outro.py, outro.mp4
   fonts/  logos/  music/  brands/  woordenlijst.json
+vision/
+  face.onnx         YuNet face detector, 227 KB, shipped with the app (MIT)
+  person.onnx       YOLOv10n, 9 MB, fetched on first use (AGPL-3.0, see vision/README.md)
 launcher.py         loads config.env, fetches FFmpeg when missing, starts the server, opens the browser
 start.bat / start.command   one-click launchers for Windows and macOS (create .venv, install, run launcher.py)
 config.example.env  template for config.env (API key, LLM provider, whisper model)
@@ -493,10 +499,10 @@ A project directory keeps the source clip untouched next to derived data:
 
 ```text
 projects/project-3d25a7a1/
-  project.json      metadata, style, output settings, crop strategy
+  project.json      metadata, style, output settings, crop strategy, tracking path
   source.mp4        original upload
   transcript.json   {"segments": [{"start", "end", "text"}, ...]}
-  work/             audio.wav, subtitles.ass
+  work/             audio.wav, subtitles.ass, track.cmd
   output/final.mp4
 ```
 
@@ -510,8 +516,59 @@ speech → loudnorm -14 LUFS → (optional) mix with ducked music → limiter
 
 The crop window `{x, y, zoom}` on the project decides the framing: `x`/`y` are the frame centre as fractions of the scaled source, `zoom` is relative to the scale that exactly fills the frame (1 fills, smaller letterboxes, larger crops in). The renderer scales the source, crops the part inside the frame and pads whatever is left. Defaults: landscape sources fill the frame centred, portrait sources keep the whole picture. The outro is always scaled to fit. Output is `yuv420p`, High profile, `+faststart`, which uploads directly to Instagram and YouTube.
 
-## Part 2 hooks
+## Following the speaker
 
-- `renderer.build_crop_filter(info, output, crop_strategy, tracking, crop)` is the only place that decides how the source frame becomes 9:16. `crop_strategy="static"` is implemented; `"tracked"` raises `NotImplementedError` and is where a tracking-driven crop path goes. `renderer.crop_geometry` turns one `{x, y, zoom}` window into pixel coordinates, so a tracked strategy can emit a window per keyframe and reuse the same maths (mirrored in `frontend/src/crop.ts` for the preview).
-- `render_video(..., crop_strategy=project.cropStrategy, tracking=project.tracking)` already passes the strategy and tracking data through from the project.
-- `Project.cropStrategy` and `Project.tracking` exist in the project model, so tracking results can be stored per project without changing the API shape.
+A wide camera at the back of a church puts the preacher in a small part of a broad frame. A 9:16
+window either loses them when they move or has to be pulled so far out that the clip looks like
+security footage. `crop_strategy="tracked"` lets the window walk along a path found in the clip
+itself.
+
+**What looks.** Two ONNX models, run on the CPU through onnxruntime, which is already here for
+speech recognition:
+
+| Model | Size | Runs | What it answers |
+| --- | --- | --- | --- |
+| `vision/face.onnx` (YuNet) | 227 KB | every sample | where the head is, which is what you frame |
+| `vision/person.onnx` (YOLOv10n) | 9 MB | every third sample | who is on stage, held across the clip |
+
+The body decides *who* and changes slowly, so it is asked about once a second. The face decides
+*where* and is asked every time. When the face turns away the body carries the frame on alone; when
+both are gone the last position stands for two and a half seconds and after that the clip admits a
+gap. The face model ships with the app. The person model is fetched on first use, the way FFmpeg
+already is, and the app still follows a speaker without it.
+
+**What moves.** `tracking.py` turns those sightings into one position per 1/12.5 second, and almost
+all of it is about not moving. Distances are shares of the crop window's own width, so the same
+numbers behave the same way on a tight crop and a wide one, with the frame edge at 0.5:
+
+- **dead zone** (0.14) the speaker drifts around the middle and nothing happens at all
+- **ease** past it the frame glides back, exponentially, capped at 0.4 crop widths per second
+- **keep-in line** (0.34) they are about to walk out of the picture, so calm stops being the point
+  and the frame catches up at 1.1 crop widths per second
+- **cuts** a church with several cameras cuts between them, and there is nothing smooth about a
+  cut, so the frame jumps with it. The threshold is a spike against what this clip normally does,
+  not a fixed number, because two cameras in one room differ far less than two rooms
+
+Only x moves. Height and zoom stay where the user put them: on a 9:16 window out of a wide frame
+there is rarely anything above or below worth following, and vertical drift is the first thing that
+reads as wobble.
+
+**What renders.** `renderer.track_commands` reads the path at 50 a second and writes a `sendcmd`
+script, one line per moment the window would land on a different pixel, driving a labelled
+`crop@track` filter. A speaker standing still costs a handful of lines rather than one per frame.
+`renderer.track_at` is mirrored in `frontend/src/track.ts`, so the preview draws the frame exactly
+where the render will put it; `tests/mirror_cases.py` diffs the two.
+
+**When it runs.** Cutting a service into clips looks for the speaker in each clip while you are
+already waiting, so a clip opens with the speaker followed. A clip that arrived on its own gets a
+**Zoek de spreker** button. Either way the **Beeldkader** panel keeps both modes side by side: a
+path that turned out badly is one click away from a static window you place yourself. A path found
+in less than 55% of a clip is kept but not switched on.
+
+Measured on a 90-second sermon at 1280×720, one camera: tracked in 15 seconds (six times realtime),
+the speaker found in 100% of samples, the frame perfectly still on 93% of steps, and the largest
+single step 1% of the width. Rendering the same clip both ways and looking for the head in the
+finished 9:16 videos, 68 samples each: average distance from the centre 0.17 tracked against 0.49
+static, and 0 samples with the head against the edge of the frame against 15. He stays in frame
+either way on this clip, because he stays behind the lectern; where he sits in the frame is the
+difference. On a staged clip with a camera change in it the frame jumps inside one frame.
