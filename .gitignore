@@ -35,3 +35,8 @@ templates/music/*
 !templates/music/.gitkeep
 templates/woordenlijst.json
 templates/outro-achtergrond.*
+
+# evaluation set: real services are the church's own recordings and transcripts
+evaluation/*/
+!evaluation/voorbeeld-dienst/
+evaluation/*.json

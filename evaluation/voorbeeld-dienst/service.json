@@ -1,0 +1,24 @@
+{
+  "title": "Voorbeelddienst: rust in een druk leven",
+  "note": "Verzonnen dienst, zodat het meetscript werkt zonder echte opnames. Zet je eigen diensten ernaast; zie evaluation/README.md.",
+  "duration": 3586.0,
+  "sermonTitle": "Rust in een druk leven",
+  "series": "Onderweg",
+  "posted": [
+    {
+      "start": 1944.1,
+      "end": 1986.1,
+      "note": "rust is geen zwakte, rust is vertrouwen"
+    },
+    {
+      "start": 1575.9,
+      "end": 1617.9,
+      "note": "God vraagt niet dat je perfect bent"
+    },
+    {
+      "start": 2754.1,
+      "end": 2796.1,
+      "note": "je hoeft dit niet alleen te dragen"
+    }
+  ]
+}

@@ -177,6 +177,32 @@ Measured on the service in `tests/service_text.py`, 52 of 52 sentences are label
 
 Only transcript text is sent to the model, never video or audio. Before you press **Beste momenten zoeken**, the interface says how many pieces of text go out, roughly how many tokens that is and what it costs at list price: about 45,000 tokens and $0.75 for a 90-minute service with Claude Opus 5. With `LLM_PROVIDER=ollama` it says the run is free and stays on the machine.
 
+### Measuring whether the suggestions are any good
+
+Prompt changes feel like improvements. `evaluation/` is the fixed set that says whether they
+are: one folder per service, holding the transcript the app produced and the moments the church
+actually posted. `evaluation/voorbeeld-dienst/` is a made-up service so the tool runs out of the
+box; real ones stay out of git, because they are the church's recordings and hold what people
+said. See `evaluation/README.md` for the format.
+
+```bash
+.venv/bin/python -m tools.evaluate --dry-run          # what a run would send and cost
+.venv/bin/python -m tools.evaluate --save baseline.json
+.venv/bin/python -m tools.evaluate --compare baseline.json
+```
+
+```text
+dienst                   gepost gekozen  top5   p@5 recall      $   sec
+-----------------------------------------------------------------------
+voorbeeld-dienst              3       6     3  0.60   1.00   0.25     0
+```
+
+**p@5** is how many of the top five choices are moments the church posted, **recall** how many of
+the posted moments were found at all, and the run names the ones it missed so you can go and look
+at why. `--compare` marks every number as better or worse than the baseline, cost included, so a
+change that buys a point of precision for triple the money is visible as that. Write down the
+baseline before touching a prompt.
+
 ### Discovery data
 
 Services live in `services/<id>/` (ignored by git) next to the clip projects:

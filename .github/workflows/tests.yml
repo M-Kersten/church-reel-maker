@@ -17,6 +17,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -r backend/requirements-dev.txt
       - run: python -m pytest
+      # No API key in CI, so this only proves the harness reads the set and adds up.
+      - run: python -m tools.evaluate --dry-run
 
   preview-matches-renderer:
     runs-on: ubuntu-latest
