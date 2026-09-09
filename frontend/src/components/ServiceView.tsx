@@ -243,16 +243,17 @@ export default function ServiceView({ onOpenClip }: Props) {
               type="url"
               value={link}
               disabled={busy}
-              placeholder="https://www.youtube.com/watch?v=…"
+              placeholder="https://kerkdienstgemist.nl/stations/…/events/recording/…"
               onChange={(e) => setLink(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchLink()}
             />
             <button className="primary" disabled={busy || !link.trim()} onClick={fetchLink}>Ophalen</button>
           </div>
           <p className="hint">
-            YouTube, Vimeo, Facebook of een directe link naar een mp4 werken. Geeft de site de
-            video alleen aan zijn eigen speler, zoals Kerkdienstgemist en Kerkomroep doen, download
-            hem daar dan en gebruik het tabblad hiernaast.
+            Kerkdienstgemist, YouTube, Vimeo, Facebook of een directe link naar een mp4. Bij
+            Kerkdienstgemist plak je gewoon het adres van de dienst zoals het in je adresbalk
+            staat. Lukt het met een andere site niet, download de opname daar dan en gebruik het
+            tabblad hiernaast.
           </p>
         </div>
       ) : (

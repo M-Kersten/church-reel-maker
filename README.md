@@ -136,10 +136,21 @@ link to an mp4 or an m3u8 playlist, and for a page it does not know it still rea
 for an embedded player or an `og:video` tag. It runs as a job like the others, with progress
 and a stop button, and the recording keeps the title the site gave it.
 
-Some platforms hand their video only to their own player over a signed, private call.
-Kerkdienstgemist and Kerkomroep work that way: the address of the page holds no video, so
-the app says so and points at the download the station's own account offers. `SITE_ADVICE`
-in `backend/fetch.py` is where such a note is added.
+Some platforms hand their video only to their own player. **Kerkdienstgemist** is one, and
+`backend/kerkdienstgemist.py` asks its player's question instead: the page address carries a
+station id and a recording id, and
+`GET https://api.<domain>/api/v2/stations/{station}/recordings/{recording}?include=media`
+answers with `download_url` — the signed S3 link the download button in the player points
+at, plus the recording's own title, its duration and where the platform thinks the sermon
+starts. The request carries the anonymous token the site ships in its own script bundle
+(`config.APP.API_CREDENTIALS`); it grants what any visitor already has and is nobody's
+account. This leans on a shape nobody promised to keep: when it changes, `resolve` returns
+None, the link falls through to the ordinary route, and the reader gets the note in
+`SITE_ADVICE` telling them to press the download button themselves. `tests/fixtures/
+kerkdienstgemist-recording.json` is a real answer, with the signatures scrubbed, so the
+tests parse the shape that was actually there.
+
+Kerkomroep has no such resolver, so it still gets a note pointing at its own download.
 
 ## Full service clip discovery
 

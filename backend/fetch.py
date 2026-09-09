@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 
+from . import kerkdienstgemist
 from .jobs import Cancelled
 
 ProgressCallback = Callable[[float, str], None]
@@ -27,20 +28,33 @@ MEDIA_SUFFIXES = {".mp4", ".m4v", ".mov", ".mkv", ".webm", ".m3u8", ".mpd", ".ts
 # What a download is allowed to weigh, so a mistyped link cannot fill the disk.
 MAX_GB = 12.0
 
-# Sites we know hand their video to a player over a private call, so the page address alone
-# is not enough. Rather than a bare "unsupported", say what does work there.
+# What to say when a site hands its video only to its own player. For Kerkdienstgemist the
+# resolver below normally gets there anyway; this is what is left when it does not.
 SITE_ADVICE = {
     "kerkdienstgemist.nl": (
-        "Kerkdienstgemist geeft de video pas aan zijn eigen speler, dus aan het adres van de "
-        "pagina heeft de app niets. Log in op het account van de kerk, kies bij de dienst "
-        "Downloaden, en plak dan de downloadlink hier. Of download het bestand en sleep het "
-        "hierboven naar binnen."
+        "Deze dienst is niet op te halen: hij is afgeschermd, of Kerkdienstgemist heeft zijn "
+        "speler veranderd. Open de dienst daar, klik in de speler op Downloaden, en plak die "
+        "link hier. Of download het bestand en sleep het hierboven naar binnen."
     ),
     "kerkomroep.nl": (
         "Kerkomroep geeft de video pas aan zijn eigen speler. Download de dienst daar en "
         "sleep het bestand hierboven naar binnen."
     ),
 }
+
+# Sites whose page holds no video, but whose own player can be asked where it is.
+RESOLVERS = (kerkdienstgemist,)
+
+
+def resolve(url: str) -> tuple[str, str] | None:
+    """Where a site's own player would get the video, and what it calls the recording."""
+    for site in RESOLVERS:
+        if not site.handles(url):
+            continue
+        found = site.resolve(url)
+        if found:
+            return found.url, found.title
+    return None
 
 
 class LinkNotUsable(RuntimeError):
@@ -148,6 +162,14 @@ def fetch(url: str, folder: Path, on_progress: ProgressCallback | None = None,
           should_stop: Callable[[], None] | None = None) -> tuple[Path, str]:
     """Download what `url` points at into `folder`. Returns the file and its own title."""
     url = tidy(url)
+    # A page whose player knows better than the page does. Failing here is not fatal: the
+    # link goes on to the ordinary route, which ends in the note for that site.
+    asked = url  # what was pasted, which is what any message should be about
+    known = resolve(url)
+    named = ""
+    if known:
+        url, named = known
+
     try:
         import yt_dlp
     except ImportError as exc:
@@ -190,18 +212,19 @@ def fetch(url: str, folder: Path, on_progress: ProgressCallback | None = None,
             sweep(folder)
             if stopped:
                 raise Cancelled() from exc
-            raise LinkNotUsable(readable(str(exc), url)) from exc
+            raise LinkNotUsable(readable(str(exc), asked)) from exc
         except Cancelled:
             sweep(folder)
             raise
         except Exception as exc:  # noqa: BLE001  any other failure is still just a bad link
             sweep(folder)
-            raise LinkNotUsable(readable(str(exc), url)) from exc
+            raise LinkNotUsable(readable(str(exc), asked)) from exc
 
     sweep(folder)  # the bookkeeping files a finished download leaves behind
     written = sorted(folder.glob("source.*"), key=lambda p: p.stat().st_size, reverse=True)
     if not written:
         raise LinkNotUsable("De opname is niet binnengekomen. Probeer het opnieuw, of download "
                             "het bestand en sleep het hierboven naar binnen.")
-    title = safe_title((info or {}).get("title", "")) if isinstance(info, dict) else "Dienst"
-    return written[0], title
+    # A resolved recording brings the name the church gave it; a signed S3 link does not.
+    heard = (info or {}).get("title", "") if isinstance(info, dict) else ""
+    return written[0], safe_title(named or heard)
