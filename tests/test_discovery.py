@@ -2,9 +2,10 @@
 
 import pytest
 
-from backend.discovery import (MAX_CLIP, MIN_CLIP, OVERLAP_DUPLICATE, PREFERRED, WINDOW_OVERLAP,
-                               WINDOW_SECONDS, LlmCandidate, build_windows, dedupe_and_rank,
-                               estimate, overlap_fraction, score, snap)
+from backend.discovery import (COLD_PENALTY, MAX_CLIP, MIN_CLIP, OVERLAP_DUPLICATE, PREFERRED,
+                               WINDOW_LEAD, WINDOW_OVERLAP, WINDOW_SECONDS, LlmCandidate,
+                               build_windows, cold_open, dedupe_and_rank, estimate, format_window,
+                               opening_line, overlap_fraction, score, snap)
 from backend.models import ClipCandidate, Segment, Transcript
 
 
@@ -165,3 +166,85 @@ def test_estimate_grows_with_the_transcript():
 def test_estimate_of_an_empty_transcript_costs_nothing():
     empty = estimate(Transcript(language="nl", segments=[]))
     assert empty["windows"] == 0 and empty["costUsd"] == 0.0
+
+
+# --- fewer, longer, and starting somewhere a stranger can follow ---------------
+
+
+def test_a_short_proposal_is_dropped_now_that_clips_are_longer():
+    """Under half a minute there is no room to introduce anything."""
+    assert MIN_CLIP >= 25
+    assert PREFERRED[0] >= 45
+
+
+def test_the_preferred_length_is_rewarded_and_the_extremes_are_not():
+    c = candidate(confidence=0.8)
+    assert score(c, 60.0) > score(c, 26.0)
+    assert score(c, 60.0) > score(c, 150.0)
+
+
+def test_a_clip_that_opens_on_a_back_reference_scores_lower():
+    c = candidate(confidence=0.8)
+    warm = score(c, 60.0, "God vraagt niet dat je perfect bent.")
+    cold = score(c, 60.0, "Dat is precies wat ik bedoelde.")
+    assert cold < warm
+    assert warm - cold == pytest.approx(COLD_PENALTY, abs=1e-6)
+
+
+@pytest.mark.parametrize("line", [
+    "Dat is precies waar het om gaat.",
+    "Daarom moeten we vandaag beginnen.",
+    "Dus dat is wat rust betekent.",
+    "Hij zei toen iets heel bijzonders.",
+    "Zoals ik net al zei, God kent je.",
+    "En dus komt het hierop neer.",
+])
+def test_these_openings_leave_the_viewer_in_the_dark(line):
+    assert cold_open(line)
+
+
+@pytest.mark.parametrize("line", [
+    "God vraagt niet dat je perfect bent.",
+    "Rust is geen zwakte.",
+    "Wat doe je met een week die te vol zit?",
+    "Het gaat vandaag over vertrouwen.",
+    "En God zei tegen Elia: ga naar buiten.",
+    "Ik wil je iets vertellen over mijn vader.",
+])
+def test_these_openings_stand_on_their_own(line):
+    assert not cold_open(line)
+
+
+def test_the_opening_line_is_the_sentence_the_clip_starts_on():
+    segments = talk(10, step=10.0)
+    assert opening_line(segments, 30.0) == segments[3].text
+    # A start halfway through a sentence still opens on that sentence.
+    assert opening_line(segments, 34.0) == segments[3].text
+    assert opening_line(segments, 9999.0) == ""
+
+
+def test_a_window_carries_the_minutes_before_it():
+    windows = build_windows(talk(200))
+    assert windows[0].lead == [], "nothing came before the first window"
+    later = windows[2]
+    assert later.lead, "a later window knows what led up to it"
+    assert all(s.end <= later.start + 0.01 for s in later.lead)
+    assert later.start - later.lead[0].start <= WINDOW_LEAD + 10
+
+
+def test_the_run_up_is_shown_as_context_and_not_as_a_place_to_choose_from():
+    windows = build_windows(talk(200))
+    text = format_window(windows[2])
+    assert "Wat hieraan voorafging" in text
+    assert "kies hier niets uit" in text
+    for segment in windows[2].segments:
+        assert segment.text in text
+
+
+def test_a_moment_on_a_seam_fits_whole_inside_one_window():
+    """Sparse transcripts used to leave a seam of a second or two between windows."""
+    segments = [Segment(start=i * 70.0, end=i * 70.0 + 8.0, text=f"Zin {i} van de preek.")
+                for i in range(30)]
+    windows = build_windows(segments)
+    for before, after in zip(windows, windows[1:]):
+        assert before.end - after.start >= WINDOW_OVERLAP - 1

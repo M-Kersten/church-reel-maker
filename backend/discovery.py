@@ -9,10 +9,11 @@ import hashlib
 import json
 import os
 import random
+import re
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -31,11 +32,13 @@ LLM_ATTEMPTS = int(os.environ.get("LLM_ATTEMPTS", "3"))  # tries per window befo
 LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "180"))
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
-WINDOW_SECONDS = 180.0  # analysis window length (2-5 minutes gives enough context)
-WINDOW_OVERLAP = 30.0
-MIN_CLIP = 15.0  # hard limits: shorter/longer proposals are dropped
-MAX_CLIP = 150.0
-PREFERRED = (30.0, 60.0)
+WINDOW_SECONDS = 240.0  # analysis window: four minutes, so a whole point fits in one read
+WINDOW_OVERLAP = 60.0
+WINDOW_LEAD = 120.0  # transcript before the window, given as context but never proposed from
+MIN_CLIP = 25.0  # hard limits: shorter/longer proposals are dropped
+MAX_CLIP = 180.0
+PREFERRED = (45.0, 90.0)
+COLD_PENALTY = 0.12  # a clip that opens on a back-reference drops this far
 SNAP_TOLERANCE = 4.0  # seconds: snap proposed boundaries to the nearest sentence boundary
 OVERLAP_DUPLICATE = 0.5  # fraction of the shorter candidate that overlaps -> same moment
 
@@ -71,49 +74,63 @@ class LlmShortlist(BaseModel):
     verdicts: list[Verdict]
 
 
-SYSTEM_PROMPT = """Je bent redacteur voor de social-media kanalen van een kerk. Je krijgt een fragment van het transcript \
-van een Nederlandse kerkdienst, met tijdcodes per zin. Zoek momenten die als zelfstandige korte video (Instagram Reel, \
-YouTube Short) werken.
+SYSTEM_PROMPT = """Je bent redacteur voor de social-media kanalen van een kerk. Je krijgt een stuk van het \
+transcript van een Nederlandse kerkdienst, met tijdcodes per zin. Zoek momenten die als losse korte video \
+(Instagram Reel, YouTube Short) werken voor iemand die de dienst niet gehoord heeft.
 
-Goede momenten:
-- een sterke openingszin, een heldere op zichzelf staande gedachte
-- een gedenkwaardige of verrassende uitspraak, een praktisch inzicht
-- een emotioneel moment, een vraag gevolgd door een bruikbaar antwoord
-- een sterke conclusie, iets dat begrijpelijk is zonder veel context
+Zo iemand kent het verhaal niet. Hij scrolt, blijft hangen, en heeft twee seconden om te snappen waar dit \
+over gaat. Een fragment dat begint met "en dus moeten we dat doen" is voor hem betekenisloos, hoe mooi de \
+zin ook is. Kies daarom liever een moment dat zijn eigen aanloop meeneemt dan de losse rake zin.
 
-Vermijd:
-- onafgemaakte gedachten, lange aanlopen, herhaling
-- verwijzingen naar iets van veel eerder ("zoals ik net zei")
-- mededelingen, collecte, agenda, administratieve informatie, liedaankondigingen
-- fragmenten waarin de interessante uitspraak pas na een lange opbouw komt
+Een moment is bruikbaar als:
+- de eerste zin het onderwerp zelf noemt: wie, wat, of welke vraag er op tafel ligt
+- het daarna één gedachte helemaal afmaakt, met een begin en een einde
+- iemand die de kerk niet kent er iets aan heeft: een inzicht, een verhaal, een eerlijke vraag
+- het op zichzelf staat zonder dat je de rest van de preek gehoord hebt
+
+Laat liggen:
+- fragmenten die openen op een terugverwijzing: "dat", "die", "hij", "daarom", "dus", "zoals ik net zei"
+- losse rake zinnen zonder de opbouw eromheen; neem die opbouw mee of sla het moment over
+- onafgemaakte gedachten, herhaling, uitweidingen
+- mededelingen, collecte, agenda, liedaankondigingen, gebed
+- een verhaal waarvan de clou buiten het fragment valt
 
 Grenzen:
-- start en end zijn tijden in seconden en moeten samenvallen met het begin en het einde van zinnen uit het fragment
-- begin nooit midden in een zin en stop niet als de spreker dezelfde gedachte duidelijk nog afmaakt
-- richt op 30-60 seconden; 20-90 seconden is acceptabel als de gedachte dat vraagt
-- geef per fragment 0 tot 3 kandidaten; een lege lijst is prima als er niets geschikts is
+- start en end zijn tijden in seconden en vallen samen met het begin en het einde van zinnen uit het fragment
+- begin nooit midden in een zin en stop niet terwijl de spreker dezelfde gedachte nog afmaakt
+- richt op 45-90 seconden; 30-120 seconden mag als de gedachte dat vraagt. Korter dan 30 seconden is \
+bijna altijd te kort om iets uit te leggen
+- geef hooguit 2 kandidaten uit dit stuk, en alleen wat je echt zou posten; een lege lijst is een prima antwoord
 - kandidaten mogen elkaar niet overlappen
+- de tekst onder "Wat hieraan voorafging" is er alleen zodat je begrijpt waar het over gaat. Kies daar geen \
+begin- of eindtijd uit
 
 Geef per kandidaat: start, end, een korte pakkende Nederlandse titel (max 60 tekens, geen aanhalingstekens), \
-een samenvatting van één zin, de reden waarom het als losse clip werkt, en confidence tussen 0 en 1. \
-Optimaliseer niet voor "viraal" maar voor heldere, interessante, zelfstandige preekmomenten."""
+een samenvatting van één zin, en bij reason: wat een kijker die niets weet in de eerste vijf seconden \
+begrijpt, en waarom de gedachte binnen het fragment af is. Confidence tussen 0 en 1. Optimaliseer niet voor \
+"viraal" maar voor heldere, zelfstandige preekmomenten."""
 
 
 SHORTLIST_PROMPT = """Je bent eindredacteur voor de social-media kanalen van een kerk. Een collega \
 heeft de hele dienst doorgelezen in losse stukken en per stuk voorstellen gedaan. Die collega zag steeds \
 maar een paar minuten tegelijk en kon de voorstellen dus niet met elkaar vergelijken. Dat is jouw werk.
 
-Je krijgt de opbouw van de dienst en alle voorgestelde momenten met hun tijd, titel, samenvatting, \
-reden en een stuk van het transcript. Kies welke momenten deze week daadwerkelijk gepost worden.
+Je krijgt de opbouw van de dienst en alle voorgestelde momenten met hun tijd, titel, samenvatting, reden, \
+de zin waarmee het fragment opent en een stuk van het transcript. Kies welke momenten deze week \
+daadwerkelijk gepost worden.
 
-Kies op:
-- staat het op zichzelf, zonder dat je de rest van de dienst gehoord hebt
-- is het de moeite waard voor iemand die de kerk niet kent
-- zegt het iets anders dan de andere gekozen momenten; twee keer dezelfde gedachte is een keer te veel
-- komt het uit de kern van de preek, niet uit een aankondiging of een terzijde
+Weeg in deze volgorde:
+1. de openingszin. Snapt iemand die niets van deze dienst weet binnen vijf seconden waar dit over gaat? \
+Opent het fragment op "dat", "die", "hij", "daarom", "dus" of iets anders dat terugverwijst, dan valt het af, \
+hoe sterk de rest ook is
+2. is de gedachte binnen het fragment af, of loopt de kijker vast omdat het antwoord er niet in staat
+3. heeft iemand die de kerk niet kent er iets aan
+4. zegt het iets anders dan de andere gekozen momenten; twee keer dezelfde gedachte is een keer te veel
+5. komt het uit de kern van de preek, niet uit een aankondiging of een terzijde
 
 Regels:
-- kies er 5 tot 10, minder als de dienst niet meer te bieden heeft; liever vier goede dan acht matige
+- kies er 3 tot 6. Liever drie momenten die een vreemde begrijpt dan acht die alleen kloppen voor wie erbij was
+- een fragment onder de 30 seconden kies je alleen als het echt in zichzelf af is
 - rank 1 is het sterkste moment van de dienst, daarna aflopend
 - geef ieder voorstel een verdict van een zin, ook de afvallers: waarom het het niet werd
 - verzin geen momenten en verander geen tijden; je kiest alleen uit wat je krijgt"""
@@ -129,9 +146,14 @@ class Window:
     end: float
     segments: list[Segment]
     part: str = "preek"  # which part of the service this window falls in
+    # The minutes before the window. The model reads them so it knows what the preacher is
+    # talking about, but it may not propose a clip out of them: snapping and the boundary
+    # checks only know about `segments`.
+    lead: list[Segment] = field(default_factory=list)
 
 
-def build_windows(segments: list[Segment], length: float = WINDOW_SECONDS, overlap: float = WINDOW_OVERLAP) -> list[Window]:
+def build_windows(segments: list[Segment], length: float = WINDOW_SECONDS, overlap: float = WINDOW_OVERLAP,
+                  lead: float = WINDOW_LEAD) -> list[Window]:
     """Split timestamped segments into overlapping analysis windows (not clip boundaries)."""
     segments = [s for s in sorted(segments, key=lambda s: s.start) if s.text.strip()]
     windows: list[Window] = []
@@ -142,24 +164,42 @@ def build_windows(segments: list[Segment], length: float = WINDOW_SECONDS, overl
         while j < len(segments) and (segments[j].start < t0 + length or j == i):
             j += 1
         chunk = segments[i:j]
-        windows.append(Window(len(windows), chunk[0].start, chunk[-1].end, chunk))
+        run_up = [s for s in segments[:i] if s.end > t0 - lead]
+        windows.append(Window(len(windows), chunk[0].start, chunk[-1].end, chunk, lead=run_up))
         if j >= len(segments):
             break
         # Next window starts `overlap` seconds before this one ends, but always makes progress.
+        # It steps back onto the last sentence that begins before that point rather than
+        # forward onto the first one after it: a transcript with long gaps would otherwise
+        # hand the next window a seam of a second or two, and a moment sitting on that seam
+        # would be cut short in both windows and then dropped for being too short.
+        seam = chunk[-1].end - overlap
         next_i = i + 1
         for k in range(i + 1, j):
-            if segments[k].start >= chunk[-1].end - overlap:
-                next_i = k
+            if segments[k].start > seam:
                 break
-        else:
-            next_i = j
+            next_i = k
         i = max(next_i, i + 1)
     return windows
 
 
+def say(segments: list[Segment]) -> str:
+    return "\n".join(f"[{s.start:.1f}-{s.end:.1f}] {s.text.strip()}" for s in segments)
+
+
 def format_window(window: Window) -> str:
-    lines = [f"[{s.start:.1f}-{s.end:.1f}] {s.text.strip()}" for s in window.segments]
-    return "\n".join(lines)
+    """The window itself, preceded by the run-up that explains what it is about.
+
+    A moment reads as self-contained or not depending on what came before it, and a model
+    that only sees the window cannot tell the difference. So it gets the minutes before as
+    well, marked as off-limits for the answer.
+    """
+    if not window.lead:
+        return say(window.segments)
+    return ("Wat hieraan voorafging (alleen om te begrijpen waar het over gaat, kies hier niets uit):\n"
+            f"{say(window.lead)}\n\n"
+            f"Kies je momenten uit dit stuk, van {window.start:.1f}s tot {window.end:.1f}s:\n"
+            f"{say(window.segments)}")
 
 
 def sermon_windows(segments: list[Segment], duration: float | None = None) -> tuple[list[Window], list[Block], int]:
@@ -189,22 +229,23 @@ class Retryable(RuntimeError):
     """A failure that is worth trying again: rate limit, server error, network hiccup."""
 
 
-def window_file(cache_dir: Path, window: Window) -> Path:
+def window_file(cache_dir: Path, window: Window, about: str = "") -> Path:
     """Where one window's answer is kept.
 
     The name carries the text and the settings that produced the answer, so a
-    re-transcription, a different model or an edited prompt all miss the cache instead of
-    handing back something that no longer matches.
+    re-transcription, a different model, an edited prompt or a church that filled in what
+    the sermon is about all miss the cache instead of handing back something that no
+    longer matches.
     """
-    recipe = f"{format_window(window)}\n{LLM_PROVIDER}\n{LLM_MODEL}\n{SYSTEM_PROMPT}"
+    recipe = f"{format_window(window)}\n{window.part}\n{about}\n{LLM_PROVIDER}\n{LLM_MODEL}\n{SYSTEM_PROMPT}"
     digest = hashlib.sha1(recipe.encode("utf-8")).hexdigest()[:16]
     return cache_dir / f"{window.index:03d}-{digest}.json"
 
 
-def cached_window(cache_dir: Path | None, window: Window) -> list[LlmCandidate] | None:
+def cached_window(cache_dir: Path | None, window: Window, about: str = "") -> list[LlmCandidate] | None:
     if cache_dir is None:
         return None
-    path = window_file(cache_dir, window)
+    path = window_file(cache_dir, window, about)
     if not path.is_file():
         return None
     try:
@@ -213,16 +254,17 @@ def cached_window(cache_dir: Path | None, window: Window) -> list[LlmCandidate] 
         return None
 
 
-def remember_window(cache_dir: Path | None, window: Window, found: list[LlmCandidate]) -> None:
+def remember_window(cache_dir: Path | None, window: Window, found: list[LlmCandidate], about: str = "") -> None:
     if cache_dir is None:
         return
     cache_dir.mkdir(parents=True, exist_ok=True)
-    write_atomic(window_file(cache_dir, window), json.dumps([c.model_dump() for c in found]))
+    write_atomic(window_file(cache_dir, window, about), json.dumps([c.model_dump() for c in found]))
 
 
 def analyze_window(window: Window, about: str = "") -> list[LlmCandidate]:
     user = (
-        f"Fragment {window.index + 1}, van {window.start:.1f}s tot {window.end:.1f}s in de dienst. "
+        f"Fragment {window.index + 1}, van {window.start:.1f}s tot {window.end:.1f}s in de dienst, "
+        f"ongeveer {int(window.start // 60)} minuten na het begin. "
         f"Dit deel van de dienst is: {window.part}.{(' ' + about) if about else ''}\n\n"
         f"{format_window(window)}"
     )
@@ -326,12 +368,53 @@ def snap(candidate: LlmCandidate, window: Window) -> tuple[float, float]:
     return round(max(window.start, start), 2), round(min(window.end, end), 2)
 
 
-def score(candidate: LlmCandidate, duration: float) -> float:
+# Words a sentence opens with when it is finishing something the listener already heard.
+# Someone who scrolled past has heard none of it, so a clip starting here begins in the
+# middle of a story. "Het" and "Wat" are left out on purpose: they open plenty of sentences
+# that stand perfectly well on their own.
+COLD_WORDS = {
+    "dat", "dit", "die", "deze", "hij", "zij", "ze", "hem", "haar", "hen", "hun",
+    "daarom", "daardoor", "daarin", "daarover", "daarmee", "daaruit", "daarvan", "daarnaast",
+    "hierdoor", "hiermee", "hierin", "hiervan", "vandaar", "dus", "want", "immers",
+    "namelijk", "bovendien", "trouwens", "toch", "ook", "zo", "dan", "vervolgens", "daarna",
+}
+COLD_PHRASES = ("zoals ik", "zoals we", "zoals gezegd", "zoals net", "zoals je net",
+                "daarnet", "zonet", "net al", "wat ik net", "dat wil zeggen", "met andere woorden")
+FIRST_WORD = re.compile(r"[a-zà-ÿ']+")
+
+
+def cold_open(text: str) -> bool:
+    """Does this sentence lean on something the viewer has not heard?"""
+    head = text.strip().lower()
+    if not head:
+        return False
+    if any(head.startswith(phrase) for phrase in COLD_PHRASES):
+        return True
+    match = FIRST_WORD.match(head)
+    if not match:
+        return False
+    if match.group() == "en":  # "En toen", "En dat" lean back; "En God zei" does not
+        rest = FIRST_WORD.search(head[match.end():])
+        return bool(rest and rest.group() in COLD_WORDS)
+    return match.group() in COLD_WORDS
+
+
+def opening_line(segments: list[Segment], start: float) -> str:
+    """The sentence a clip starts on, which is all a scrolling viewer gets to go on."""
+    for segment in sorted(segments, key=lambda s: s.start):
+        if segment.end > start + 0.05 and segment.text.strip():
+            return segment.text.strip()
+    return ""
+
+
+def score(candidate: LlmCandidate, duration: float, opening: str = "") -> float:
     s = max(0.0, min(1.0, candidate.confidence))
     if PREFERRED[0] <= duration <= PREFERRED[1]:
         s += 0.05
-    elif duration < 20 or duration > 90:
+    elif duration < 30 or duration > 120:
         s -= 0.15
+    if opening and cold_open(opening):
+        s -= COLD_PENALTY
     return round(s, 4)
 
 
@@ -358,7 +441,7 @@ def dedupe_and_rank(raw: list[ClipCandidate]) -> list[ClipCandidate]:
 
 # --- the second pass: choosing between everything that was found -----------------
 
-SHORTLIST_MIN = 5  # below this many proposals there is nothing to choose between
+SHORTLIST_MIN = 4  # below this many proposals there is nothing to choose between
 EXCERPT_CHARS = 400  # how much of each moment the editor gets to read
 
 
@@ -377,10 +460,14 @@ def shortlist_request(found: list[ClipCandidate], segments: list[Segment], shape
         lines.append(about)
     lines += ["", f"Er zijn {len(found)} momenten voorgesteld:", ""]
     for candidate in found:
+        opening = opening_line(segments, candidate.start)
+        cold = "  let op: dit fragment opent op een terugverwijzing\n" if cold_open(opening) else ""
         lines.append(
             f"[{candidate.id}] {candidate.start:.0f}-{candidate.end:.0f}s "
             f"({candidate.end - candidate.start:.0f} sec, {candidate.part or 'preek'})\n"
             f"  titel: {candidate.title}\n"
+            f"  opent met: {opening}\n"
+            f"{cold}"
             f"  samenvatting: {candidate.summary}\n"
             f"  reden van de collega: {candidate.reason}\n"
             f"  transcript: {excerpt(segments, candidate.start, candidate.end)}\n"
@@ -427,13 +514,14 @@ def estimate(transcript: Transcript, duration: float | None = None) -> dict:
     that weighs the proposals against each other.
     """
     windows, _shape, skipped = sermon_windows(transcript.segments, duration)
-    characters = sum(len(w.text) + 16 for window in windows for w in window.segments)
-    input_tokens = int(characters / 3.5) + len(windows) * 700  # transcript plus the instructions per window
-    output_tokens = len(windows) * 500
+    # The run-up is sent along with every window, so it is paid for too.
+    characters = sum(len(w.text) + 16 for window in windows for w in window.segments + window.lead)
+    input_tokens = int(characters / 3.5) + len(windows) * 900  # transcript plus the instructions per window
+    output_tokens = len(windows) * 400  # at most two proposals per window
     # The second pass reads a summary of every proposal once, and answers briefly.
     if windows:
         proposals = len(windows)  # roughly one surviving moment per window
-        input_tokens += proposals * 220 + 500
+        input_tokens += proposals * 280 + 700
         output_tokens += proposals * 60
     model = LLM_MODEL or ("llama3.1" if LLM_PROVIDER == "ollama" else "claude-opus-5")
     if LLM_PROVIDER == "ollama":
@@ -480,23 +568,29 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
     failures: list[str] = []
     done = 0
 
+    # Every window is told what kind of service it sits in, so a moment can be judged
+    # against the whole rather than against the four minutes around it.
+    setting = f"De dienst is opgebouwd als: {structure.summary(shape)}."
+    context = f"{setting} {about}".strip()
+
     def work(window: Window) -> list[ClipCandidate]:
         if should_stop:
             should_stop()
-        found = cached_window(cache_dir, window)
+        found = cached_window(cache_dir, window, context)
         if found is None:
-            found = analyze_window(window, about)
-            remember_window(cache_dir, window, found)
+            found = analyze_window(window, context)
+            remember_window(cache_dir, window, found, context)
         out = []
         for c in found:
             start, end = snap(c, window)
-            duration = end - start
-            if duration < MIN_CLIP or duration > MAX_CLIP or not c.title.strip():
+            length = end - start
+            if length < MIN_CLIP or length > MAX_CLIP or not c.title.strip():
                 continue
+            opening = opening_line(window.segments, start)
             out.append(ClipCandidate(
                 id="", start=start, end=end, title=c.title.strip()[:80], summary=c.summary.strip(),
-                reason=c.reason.strip(), confidence=round(c.confidence, 3), score=score(c, duration),
-                part=window.part,
+                reason=c.reason.strip(), confidence=round(c.confidence, 3),
+                score=score(c, length, opening), part=window.part,
             ))
         return out
 

@@ -28,12 +28,22 @@ def shape(service):
 
 
 def test_a_handful_of_proposals_is_not_worth_choosing_between(service, shape, monkeypatch):
-    """With four moments there is nothing to weigh; do not spend a call on it."""
+    """With three moments there is nothing to weigh; do not spend a call on it."""
     called = []
     monkeypatch.setattr(discovery, "ask", lambda *a, **k: called.append(1))
-    out = discovery.shortlist(a_few(4), service, shape)
+    out = discovery.shortlist(a_few(3), service, shape)
     assert called == []
     assert all(c.shortlisted for c in out)
+
+
+def test_four_proposals_are_already_worth_thinning_out(service, shape, monkeypatch):
+    """Fewer moments is the point, so the editor gets to say no from four onwards."""
+    monkeypatch.setattr(discovery, "ask", lambda *a, **k: LlmShortlist(verdicts=[
+        Verdict(id="candidate-02", keep=True, rank=1, verdict="deze wel"),
+        Verdict(id="candidate-01", keep=False, rank=0, verdict="opent op een terugverwijzing"),
+    ]))
+    out = discovery.shortlist(a_few(4), service, shape)
+    assert sum(1 for c in out if c.shortlisted) == 1
 
 
 def test_the_editor_decides_the_order(service, shape, monkeypatch):
@@ -172,3 +182,30 @@ def test_a_failing_editor_leaves_the_moments_alone(service, monkeypatch):
     result = discovery.discover(transcript)
     assert result.candidates, "the moments found are worth having even unranked"
     assert "vergeleken" in (result.warning or "")
+
+
+def test_the_editor_reads_the_opening_line(service, shape):
+    """What a scrolling stranger sees first is the thing to judge, so it is put up front."""
+    first = next(s for s in service if s.text.strip())
+    found = [clip("candidate-01", first.start, "Moment")]
+    request = discovery.shortlist_request(found, service, shape)
+    assert f"opent met: {first.text.strip()}" in request
+
+
+def test_an_opening_that_leans_backwards_is_flagged_for_the_editor(service, shape):
+    cold = Segment(start=10.0, end=18.0, text="Dat is precies waar het om gaat.")
+    warm = Segment(start=30.0, end=38.0, text="God vraagt niet dat je perfect bent.")
+    found = [clip("candidate-01", 10.0, "koud"), clip("candidate-02", 30.0, "warm")]
+    request = discovery.shortlist_request(found, [cold, warm], shape)
+    before, after = request.split("[candidate-02]")
+    assert "opent op een terugverwijzing" in before
+    assert "opent op een terugverwijzing" not in after
+
+
+def test_the_editor_is_asked_for_a_handful_not_a_list(service, shape, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(discovery, "ask",
+                        lambda user, system, schema: seen.update(system=system) or LlmShortlist(
+                            verdicts=[Verdict(id="candidate-01", keep=True, rank=1, verdict="ja")]))
+    discovery.shortlist(a_few(6), service, shape)
+    assert "kies er 3 tot 6" in seen["system"]

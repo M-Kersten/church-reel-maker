@@ -272,3 +272,12 @@ def test_a_finished_recording_is_not_left_waiting_for_nothing(tmp_path, fake_whi
     FakePipeline.produced = [FakeSegment(0.0, 5.0, "opnieuw", [FakeWord(0.0, 5.0, "opnieuw")])]
     transcription.transcribe(tmp_path / "in.mp4", work, duration=600.0)
     assert fake_whisper == [{"start": 0.0, "duration": 600.0}]
+
+
+def test_what_the_church_told_us_about_the_sermon_is_part_of_the_cache(tmp_path):
+    """Fill in the sermon title and the answers from before it were given for another question."""
+    window = build_windows(talk(40))[0]
+    discovery.remember_window(tmp_path, window, [a_candidate()], "De preek heet: Rust.")
+    assert discovery.cached_window(tmp_path, window, "De preek heet: Rust.") is not None
+    assert discovery.cached_window(tmp_path, window, "De preek heet: Onderweg.") is None
+    assert discovery.cached_window(tmp_path, window) is None

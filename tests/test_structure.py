@@ -132,17 +132,34 @@ def test_the_windows_sent_are_numbered_from_one_again(service):
     assert [w.index for w in keeping] == list(range(len(keeping)))
 
 
-def test_the_part_is_put_in_front_of_the_model(service):
+def sent(window, about="", monkeypatch=None) -> str:
+    """The user message analyze_window actually puts on the wire."""
+    seen = {}
+
+    def catch(user, system, schema):
+        seen["user"] = user
+        return schema(candidates=[])
+
+    monkeypatch.setattr(discovery, "ask", catch)
+    discovery.analyze_window(window, about)
+    return seen["user"]
+
+
+def test_the_part_is_put_in_front_of_the_model(service, monkeypatch):
     keeping, _shape, _dropped = discovery.sermon_windows(service)
     sermon = next(w for w in keeping if w.part == structure.PART_LABEL["preek"])
-    assert "preek" in discovery.analyze_window.__doc__ if discovery.analyze_window.__doc__ else True
-    # the wording that actually goes out
-    assert f"Dit deel van de dienst is: {sermon.part}." in _user_message(sermon)
+    message = sent(sermon, monkeypatch=monkeypatch)
+    assert f"Dit deel van de dienst is: {sermon.part}." in message
+    assert "minuten na het begin" in message, "where in the service it sits"
 
 
-def _user_message(window) -> str:
-    return (f"Fragment {window.index + 1}, van {window.start:.1f}s tot {window.end:.1f}s in de dienst. "
-            f"Dit deel van de dienst is: {window.part}.\n\n{discovery.format_window(window)}")
+def test_what_came_before_is_sent_along_but_marked_off_limits(service, monkeypatch):
+    keeping, _shape, _dropped = discovery.sermon_windows(service)
+    later = next(w for w in keeping if w.lead)
+    message = sent(later, monkeypatch=monkeypatch)
+    assert "Wat hieraan voorafging" in message
+    assert "kies hier niets uit" in message
+    assert later.lead[-1].text.strip() in message
 
 
 def test_the_summary_names_the_parts_and_when_they_are(service):
