@@ -322,13 +322,18 @@ def build(config: OutroConfig | None = None, church: ChurchInfo | None = None) -
 
 
 def ensure_outro() -> None:
-    """Rebuild outro.mp4 when the active brand changed. Never overwrites a newer hand-made video."""
+    """Rebuild outro.mp4 when the active brand or the way it is drawn changed.
+
+    Never overwrites a newer hand-made video. This file counts as a source: a pull that
+    changes how the end screen is made would otherwise leave the old video in place until
+    someone happened to edit the brand.
+    """
     with _lock:
         brands.migrate()
         brand = brands.active()
         if not brand.outro.generate:
             return
-        sources = [brands.path_for(brand.id), brands.ACTIVE_FILE]
+        sources = [brands.path_for(brand.id), brands.ACTIVE_FILE, Path(__file__)]
         newest = max((p.stat().st_mtime for p in sources if p.is_file()), default=0.0)
         if OUTRO_PATH.is_file() and OUTRO_PATH.stat().st_mtime >= newest:
             return

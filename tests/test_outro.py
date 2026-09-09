@@ -1,5 +1,6 @@
 """The end screen: the logo has to arrive with the text, not before it."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -87,3 +88,25 @@ def test_the_background_still_no_longer_holds_the_logo(tmp_path, monkeypatch):
     cfg, _ = with_logo(tmp_path)
     outro.background_still(cfg, outro.WIDTH, outro.HEIGHT, tmp_path / "bg.png")
     assert "overlay" not in " ".join(seen[0])
+
+
+def test_a_changed_way_of_drawing_rebuilds_the_end_screen(monkeypatch, tmp_path):
+    """A pull changes outro.py, not the brand file; the video must still be made again."""
+    built: list[str] = []
+    video = tmp_path / "outro.mp4"
+    video.write_bytes(b"old")
+    monkeypatch.setattr(outro, "OUTRO_PATH", video)
+    monkeypatch.setattr(outro, "build", lambda *a, **k: built.append("built") or video)
+    monkeypatch.setattr(outro.brands, "migrate", lambda: None)
+
+    # The video is younger than the brand, so nothing but the code can ask for a rebuild.
+    old = video.stat().st_mtime
+    for source in (outro.brands.ACTIVE_FILE, outro.brands.path_for(outro.brands.active().id)):
+        if source.is_file():
+            os.utime(source, (old - 100, old - 100))
+    outro.ensure_outro()
+    assert built == [], "nothing changed, nothing is remade"
+
+    os.utime(video, (old - 100, old - 100))  # this file is now older than backend/outro.py
+    outro.ensure_outro()
+    assert built == ["built"]

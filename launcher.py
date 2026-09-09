@@ -143,16 +143,42 @@ def ensure_ffmpeg() -> None:
 # --- frontend -----------------------------------------------------------------
 
 
+SOURCE_GLOBS = ("src/**/*", "index.html", "package.json", "package-lock.json", "vite.config.ts", "tsconfig.json")
+
+
+def frontend_is_stale() -> bool:
+    """Is the built interface older than the code it was built from?
+
+    The build is committed, so a fresh clone can run without Node. That also means a pull
+    brings new source and an old build side by side, and without this check the app would
+    keep serving the old one after a restart.
+    """
+    frontend = ROOT / "frontend"
+    built = frontend / "dist" / "index.html"
+    if not built.exists():
+        return True
+    when = built.stat().st_mtime
+    for pattern in SOURCE_GLOBS:
+        for path in frontend.glob(pattern):
+            if path.is_file() and path.stat().st_mtime > when:
+                return True
+    return False
+
+
 def ensure_frontend() -> None:
-    dist = ROOT / "frontend" / "dist" / "index.html"
-    if dist.exists():
+    if not frontend_is_stale():
         return
+    frontend = ROOT / "frontend"
+    built = frontend / "dist" / "index.html"
     npm = shutil.which("npm")
     if npm is None:
+        if built.exists():
+            say("The interface has changed but Node.js is not installed, so the version from before is "
+                "used. Install Node.js and start again to see the new one.")
+            return
         raise SystemExit("The web interface has not been built (frontend/dist is missing) and Node.js is not "
                          "installed. Ask a developer to run `npm run build` in frontend/ or install Node.js.")
-    say("Building the web interface (first time only) …")
-    frontend = ROOT / "frontend"
+    say("Building the web interface …")
     if not (frontend / "node_modules").is_dir():
         subprocess.run([npm, "install"], cwd=frontend, check=True)
     subprocess.run([npm, "run", "build"], cwd=frontend, check=True)
