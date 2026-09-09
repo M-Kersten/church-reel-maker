@@ -151,3 +151,19 @@ def test_a_person_model_that_arrived_half_way_is_not_kept(tmp_path, monkeypatch)
         vision.ensure_models()
     assert not (tmp_path / "person.onnx").exists()
     assert not list(tmp_path.glob("*.part")), "the half download is cleaned up"
+
+
+def test_the_readiness_check_says_the_person_model_still_has_to_come(tmp_path, monkeypatch):
+    from backend import health
+
+    monkeypatch.setattr(vision, "PERSON_MODEL", tmp_path / "not-yet.onnx")
+    check = health._tracking()
+    assert check.ok, "a missing person model is not a reason to stop"
+    assert "9 MB" in check.detail
+
+
+def test_the_readiness_check_complains_when_the_face_model_is_gone(tmp_path, monkeypatch):
+    from backend import health
+
+    monkeypatch.setattr(vision, "FACE_MODEL", tmp_path / "gone.onnx")
+    assert not health._tracking().ok

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from . import discovery, storage
+from . import discovery, storage, vision
 from .models import PROJECTS_DIR, ROOT, SERVICES_DIR, TEMPLATES_DIR
 from .transcription import MODEL_SIZE
 
@@ -41,6 +41,18 @@ def _whisper() -> Check:
     return Check(name="Spraakmodel", ok=True,
                  detail=f"{MODEL_SIZE}, klaar voor gebruik" if downloaded
                  else f"{MODEL_SIZE}, wordt bij de eerste keer uitschrijven gedownload (ongeveer 460 MB)")
+
+
+def _tracking() -> Check:
+    """Following the speaker. The face model ships with us; the person model is fetched."""
+    if not vision.FACE_MODEL.is_file():
+        return Check(name="Spreker volgen", ok=False,
+                     detail=f"Het bestand vision/{vision.FACE_MODEL.name} ontbreekt. Haal de app "
+                            "opnieuw op; kaderen met de hand werkt intussen gewoon.")
+    if vision.PERSON_MODEL.is_file():
+        return Check(name="Spreker volgen", ok=True, detail="gezichten en personen, klaar voor gebruik")
+    return Check(name="Spreker volgen", ok=True,
+                 detail="het personenmodel wordt bij de eerste keer volgen opgehaald (9 MB)")
 
 
 def _llm() -> Check:
@@ -89,5 +101,5 @@ def _folders() -> Check:
 
 
 def report() -> dict:
-    checks = [_ffmpeg(), _whisper(), _llm(), _disk(), _folders()]
+    checks = [_ffmpeg(), _whisper(), _tracking(), _llm(), _disk(), _folders()]
     return {"ok": all(c.ok for c in checks), "checks": [c.model_dump() for c in checks]}
