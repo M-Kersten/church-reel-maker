@@ -219,7 +219,7 @@ Measured on the service in `tests/service_text.py`, 52 of 52 sentences are label
 | `LLM_CONCURRENCY` | `3` | Windows analysed in parallel. |
 | `OLLAMA_URL` | `http://localhost:11434` | |
 
-Only transcript text is sent to the model, never video or audio. Before you press **Beste momenten zoeken**, the interface says how many pieces of text go out, roughly how many tokens that is and what it costs at list price: about 45,000 tokens and $0.75 for a 90-minute service with Claude Opus 5. With `LLM_PROVIDER=ollama` it says the run is free and stays on the machine.
+Only transcript text is sent to the model, never video or audio. Before you press **Beste momenten zoeken**, the interface says how many pieces of text go out, roughly how many tokens that is and what it costs at list price: about 45,000 tokens and € 0,65 for a 90-minute service with Claude Opus 5 (list price in dollars, converted at `EUR_PER_USD` from `config.env`). With `LLM_PROVIDER=ollama` it says the run is free and stays on the machine.
 
 ### Measuring whether the suggestions are any good
 
@@ -549,9 +549,18 @@ numbers behave the same way on a tight crop and a wide one, with the frame edge 
   cut, so the frame jumps with it. The threshold is a spike against what this clip normally does,
   not a fixed number, because two cameras in one room differ far less than two rooms
 
-Only x moves. Height and zoom stay where the user put them: on a 9:16 window out of a wide frame
-there is rarely anything above or below worth following, and vertical drift is the first thing that
-reads as wobble.
+Only x moves while the clip plays. On a 9:16 window out of a wide frame there is rarely anything
+above or below worth following, and vertical drift is the first thing that reads as wobble.
+
+**How tight.** A camera at the back of a church leaves the speaker small, and a 9:16 window cut out
+of that is a distant figure in a lot of empty church, so the search also proposes a zoom. The person
+box says how tall the speaker is (without the person model, a head and the seven and a half heads a
+standing adult measures); the zoom that would make them fill 62% of the frame height is worked out
+and then capped, at 1.6× and at 3.2 output pixels per source pixel, whichever bites first. A 720p
+recording therefore gets far less room than a 1080p one, which is the honest answer rather than a
+soft clip. Cropping in makes the vertical position matter, so a starting y comes with it, putting
+the head about a third of the way down. Both are a starting point: the zoom slider and dragging the
+frame up and down stay the user's, and only sideways is locked while the frame follows.
 
 **What renders.** `renderer.track_commands` reads the path at 50 a second and writes a `sendcmd`
 script, one line per moment the window would land on a different pixel, driving a labelled
@@ -560,7 +569,8 @@ script, one line per moment the window would land on a different pixel, driving 
 where the render will put it; `tests/mirror_cases.py` diffs the two.
 
 **When it runs.** Cutting a service into clips looks for the speaker in each clip while you are
-already waiting, so a clip opens with the speaker followed. A clip that arrived on its own gets a
+already waiting, so a clip opens with the speaker followed. That is the long part of that step now,
+and the dock at the bottom of the page carries the bar, the fragment it is on and what is left. A clip that arrived on its own gets a
 **Zoek de spreker** button. Either way the **Beeldkader** panel keeps both modes side by side: a
 path that turned out badly is one click away from a static window you place yourself. A path found
 in less than 55% of a clip is kept but not switched on.
@@ -570,5 +580,5 @@ the speaker found in 100% of samples, the frame perfectly still on 93% of steps,
 single step 1% of the width. Rendering the same clip both ways and looking for the head in the
 finished 9:16 videos, 68 samples each: average distance from the centre 0.17 tracked against 0.49
 static, and 0 samples with the head against the edge of the frame against 15. He stays in frame
-either way on this clip, because he stays behind the lectern; where he sits in the frame is the
-difference. On a staged clip with a camera change in it the frame jumps inside one frame.
+either way on this clip, because the speaker stays behind the lectern; where they sit in the frame
+is the difference. On a staged clip with a camera change in it the frame jumps inside one frame.

@@ -495,6 +495,11 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dock .chip:hover:not(:disabled) { background: var(--purple); border-color: var(--purple); color: var(--white); }
+/* Making the clips is the long wait in the app, and the button for it sits down here, so
+   this is where the bar belongs too. */
+.dock .progress.dock-busy { margin-top: 0; padding-right: 0.4rem; }
+.dock .progress.dock-busy .label { font-size: 0.82rem; font-weight: 500; }
+.dock .progress.dock-busy .label > span:first-child { color: var(--purple); font-weight: 600; }
 
 /* outro */
 .outro-row { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }

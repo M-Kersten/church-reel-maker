@@ -4,6 +4,7 @@
 """
 
 import shutil
+import statistics
 from pathlib import Path
 
 import traceback
@@ -19,7 +20,7 @@ from datetime import datetime, timezone
 from . import brands, clips, discovery, fetch, fonts, health, kerkdienstgemist, outro, renderer, storage, tracking, transcription, wordlearn
 from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, SERVICES_DIR, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
-                     ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
+                     ProjectDetail, Service, ServiceDetail, Style, Track, Transcript, load_church_info, load_project,
                      load_service, load_service_transcript, load_transcript, new_project, new_service, project_dir,
                      recover_services, save_project, save_service, save_service_transcript, save_transcript, service_dir)
 from .subtitles import write_ass
@@ -914,6 +915,20 @@ def update_candidates(service_id: str, candidates: list[ClipCandidate]):
     return service.candidates
 
 
+def framing_from(project: Project, found: Track) -> CropWindow:
+    """The window a found path asks for: its zoom, its height, and a sensible fallback x.
+
+    Only x moves while the clip plays, so zoom and y are set once, here. x is set to where
+    the speaker mostly was, which does nothing while the frame is following and puts the
+    window in a useful place the moment somebody switches to framing it themselves.
+    """
+    base = project.crop or renderer.default_crop(project.sourceInfo, project.output)
+    middle = statistics.median(found.x) if found.x else base.x
+    return CropWindow(x=round(middle, 4),
+                      y=found.y if found.y is not None else base.y,
+                      zoom=found.zoom if found.zoom else base.zoom)
+
+
 def follow_speaker(project: Project, on_progress=None, should_stop=None, quiet: bool = True) -> Project:
     """Look through a clip for the speaker and keep the path, if it is worth keeping.
 
@@ -932,6 +947,8 @@ def follow_speaker(project: Project, on_progress=None, should_stop=None, quiet: 
                                on_progress=on_progress, should_stop=should_stop)
         project.track = found
         project.cropStrategy = "tracked" if found.enough else "static"
+        if found.enough:
+            project.crop = framing_from(project, found)
         save_project(project)
     except Cancelled:
         raise
@@ -993,10 +1010,14 @@ def process_selected(service_id: str):
     transcript = load_service_transcript(service)
 
     def work(job: Job, service: Service) -> None:
+        # Looking for the speaker is the long part of this step, and it runs at a steady
+        # speed, so what is left can honestly be counted from what is done.
+        left = Estimator(settle=8.0)
         for n, cand in enumerate(selected, start=1):
             job.check()
             share = (n - 1) / len(selected)
-            job.progress, job.message = share, f"Fragment {n} van {len(selected)} wordt klaargezet"
+            job.advance(share)
+            job.message = left.note(share, f"Fragment {n} van {len(selected)} wordt klaargezet")
             project = clips.create_clip(
                 source, cand.start, cand.end, transcript, title=cand.title,
                 origin=ClipOrigin(serviceId=service.id, candidateId=cand.id, start=cand.start, end=cand.end),
@@ -1005,8 +1026,9 @@ def process_selected(service_id: str):
             # The framing is worked out here, in a step where you are already waiting, so
             # the clip opens with the speaker already followed rather than centred and lost.
             def told(fraction: float, message: str, n=n, share=share) -> None:
-                job.progress = share + fraction / len(selected)
-                job.message = f"Fragment {n} van {len(selected)} · {message}"
+                at = share + fraction / len(selected)
+                job.advance(at)
+                job.message = left.note(at, f"Fragment {n} van {len(selected)} · {message}")
 
             follow_speaker(project, told, job.check)
             service.clips.append(ProcessedClip(

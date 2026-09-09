@@ -112,6 +112,11 @@ class Track(BaseModel):
     x: list[float] = []
     coverage: float = 0.0  # how much of the clip the speaker was actually found in
     subject: str = ""  # "face" or "person": what it mostly had to go on
+    # A speaker who is small in a wide shot is worth cropping in on, and cropping in makes
+    # the vertical position matter. Both are a starting point the user is free to move;
+    # neither changes while the clip plays.
+    zoom: float | None = None
+    y: float | None = None
     cuts: list[float] = []  # seconds where the camera changed
     # Samples the frame jumped to rather than glided into. Nothing may interpolate across
     # one, or a cut turns back into the fast pan across the room it was meant to replace.

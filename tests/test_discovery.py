@@ -159,13 +159,13 @@ def test_estimate_grows_with_the_transcript():
     large = estimate(Transcript(language="nl", segments=talk(500)))
     assert large["windows"] > small["windows"]
     assert large["tokens"] > small["tokens"]
-    assert large["costUsd"] >= small["costUsd"]
+    assert large["costEur"] >= small["costEur"]
     assert small["model"] and small["provider"]
 
 
 def test_estimate_of_an_empty_transcript_costs_nothing():
     empty = estimate(Transcript(language="nl", segments=[]))
-    assert empty["windows"] == 0 and empty["costUsd"] == 0.0
+    assert empty["windows"] == 0 and empty["costEur"] == 0.0
 
 
 # --- fewer, longer, and starting somewhere a stranger can follow ---------------

@@ -221,3 +221,82 @@ def test_easing_covers_most_of_the_distance_within_its_own_time_constant():
     ease = 1 - math.exp(-1 / (tracking.TAU * PATH_FPS))
     left = (1 - ease) ** (tracking.TAU * PATH_FPS)
     assert 0.3 < left < 0.4, "one tau leaves about a third of the way to go"
+
+
+# --- how tight to crop ------------------------------------------------------------
+
+
+def a_body(height_share: float, at: float = 0.5, count: int = 12) -> list[Sighting]:
+    """Sightings of somebody standing still, `height_share` of the frame tall."""
+    height = height_share * 1080
+    return [Sighting(i / SAMPLE_FPS, 960.0,
+                     Box(x=960, y=at * 1080, w=height / 3, h=height, score=0.8))
+            for i in range(count)]
+
+
+def test_somebody_who_already_fills_the_frame_is_not_cropped_in_on():
+    assert tracking.suggest_zoom(a_body(0.85), WIDE, OUT) is None
+
+
+def test_somebody_small_in_a_wide_shot_is_cropped_in_on():
+    zoom = tracking.suggest_zoom(a_body(0.35), WIDE, OUT)
+    assert zoom is not None and zoom > 1.0
+
+
+def test_cropping_in_stops_before_the_picture_falls_apart():
+    tiny = tracking.suggest_zoom(a_body(0.08), WIDE, OUT)
+    assert tiny is not None and tiny <= tracking.ZOOM_MAX
+
+
+def test_a_low_resolution_source_is_allowed_far_less_room():
+    from backend.renderer import cover_scale
+
+    small = VideoInfo(width=854, height=480, duration=30.0, fps=25.0, videoCodec="h264",
+                      hasAudio=True, audioCodec="aac", audioSampleRate=48000, audioChannels=2)
+    big = VideoInfo(width=3840, height=2160, duration=30.0, fps=25.0, videoCodec="h264",
+                    hasAudio=True, audioCodec="aac", audioSampleRate=48000, audioChannels=2)
+    seen = a_body(0.25)
+    poor, rich = tracking.suggest_zoom(seen, small, OUT), tracking.suggest_zoom(seen, big, OUT)
+    assert rich is not None and (poor is None or poor < rich)
+    if poor:
+        assert cover_scale(small, OUT) * poor <= tracking.UPSCALE_MAX + 1e-9
+
+
+def test_a_difference_too_small_to_notice_is_not_made():
+    # Just under the fill it aims for: cropping in by a few percent only costs sharpness.
+    assert tracking.suggest_zoom(a_body(tracking.FILL / 1.04), WIDE, OUT) is None
+
+
+def test_without_enough_sightings_nothing_is_proposed():
+    assert tracking.suggest_zoom(a_body(0.3, count=2), WIDE, OUT) is None
+    assert tracking.suggest_zoom([], WIDE, OUT) is None
+
+
+def test_faces_alone_can_still_say_how_far_away_somebody_is():
+    """Without the person model there are only heads, and a head implies a body."""
+    heads = [Sighting(i / SAMPLE_FPS, 960.0, None,
+                      Box(x=960, y=300, w=40, h=0.05 * 1080, score=0.9))
+             for i in range(12)]
+    zoom = tracking.suggest_zoom(heads, WIDE, OUT)
+    assert zoom is not None and zoom > 1.0
+
+
+def test_the_head_ends_up_high_in_the_frame_rather_than_in_the_middle():
+    seen = [Sighting(i / SAMPLE_FPS, 960.0, None, Box(x=960, y=0.30 * 1080, w=40, h=60, score=0.9))
+            for i in range(12)]
+    y = tracking.suggest_y(seen, WIDE, OUT, 1.6)
+    assert y is not None
+    visible = tracking.visible_share(WIDE, OUT) / 1.6
+    where = (0.30 - (y - visible / 2)) / visible  # where the head lands in the finished frame
+    assert 0.25 < where < 0.42, "not centred, and not against the top edge"
+
+
+def test_nothing_is_said_about_the_vertical_when_the_whole_height_is_in_frame():
+    seen = a_body(0.5)
+    assert tracking.suggest_y(seen, WIDE, OUT, 1.0) is None
+
+
+def test_the_frame_stays_on_the_picture_however_high_the_speaker_stands():
+    for at in (0.05, 0.5, 0.95):
+        y = tracking.suggest_y(a_body(0.3, at=at), WIDE, OUT, 1.6)
+        assert y is not None and 0.0 <= y <= 1.0

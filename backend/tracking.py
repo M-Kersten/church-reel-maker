@@ -20,6 +20,7 @@ is the first thing that reads as wobble.
 """
 
 import math
+import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -67,6 +68,7 @@ class Sighting:
     at: float
     x: float | None  # centre of the head, in source pixels; None when nobody was found
     body: Box | None = None
+    head: Box | None = None  # the face, when one was seen: how big and how high up
     kind: str = ""  # "face" or "person", whichever gave the x
     cut: bool = False  # the picture changed completely just before this sample
 
@@ -126,8 +128,8 @@ def is_cut(difference: float, recent: list[float]) -> bool:
 
 
 def look_once(eyes: "vision.Eyes", frame, held: Watch, at: float, info: VideoInfo,
-              with_people: bool) -> tuple[float | None, str]:
-    """Where the followed person's head is in this frame, and what said so.
+              with_people: bool) -> tuple[Box | None, str]:
+    """The box the frame should aim at in this picture, and what found it.
 
     The body answers *who*, and it changes slowly enough to be asked about once a second.
     The face answers *where*, and is asked every time. When the face is gone the body
@@ -144,10 +146,10 @@ def look_once(eyes: "vision.Eyes", frame, held: Watch, at: float, info: VideoInf
     if body is not None:
         inside = [f for f in faces if body.holds(f)]
         if inside:
-            return max(inside, key=lambda f: f.score).x, "face"
-        return body.x, "person"
+            return max(inside, key=lambda f: f.score), "face"
+        return body, "person"
     if faces:
-        return choose(faces, info.width, info.height).x, "face"
+        return choose(faces, info.width, info.height), "face"
     return None, ""
 
 
@@ -181,15 +183,16 @@ def watch(source: Path, info: VideoInfo, start: float | None = None, length: flo
         # find one rather than waiting for its turn to come round.
         ask_people = index % PERSON_EVERY == 0 or cut or after_cut
         after_cut = cut or (after_cut and held.body is None)
-        x, kind = look_once(eyes, frame, held, at, info, with_people=ask_people)
-        if x is not None:
-            held.x, held.x_at = x, at
-        seen.append(Sighting(at, x if x is not None else (held.x if held.fresh(at) else None),
-                             held.body, kind, cut))
+        aim, kind = look_once(eyes, frame, held, at, info, with_people=ask_people)
+        if aim is not None:
+            held.x, held.x_at = aim.x, at
+        seen.append(Sighting(at, aim.x if aim is not None else (held.x if held.fresh(at) else None),
+                             held.body, aim if kind == "face" else None, kind, cut))
 
         if on_progress and span > 0 and index % 6 == 0:
-            share = min(0.98, at / span)
-            on_progress(share, f"De spreker wordt gevolgd · {int(share * 100)}%")
+            # The share is handed over as a number, not baked into the sentence: one caller
+            # draws a bar with it, another puts this clip's share inside a longer line.
+            on_progress(min(0.98, at / span), "De spreker wordt gevolgd")
     return seen
 
 
@@ -257,6 +260,86 @@ def glide(targets: list[float | None], cuts: list[bool], reach: float, start_at:
     return path, jumps
 
 
+# --- how tight to crop ------------------------------------------------------------
+
+# A camera at the back of a church leaves the speaker small, and a 9:16 window cut out of
+# that is a distant figure in a lot of empty church. Cropping in fixes it, up to the point
+# where the picture falls apart: the output is already an upscale of the source, and every
+# bit of extra zoom multiplies it. A 720p recording therefore gets far less room than a
+# 1080p one, which is the honest answer rather than a soft clip.
+FILL = 0.62  # how much of the frame height the speaker should take up
+ZOOM_MAX = 1.6  # never crop in further than this, whatever the arithmetic asks for
+UPSCALE_MAX = 3.2  # ... and never past this many output pixels per source pixel
+WORTH_IT = 1.08  # under this much zoom the difference is not worth the softness
+EYE_LINE = 0.33  # where the head ends up in the frame, measured from the top
+HEADS_TALL = 7.5  # a standing person, when only the face was found (measured on real footage)
+FACE_DOWN_BODY = 0.11  # how far down a person box the face sits, likewise
+SURE_ENOUGH = 6  # sightings before a size is worth acting on
+
+
+def visible_share(info: VideoInfo, output: Output) -> float:
+    """How much of the source height the frame shows at zoom 1. Wider than 9:16: all of it."""
+    from .renderer import cover_scale
+
+    return min(1.0, output.height / (info.height * cover_scale(info, output)))
+
+
+def subject_height(seen: list[Sighting], info: VideoInfo) -> float | None:
+    """How tall the followed person is, as a share of the source height.
+
+    The person box says it directly. Without the person model there are only faces, and a
+    standing adult is about seven and a half heads tall, which is rough and still enough to
+    tell a distant figure from someone filling the frame.
+    """
+    bodies = [s.body.h / info.height for s in seen if s.body]
+    if len(bodies) >= SURE_ENOUGH:
+        return statistics.median(bodies)
+    heads = [s.head.h * HEADS_TALL / info.height for s in seen if s.head]
+    return statistics.median(heads) if len(heads) >= SURE_ENOUGH else None
+
+
+def head_line(seen: list[Sighting], info: VideoInfo) -> float | None:
+    """Where the head sits, as a share of the source height, over the whole clip."""
+    heads = [s.head.y / info.height for s in seen if s.head]
+    if len(heads) >= SURE_ENOUGH:
+        return statistics.median(heads)
+    tops = [(s.body.y - s.body.h / 2 + FACE_DOWN_BODY * s.body.h) / info.height
+            for s in seen if s.body]
+    return statistics.median(tops) if len(tops) >= SURE_ENOUGH else None
+
+
+def suggest_zoom(seen: list[Sighting], info: VideoInfo, output: Output) -> float | None:
+    """How far to crop in, or None when the speaker is already big enough in the frame."""
+    from .renderer import cover_scale, default_crop
+
+    fill = subject_height(seen, info)
+    floor = default_crop(info, output).zoom
+    if not fill:
+        return None
+    # At zoom z the frame shows `visible / z` of the source height, so a speaker of height
+    # `fill` takes up `fill * z / visible` of it. Turn that around for the zoom wanted.
+    wanted = visible_share(info, output) * FILL / fill
+    ceiling = max(floor, min(ZOOM_MAX, UPSCALE_MAX / cover_scale(info, output)))
+    wanted = max(floor, min(wanted, ceiling))
+    return round(wanted, 3) if wanted >= floor * WORTH_IT else None
+
+
+def suggest_y(seen: list[Sighting], info: VideoInfo, output: Output, zoom: float) -> float | None:
+    """Where to put the frame vertically, so a cropped-in shot keeps the head in it.
+
+    Nothing follows the speaker up and down: vertical drift is the first thing that reads as
+    wobble, and there is rarely anything above or below worth following. This is one number
+    for the whole clip, and the user can move it.
+    """
+    head = head_line(seen, info)
+    if head is None:
+        return None
+    visible = min(1.0, visible_share(info, output) / max(1e-6, zoom))
+    if visible >= 1.0:
+        return None  # the whole height is in frame anyway
+    return round(min(1.0, max(0.0, head + visible * (0.5 - EYE_LINE))), 4)
+
+
 def coverage(seen: list[Sighting]) -> float:
     return sum(1 for s in seen if s.x is not None) / len(seen) if seen else 0.0
 
@@ -272,13 +355,17 @@ def build(source: Path, info: VideoInfo, output: Output, crop: CropWindow,
         if not vision.FACE_MODEL.is_file():
             raise
         # Only the person model is missing. Faces alone find the speaker most of the time,
-        # and a clip that follows him imperfectly beats one that cannot follow at all.
+        # and a clip that follows imperfectly beats one that cannot follow at all.
         print(f"[volgen] zonder het personenmodel, alleen op gezichten: {exc}")
     seen = watch(source, info, start, length, on_progress, should_stop)
     if should_stop:
         should_stop()
     found = coverage(seen)
-    reach = half_width(info, output, crop)
+    # How tight the crop ends up decides how far the frame has to travel, and the dead zone
+    # is measured in crop widths, so the zoom is settled before the path is walked.
+    zoom = suggest_zoom(seen, info, output)
+    framed = CropWindow(x=crop.x, y=crop.y, zoom=zoom) if zoom else crop
+    reach = half_width(info, output, framed)
     path, jumps = glide(anchors(seen, info.width), [s.cut for s in seen], reach, crop.x)
     faces = sum(1 for s in seen if s.kind == "face")
     bodies = sum(1 for s in seen if s.kind == "person")
@@ -287,6 +374,8 @@ def build(source: Path, info: VideoInfo, output: Output, crop: CropWindow,
         x=path,
         coverage=round(found, 3),
         subject="face" if faces >= bodies and faces else ("person" if bodies else ""),
+        zoom=zoom,
+        y=suggest_y(seen, info, output, zoom or framed.zoom),
         cuts=[round(s.at, 2) for s in seen if s.cut],
         jumps=jumps,
         enough=found >= ENOUGH and len(path) > 1,

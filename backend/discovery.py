@@ -506,6 +506,10 @@ def shortlist(found: list[ClipCandidate], segments: list[Segment], shape: list[B
 # Rough list price per million tokens (input, output), for the cost estimate shown before analysing.
 PRICES = {"claude-opus-5": (5.0, 25.0), "claude-sonnet-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
 
+# Anthropic publishes those prices in dollars and the church pays in euros, so one rate,
+# in one place, adjustable from config.env when it has drifted far enough to matter.
+EUR_PER_USD = float(os.environ.get("EUR_PER_USD", "0.86"))
+
 
 def estimate(transcript: Transcript, duration: float | None = None) -> dict:
     """What a run would send and cost, so the interface can say so before spending anything.
@@ -528,9 +532,10 @@ def estimate(transcript: Transcript, duration: float | None = None) -> dict:
         cost = 0.0
     else:
         price_in, price_out = PRICES.get(model, PRICES["claude-opus-5"])
-        cost = round(input_tokens * price_in / 1e6 + output_tokens * price_out / 1e6, 2)
+        dollars = input_tokens * price_in / 1e6 + output_tokens * price_out / 1e6
+        cost = round(dollars * EUR_PER_USD, 2)
     return {"provider": LLM_PROVIDER, "model": model, "windows": len(windows), "skipped": skipped,
-            "tokens": input_tokens + output_tokens, "costUsd": cost}
+            "tokens": input_tokens + output_tokens, "costEur": cost}
 
 
 class Result(BaseModel):

@@ -50,7 +50,9 @@ export default function FramingPanel({
   // window is still what the height and the zoom come from, and what it falls back to.
   const shown = cropAt(crop, track, following, currentTime)
   const g = cropGeometry(sourceInfo, output, shown)
+  // Sideways belongs to the path while the frame is following; up and down never does.
   const pan = canPan(sourceInfo, output, crop)
+  const movable = { x: pan.x && !following, y: pan.y }
   const low = minZoom(sourceInfo, output)
   // Frame rectangle in fractions of the source; the frame can be larger than the source (letterbox).
   const frame = {
@@ -61,7 +63,7 @@ export default function FramingPanel({
   }
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (following) return  // the path decides where it goes; dragging would only fight it
+    if (!movable.x && !movable.y) return
     drag.current = { x: e.clientX, y: e.clientY, crop }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
@@ -70,15 +72,20 @@ export default function FramingPanel({
     const box = boxRef.current
     if (!d || !box) return
     onChange(clampCrop({
-      x: pan.x ? d.crop.x + (e.clientX - d.x) / box.clientWidth : d.crop.x,
-      y: pan.y ? d.crop.y + (e.clientY - d.y) / box.clientHeight : d.crop.y,
+      x: movable.x ? d.crop.x + (e.clientX - d.x) / box.clientWidth : d.crop.x,
+      y: movable.y ? d.crop.y + (e.clientY - d.y) / box.clientHeight : d.crop.y,
       zoom: d.crop.zoom,
     }, sourceInfo, output))
   }
   const onPointerUp = () => (drag.current = null)
 
   const setZoom = (zoom: number) => onChange(clampCrop({ ...crop, zoom }, sourceInfo, output))
-  const isDefault = JSON.stringify(crop) === JSON.stringify(defaultCrop(sourceInfo, output))
+  // Following, "back to the start" means what the search proposed, not the app's own default:
+  // the speaker was small in the picture and it cropped in for a reason.
+  const start = following && track && track.zoom
+    ? clampCrop({ x: crop.x, y: track.y ?? 0.5, zoom: track.zoom }, sourceInfo, output)
+    : defaultCrop(sourceInfo, output)
+  const isDefault = JSON.stringify(crop) === JSON.stringify(start)
 
   const found = track ? Math.round(track.coverage * 100) : 0
   const canFollow = Boolean(track && track.x.length)
@@ -107,15 +114,15 @@ export default function FramingPanel({
         {searching
           ? searchNote || 'De clip wordt doorgekeken op de spreker. Dit duurt ongeveer tien seconden per minuut video.'
           : following
-            ? `Het kader volgt de spreker${track && track.cuts.length ? `, en springt mee met de ${track.cuts.length} camerawissel${track.cuts.length === 1 ? '' : 's'}` : ''}. Klopt het niet, zet het dan zelf.`
+            ? `Het kader volgt de spreker${track && track.cuts.length ? `, en springt mee met de ${track.cuts.length} camerawissel${track.cuts.length === 1 ? '' : 's'}` : ''}.${track?.zoom ? ' De spreker stond klein in beeld, dus er is een stuk ingezoomd.' : ''} Klopt het niet, zet het dan zelf.`
             : canFollow
-              ? `De spreker is in ${found}% van deze clip gevonden. Sleep het gouden kader, of laat het hem volgen.`
+              ? `De spreker is in ${found}% van deze clip gevonden. Sleep het gouden kader, of laat het de spreker volgen.`
               : 'Sleep het gouden kader tot de spreker er goed in staat; slepen in de voorvertoning links werkt ook.'}
         {!searching && !canFollow && (
           <> <button className="bare small" onClick={onSearch}>Zoek de spreker</button></>
         )}
         {!searching && canFollow && !following && track && !track.enough && (
-          <> <span className="warn-inline">Er is te weinig van hem teruggevonden om op te vertrouwen.</span></>
+          <> <span className="warn-inline">Er is te weinig teruggevonden om erop te vertrouwen.</span></>
         )}
         {!searching && canFollow && following && (
           <> <button className="bare small" onClick={onSearch}>Opnieuw zoeken</button></>
@@ -140,7 +147,7 @@ export default function FramingPanel({
               top: `${frame.top * 100}%`,
               width: `${frame.width * 100}%`,
               height: `${frame.height * 100}%`,
-              cursor: following ? 'default' : pan.x || pan.y ? 'grab' : 'default',
+              cursor: movable.x || movable.y ? 'grab' : 'default',
             }}
           >
             <span>{following ? 'volgt' : '9:16'}</span>
@@ -156,18 +163,16 @@ export default function FramingPanel({
         <label>Positie</label>
         <div className="inline">
           <span className="meta">
-            {following
-              ? `${Math.round(shown.x * 100)}% van links · door de spreker bepaald`
-              : `${Math.round(crop.x * 100)}% van links · ${Math.round(crop.y * 100)}% van boven`}
+            {Math.round((following ? shown.x : crop.x) * 100)}% van links · {Math.round(crop.y * 100)}% van boven
           </span>
-          <button className="small" onClick={() => onChange(defaultCrop(sourceInfo, output))} disabled={isDefault}>Herstel</button>
+          <button className="small" onClick={() => onChange(start)} disabled={isDefault}>Herstel</button>
           <button className="small" onClick={() => setZoom(low)} title="Laat het hele beeld zien, met zwarte balken">Hele beeld</button>
           <button className="small" onClick={() => setZoom(1)} title="Vul de staande video helemaal">Beeldvullend</button>
         </div>
       </div>
       <p className="hint">
         Het donkere deel valt weg. Met de zoom-schuif snijd je verder in, of laat je het hele beeld zien met zwarte balken.
-        {following && ' Hoe verder je inzoomt, hoe meer het kader moet meebewegen.'}
+        {following && ' Links en rechts gaat op de spreker; omhoog en omlaag sleep je zelf.'}
       </p>
     </Section>
   )

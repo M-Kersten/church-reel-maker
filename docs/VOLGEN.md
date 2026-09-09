@@ -2,8 +2,8 @@
 
 Een camera achterin de kerk zet de voorganger in een klein deel van een breed beeld. Een
 staand kader van 1080×1920 haalt daar hooguit een derde uit. Zet je dat kader vast in het
-midden, dan loopt de spreker eruit zodra hij een stap zet; trek je het zo ver open dat hij
-er altijd in valt, dan kijk je naar bewakingsbeelden.
+midden, dan loopt de spreker eruit zodra die een stap zet; trek je het zo ver open dat de
+spreker er altijd in valt, dan kijk je naar bewakingsbeelden.
 
 Dit beschrijft wat er gebeurt tussen de gekozen fragmenten en een kader dat meebeweegt.
 
@@ -18,14 +18,15 @@ dus dat gebeurt bij elk derde beeld.
 
 De twee beantwoorden verschillende vragen. Een lichaam zegt wie er op het podium staat, en
 dat verandert langzaam. Een gezicht zegt waar het hoofd is, en dat verandert steeds. Draait
-de spreker zich af, dan is het gezicht weg en draagt het lichaam het kader verder. Zijn ze
+de spreker het hoofd weg, dan is het gezicht verdwenen en draagt het lichaam het kader
+verder. Zijn ze
 allebei weg, dan blijft de laatste positie tweeënhalve seconde staan en daarna geeft de app
 toe dat er een gat is.
 
 Wie er gevolgd wordt, wordt één keer bepaald: de persoon die het midden van het beeld
 vasthoudt, groot genoeg en zeker genoeg. Daarna wordt diezelfde persoon elk beeld
-teruggezocht, als het dichtstbijzijnde vakje dat niet te ver weg ligt om nog hem te kunnen
-zijn. Een muzikant die achterlangs loopt neemt het kader dus niet over.
+teruggezocht, als het dichtstbijzijnde vakje dat niet te ver weg ligt om nog dezelfde
+persoon te kunnen zijn. Een muzikant die achterlangs loopt neemt het kader dus niet over.
 
 ## 2. Stilstaan
 
@@ -42,14 +43,28 @@ Daarbuiten schuift het kader terug, exponentieel, met een snelheidsplafond van 0
 kaderbreedtes per seconde. Traag genoeg dat je de spreker ziet en niet de camera.
 
 **De houdlijn** ligt op 0,34. Daar houdt kalm op interessant te zijn, want de spreker staat
-op het punt het beeld uit te lopen. Het plafond gaat eraf en het kader haalt hem in met
-1,10 kaderbreedtes per seconde.
+op het punt het beeld uit te lopen. Het plafond gaat eraf en het kader haalt de spreker in
+met 1,10 kaderbreedtes per seconde.
 
-Alleen x beweegt. Hoogte en zoom blijven staan waar de gebruiker ze zette. In een staand
-kader uit een breed beeld zit boven en onder de spreker zelden iets dat het volgen waard is,
-en verticale drift is het eerste wat als wiebelen leest.
+Alleen x beweegt terwijl de clip loopt. In een staand kader uit een breed beeld zit boven en
+onder de spreker zelden iets dat het volgen waard is, en verticale drift is het eerste wat als
+wiebelen leest.
 
-## 3. Camerawissels
+## 3. Hoe strak
+
+Staat de camera achterin, dan is de spreker een figuurtje in veel lege kerk. Het zoeken stelt
+daarom ook een zoom voor. Het personenvakje zegt hoe groot de spreker is; zonder dat model
+een hoofd, en de zeven en een halve hoofdlengtes die een staand mens meet.
+
+Gezocht wordt de zoom waarbij de spreker 62% van de kaderhoogte vult. Daarna gaat er een
+plafond op: 1,6× en 3,2 uitvoerpixels per bronpixel, wat het eerst knelt. Een opname van
+720p krijgt dus veel minder ruimte dan een van 1080p. Dat is eerlijker dan een zachte clip.
+
+Inzoomen maakt de verticale positie ineens belangrijk, dus er komt een begin-y bij: het hoofd
+op ongeveer een derde van boven. Allebei zijn het startwaarden. De zoomschuif blijft van jou,
+slepen omhoog en omlaag ook. Alleen links-rechts ligt vast zolang het kader volgt.
+
+## 4. Camerawissels
 
 Sommige kerken hebben meerdere camera's. Zo'n wissel is geen beweging waar je doorheen kunt
 glijden, want de ruimte zelf verandert. Het kader springt mee.
@@ -60,12 +75,12 @@ dan twee zalen, en een donkere kerk scheelt minder dan een lichte. In de gemeten
 een echte wissel op 20,4 en het drukste gewone beeld op 3,7.
 
 Springen gebeurt alleen als de spreker verder weg staat dan de dode zone. Terugsnijden naar
-een camera die hem al in het midden had, blijft daardoor volkomen stil.
+een camera die de spreker al in het midden had, blijft daardoor volkomen stil.
 
 Direct na een wissel is er niemand meer die gevolgd wordt, dus dan wordt het personenmodel
 meteen bevraagd in plaats van te wachten tot het weer aan de beurt is.
 
-## 4. Renderen
+## 5. Renderen
 
 `renderer.track_commands` leest het pad vijftig keer per seconde uit en schrijft een regel
 op elk moment dat het kader op een andere pixel zou landen. Dat gaat als `sendcmd` naar een
@@ -79,14 +94,20 @@ bij een snelle pan zie je die stappen anders zitten.
 kader tekent waar de render het straks neerzet. `tests/mirror_cases.py` legt de twee naast
 elkaar en laat de build vallen als ze uit elkaar lopen.
 
-## 5. Wat je ervan ziet
+## 6. Wat je ervan ziet
 
 Bij het verwerken van de gekozen fragmenten wordt elke clip doorgekeken, in een stap waar je
-toch al staat te wachten. De clip opent dus met de spreker al gevolgd.
+toch al staat te wachten. De clip opent dus met de spreker al gevolgd. Dat is meteen het
+langste deel van die stap geworden, dus de balk staat onderin het scherm, bij de knop waar je
+op drukte: welk fragment, welke stap, en hoeveel er nog komt.
 
 In het paneel **Beeldkader** staan twee knoppen naast elkaar. *Volg de spreker* laat het
 gouden kader het pad lopen, *Zelf kaderen* geeft het terug aan jou. Eronder staat wat er
-gevonden is: in hoeveel procent van de clip, en hoeveel camerawissels erin zaten.
+gevonden is: in hoeveel procent van de clip, hoeveel camerawissels erin zaten, en of er is
+ingezoomd omdat de spreker klein in beeld stond.
+
+Volgen betekent niet dat alles vastligt. De zoomschuif werkt gewoon, en het kader omhoog of
+omlaag slepen ook. Links-rechts is het enige dat het pad voor zich houdt.
 
 Is er in minder dan 55% van de clip iemand gevonden, dan wordt het pad wel bewaard maar niet
 aangezet. Je kunt het alsnog aanzetten en kijken.
@@ -108,8 +129,8 @@ afgemaakte staande video's gezocht naar het hoofd. Achtenzestig metingen per vid
 | gemiddeld van het midden | 0,49 | 0,17 |
 | tegen de rand aan | 15 keer | nooit |
 
-Deze spreker blijft achter de katheder, dus hij valt ook statisch niet uit beeld. Waar hij
-in het kader staat, scheelt wel: halverwege de rand tegenover ruim in het midden.
+Deze spreker blijft achter de katheder en valt dus ook statisch niet uit beeld. Waar de
+spreker in het kader staat, scheelt wel: halverwege de rand tegenover ruim in het midden.
 
 Het zoeken liep op zes keer realtime. De spreker werd in 100% van de metingen gevonden, het
 kader stond op 93% van de stappen volkomen stil, en de grootste stap was 1% van de breedte.

@@ -81,6 +81,10 @@ export interface Track {
   coverage: number
   /** "face" or "person": what it mostly had to go on. */
   subject: string
+  /** How far to crop in when the speaker was small in the picture; null = as it was. */
+  zoom: number | null
+  /** Where to put the frame vertically once it is cropped in; null = as it was. */
+  y: number | null
   /** Seconds where the camera changed. */
   cuts: number[]
   /** Samples the frame jumped to; nothing may interpolate across one. */
@@ -163,7 +167,7 @@ export interface AnalysisEstimate {
   windows: number
   skipped: number
   tokens: number
-  costUsd: number
+  costEur: number
 }
 
 export interface OutroLine {

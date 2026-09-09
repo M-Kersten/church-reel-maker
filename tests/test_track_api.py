@@ -1,5 +1,7 @@
 """The two things the clip page asks for: look for the speaker, and follow them or not."""
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -28,6 +30,16 @@ def a_project(pid: str = "clip", track: Track | None = None) -> Project:
     (models.project_dir(pid) / "source.mp4").write_bytes(b"not really a video")
     models.save_project(project)
     return project
+
+
+def settled(client, pid: str = "clip", seconds: float = 5.0) -> dict:
+    """The track endpoint once the search thread is done with it."""
+    limit = time.monotonic() + seconds
+    while True:
+        answer = client.get(f"/projects/{pid}/track").json()
+        if answer["job"]["status"] != "running" or time.monotonic() > limit:
+            return answer
+        time.sleep(0.02)
 
 
 def a_track(count: int = 30) -> Track:
@@ -87,7 +99,7 @@ def test_looking_for_the_speaker_stores_what_it_finds(client, monkeypatch):
     a_project()
     monkeypatch.setattr(tracking, "build", lambda *a, **k: a_track())
     assert client.post("/projects/clip/track").status_code == 200
-    answer = client.get("/projects/clip/track").json()
+    answer = settled(client)
     assert answer["job"]["status"] == "done"
     assert answer["cropStrategy"] == "tracked", "a clip it can follow opens following"
     assert len(answer["track"]["x"]) == 30
@@ -99,7 +111,7 @@ def test_a_path_too_thin_to_trust_is_kept_but_not_switched_on(client, monkeypatc
                  enough=False)
     monkeypatch.setattr(tracking, "build", lambda *a, **k: thin)
     client.post("/projects/clip/track")
-    answer = client.get("/projects/clip/track").json()
+    answer = settled(client)
     assert answer["cropStrategy"] == "static"
     assert answer["track"]["coverage"] == 0.2, "the user can still turn it on and look"
 
@@ -112,7 +124,7 @@ def test_a_search_that_fails_says_why_rather_than_going_quiet(client, monkeypatc
 
     monkeypatch.setattr(tracking, "build", cross)
     client.post("/projects/clip/track")
-    job = client.get("/projects/clip/track").json()["job"]
+    job = settled(client)["job"]
     assert job["status"] == "error"
     assert "herkenningsmodel" in job["error"]
 
@@ -143,3 +155,53 @@ def test_the_search_has_its_own_progress_apart_from_the_render(client):
 def test_looking_at_a_clip_that_is_not_there(client):
     assert client.post("/projects/nope/track").status_code == 404
     assert client.get("/projects/nope/track").status_code == 404
+
+
+# --- what a found path does to the framing ----------------------------------------
+
+
+def test_a_found_path_takes_over_the_zoom_and_the_vertical(client, monkeypatch):
+    a_project()
+    close = Track(fps=12.5, x=[0.3, 0.7], coverage=0.9, subject="person", cuts=[], jumps=[],
+                  enough=True, zoom=1.45, y=0.38)
+    monkeypatch.setattr(tracking, "build", lambda *a, **k: close)
+    client.post("/projects/clip/track")
+    settled(client)
+    crop = models.load_project("clip").crop
+    assert crop is not None
+    assert crop.zoom == 1.45 and crop.y == 0.38
+
+
+def test_the_manual_window_lands_where_the_speaker_mostly_was(client, monkeypatch):
+    a_project()
+    walked = Track(fps=12.5, x=[0.60, 0.62, 0.64], coverage=0.9, subject="face", cuts=[],
+                   jumps=[], enough=True)
+    monkeypatch.setattr(tracking, "build", lambda *a, **k: walked)
+    client.post("/projects/clip/track")
+    settled(client)
+    # x does nothing while the frame is following; it is what "Zelf kaderen" starts from.
+    assert models.load_project("clip").crop.x == pytest.approx(0.62)
+
+
+def test_a_path_not_worth_following_leaves_the_framing_alone(client, monkeypatch):
+    a_project()
+    models.save_project(models.load_project("clip").model_copy(
+        update={"crop": models.CropWindow(x=0.2, y=0.3, zoom=1.1)}))
+    thin = Track(fps=12.5, x=[0.9] * 30, coverage=0.2, subject="face", cuts=[], jumps=[],
+                 enough=False, zoom=1.6, y=0.7)
+    monkeypatch.setattr(tracking, "build", lambda *a, **k: thin)
+    client.post("/projects/clip/track")
+    settled(client)
+    crop = models.load_project("clip").crop
+    assert (crop.x, crop.y, crop.zoom) == (0.2, 0.3, 1.1)
+
+
+def test_a_path_with_no_opinion_about_the_zoom_keeps_what_was_there(client, monkeypatch):
+    a_project()
+    models.save_project(models.load_project("clip").model_copy(
+        update={"crop": models.CropWindow(x=0.5, y=0.45, zoom=1.2)}))
+    monkeypatch.setattr(tracking, "build", lambda *a, **k: a_track())
+    client.post("/projects/clip/track")
+    settled(client)
+    crop = models.load_project("clip").crop
+    assert crop.zoom == 1.2 and crop.y == 0.45

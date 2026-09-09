@@ -188,7 +188,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
       for (;;) {
         await new Promise((wake) => setTimeout(wake, 1000))
         const state = await api.trackStatus(project.id)
-        setSearchNote(state.job?.message ?? '')
+        const share = Math.round((state.job?.progress ?? 0) * 100)
+        setSearchNote(state.job?.message ? `${state.job.message} · ${share}%` : '')
         if (!state.job || state.job.status !== 'running') {
           setProject(await api.getProject(project.id))
           if (state.job?.status === 'error' && state.job.error) setError(state.job.error)

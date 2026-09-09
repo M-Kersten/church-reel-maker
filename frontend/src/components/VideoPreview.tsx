@@ -145,32 +145,35 @@ const VideoPreview = forwardRef<PreviewHandle, Props>(function VideoPreview(prop
   const g = cropGeometry(sourceInfo, output, shown)
   const padX = (output.width - g.cropW) / 2
   const padY = (output.height - g.cropH) / 2
+  // Sideways belongs to the path while the frame is following. Up and down never does, so
+  // that stays the user's to drag either way.
+  const pan = canPan(sourceInfo, output, crop)
+  const movable = { x: pan.x && !following, y: pan.y }
   const videoStyle: React.CSSProperties = {
     width: g.scaledW * scale,
     height: g.scaledH * scale,
     left: (padX - g.left) * scale,
     top: (padY - g.top) * scale,
     display: phase === 'main' ? 'block' : 'none',
-    cursor: onCropChange && !following ? 'grab' : 'pointer',
+    cursor: onCropChange && (movable.x || movable.y) ? 'grab' : 'pointer',
   }
-  const pan = canPan(sourceInfo, output, crop)
 
   // Drag the video to move the crop window; a click without movement toggles playback.
   const onPointerDown = (e: React.PointerEvent<HTMLVideoElement>) => {
-    if (!onCropChange || following) return  // the path decides; dragging would fight it
+    if (!onCropChange || (!movable.x && !movable.y)) return
     drag.current = { x: e.clientX, y: e.clientY, crop, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   const onPointerMove = (e: React.PointerEvent<HTMLVideoElement>) => {
     const d = drag.current
-    if (!d || !onCropChange || following) return
+    if (!d || !onCropChange) return
     const dx = e.clientX - d.x
     const dy = e.clientY - d.y
     if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return
     d.moved = true
     onCropChange(clampCrop({
-      x: pan.x ? d.crop.x - dx / (g.scaledW * scale) : d.crop.x,
-      y: pan.y ? d.crop.y - dy / (g.scaledH * scale) : d.crop.y,
+      x: movable.x ? d.crop.x - dx / (g.scaledW * scale) : d.crop.x,
+      y: movable.y ? d.crop.y - dy / (g.scaledH * scale) : d.crop.y,
       zoom: d.crop.zoom,
     }, sourceInfo, output))
   }

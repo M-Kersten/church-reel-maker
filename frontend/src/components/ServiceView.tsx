@@ -64,7 +64,7 @@ function CostNote({ analysis }: { analysis: NonNullable<Service['analysis']> }) 
         <> · {analysis.skipped} {analysis.skipped === 1 ? 'stuk blijft' : 'stukken blijven'} thuis, want daar wordt gezongen,
         gecollecteerd of afgekondigd</>
       )}. Dat kost tokens: ongeveer <strong>{analysis.tokens.toLocaleString('nl-NL')} tokens</strong>, dus rond de{' '}
-      <strong>${analysis.costUsd.toFixed(2).replace('.', ',')}</strong> met {analysis.model}. De video en het geluid blijven
+      <strong>€ {analysis.costEur.toFixed(2).replace('.', ',')}</strong> met {analysis.model}. De video en het geluid blijven
       op deze computer.
     </p>
   )
@@ -376,7 +376,9 @@ export default function ServiceView({ onOpenClip }: Props) {
             {service.status === 'error' && <div className="error" style={{ marginTop: '0.8rem', marginBottom: 0 }}>{service.error}</div>}
             {service.warning && <div className="warning">{service.warning}</div>}
             {busy && stopping && <p className="hint">Stoppen kan een halve minuut duren; de app maakt het huidige stukje eerst af.</p>}
-            {busy && (
+            {/* Making the clips reports in the dock, which is on screen wherever you have
+                scrolled to; two bars saying the same thing is one too many. */}
+            {busy && service.status !== 'processing' && (
               <div className={`progress ${progress ? 'busy' : 'waiting'}`}>
                 <div className="bar"><div style={{ width: `${progress ?? 0}%` }} /></div>
                 <div className="label">
@@ -473,11 +475,31 @@ export default function ServiceView({ onOpenClip }: Props) {
                   </div>
                 </div>
               )}
-              {service.candidates.length > 0 && (
+              {/* Making the clips takes a while now that the speaker is looked for in each
+                  of them, and the button that started it is down here, not up in the card. */}
+              {service.status === 'processing' ? (
+                <div className={`progress dock-busy ${progress ? 'busy' : 'waiting'}`}>
+                  <div className="bar"><div style={{ width: `${progress ?? 0}%` }} /></div>
+                  <div className="label">
+                    <span>{service.job?.message ?? 'Clips worden gemaakt'}</span>
+                    <span>
+                      {progress ? `${progress}%` : ''}
+                      <button
+                        className="bare small"
+                        style={{ marginLeft: '0.6rem' }}
+                        disabled={stopping}
+                        onClick={() => run(serviceApi.stop)}
+                      >
+                        {stopping ? 'Stoppen…' : 'Stoppen'}
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              ) : service.candidates.length > 0 && (
                 <div className="row">
                   <span>{selectedCount === 0 ? 'Nog geen fragment gekozen' : selectedCount === 1 ? '1 fragment gekozen' : `${selectedCount} fragmenten gekozen`}</span>
                   <button className="primary" disabled={busy || selectedCount === 0} onClick={processSelected}>
-                    {service.status === 'processing' ? 'Bezig…' : 'Gekozen fragmenten verwerken'}
+                    Gekozen fragmenten verwerken
                   </button>
                 </div>
               )}
