@@ -287,7 +287,8 @@ class OutroConfig(BaseModel):
 SERVICES_DIR = ROOT / "services"
 
 ServiceStatus = Literal[
-    "created", "uploaded", "transcribing", "transcribed", "analyzing", "ready", "processing", "complete", "error"
+    "created", "fetching", "uploaded", "transcribing", "transcribed", "analyzing", "ready",
+    "processing", "complete", "error"
 ]
 
 

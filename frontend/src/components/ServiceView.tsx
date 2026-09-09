@@ -5,11 +5,12 @@ import ClipSuggestions from './ClipSuggestions'
 import Steps from './Steps'
 
 const STORAGE_KEY = 'church-reel-maker.service'
-const BUSY = new Set(['transcribing', 'analyzing', 'processing'])
-const STEPS = ['Dienst uploaden', 'Uitschrijven', 'Momenten zoeken', 'Fragmenten kiezen', 'Clips maken']
+const BUSY = new Set(['fetching', 'transcribing', 'analyzing', 'processing'])
+const STEPS = ['Opname binnenhalen', 'Uitschrijven', 'Momenten zoeken', 'Fragmenten kiezen', 'Clips maken']
 
 const STATUS_LABEL: Record<Service['status'], string> = {
   created: 'Wacht op een opname',
+  fetching: 'Opname wordt opgehaald',
   uploaded: 'Opname ontvangen',
   transcribing: 'Dienst wordt uitgeschreven',
   transcribed: 'Uitgeschreven',
@@ -21,7 +22,8 @@ const STATUS_LABEL: Record<Service['status'], string> = {
 }
 
 const STATUS_TEXT: Record<Service['status'], string> = {
-  created: 'Sleep hierboven de opname van de dienst naartoe.',
+  created: 'Plak hierboven de link naar de dienst, of sleep het bestand naar binnen.',
+  fetching: 'De opname wordt binnengehaald van het adres dat je gaf. Hoe lang dat duurt hangt af van je verbinding.',
   uploaded: 'De opname is binnen. Klik op Uitschrijven om de gesproken tekst om te zetten in tekst.',
   transcribing:
     'De gesproken tekst wordt omgezet in tekst. Bij een dienst van anderhalf uur duurt dit ongeveer een half uur. Laat dit venster open staan; de balk hieronder laat de voortgang zien.',
@@ -35,7 +37,7 @@ const STATUS_TEXT: Record<Service['status'], string> = {
 }
 
 const STEP_FOR_STATUS: Record<Service['status'], number> = {
-  created: 0, uploaded: 1, transcribing: 1, transcribed: 2, analyzing: 2, ready: 3, processing: 4, complete: 5, error: 0,
+  created: 0, fetching: 0, uploaded: 1, transcribing: 1, transcribed: 2, analyzing: 2, ready: 3, processing: 4, complete: 5, error: 0,
 }
 
 interface Props {
@@ -69,6 +71,9 @@ function CostNote({ analysis }: { analysis: NonNullable<Service['analysis']> }) 
 export default function ServiceView({ onOpenClip }: Props) {
   const [service, setService] = useState<Service | null>(null)
   const [uploading, setUploading] = useState<number | null>(null)
+  // Most churches already publish the service somewhere, so the link is the shorter way in.
+  const [how, setHow] = useState<'link' | 'file'>('link')
+  const [link, setLink] = useState('')
   const [offline, setOffline] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -146,6 +151,20 @@ export default function ServiceView({ onOpenClip }: Props) {
     }
   }
 
+  const fetchLink = async () => {
+    if (!link.trim()) return
+    setError(null)
+    try {
+      const s = service && !service.sourceVideo ? service : await serviceApi.create()
+      autoChain.current = true
+      adopt(await serviceApi.link(s.id, link.trim()))
+      setLink('')
+    } catch (e) {
+      fail(e)
+      autoChain.current = false
+    }
+  }
+
   const run = (action: (id: string) => Promise<Service>) => {
     if (!service) return
     setError(null)
@@ -192,12 +211,15 @@ export default function ServiceView({ onOpenClip }: Props) {
   const selectedCount = service?.candidates.filter((c) => c.selected).length ?? 0
   const progress = service?.job ? Math.round(service.job.progress * 100) : null
   const stopping = Boolean(service?.job?.message?.startsWith('Bezig met stoppen'))
+  // While a recording is being fetched there is nothing to choose; the card below says what
+  // is happening. Once one is in, the drop zone stays as the way to start over.
+  const showSource = hasVideo || !busy
 
   return (
     <div>
       <header className="page-head">
         <h1>Hele dienst</h1>
-        <p>Upload de opname. De computer schrijft de dienst uit en zoekt de momenten die als korte video werken. Jij luistert ze na en kiest.</p>
+        <p>Geef de link naar de dienst, of upload het bestand. De computer schrijft de dienst uit en zoekt de momenten die als korte video werken. Jij luistert ze na en kiest.</p>
       </header>
 
       <Steps steps={STEPS} current={service && hasVideo ? STEP_FOR_STATUS[service.status] : 0} />
@@ -205,47 +227,84 @@ export default function ServiceView({ onOpenClip }: Props) {
       {offline && <div className="offline">Geen verbinding met de app. Staat het zwarte venster nog open? Het werk gaat daar gewoon door; zodra de verbinding terug is, zie je de voortgang weer.</div>}
       {error && <div className="error">{error}</div>}
 
-      <label
-        className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-      >
-        <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" disabled={uploading !== null || busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-        {uploading !== null ? (
-          <span className="uploading">
-            <strong>Bezig met uploaden…</strong>
-            <span className="bar"><span style={{ display: 'block', height: '100%', background: 'var(--purple)', width: `${Math.round(uploading * 100)}%` }} /></span>
-            <span className="meta">{Math.round(uploading * 100)}%</span>
-          </span>
-        ) : hasVideo ? (
-          <span className="meta">Sleep hier een andere opname om met een nieuwe dienst te beginnen.</span>
-        ) : (
-          <>
-            <strong>Sleep hier de opname van de hele dienst, of klik om een bestand te kiezen</strong>
-            <span className="hint">Daarna loopt het vanzelf door: uitschrijven, en dan zoeken naar bruikbare momenten.</span>
-          </>
-        )}
-      </label>
+      {showSource && !hasVideo && uploading === null && (
+        <div className="seg source-pick">
+          <button className={how === 'link' ? 'on' : ''} onClick={() => setHow('link')}>Link naar de dienst</button>
+          <button className={how === 'file' ? 'on' : ''} onClick={() => setHow('file')}>Bestand van deze computer</button>
+        </div>
+      )}
 
-      {service && hasVideo && (
+      {!showSource ? null : how === 'link' && !hasVideo && uploading === null ? (
+        <div className="paste">
+          <label htmlFor="link"><strong>Plak het adres van de dienst</strong></label>
+          <div className="row">
+            <input
+              id="link"
+              type="url"
+              value={link}
+              disabled={busy}
+              placeholder="https://www.youtube.com/watch?v=…"
+              onChange={(e) => setLink(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchLink()}
+            />
+            <button className="primary" disabled={busy || !link.trim()} onClick={fetchLink}>Ophalen</button>
+          </div>
+          <p className="hint">
+            YouTube, Vimeo, Facebook of een directe link naar een mp4 werken. Geeft de site de
+            video alleen aan zijn eigen speler, zoals Kerkdienstgemist en Kerkomroep doen, download
+            hem daar dan en gebruik het tabblad hiernaast.
+          </p>
+        </div>
+      ) : (
+        <label
+          className={`drop ${dragging ? 'active' : ''} ${hasVideo ? 'compact' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+        >
+          <input type="file" accept="video/*,.mp4,.mov,.m4v,.mkv,.webm" disabled={uploading !== null || busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+          {uploading !== null ? (
+            <span className="uploading">
+              <strong>Bezig met uploaden…</strong>
+              <span className="bar"><span style={{ display: 'block', height: '100%', background: 'var(--purple)', width: `${Math.round(uploading * 100)}%` }} /></span>
+              <span className="meta">{Math.round(uploading * 100)}%</span>
+            </span>
+          ) : hasVideo ? (
+            <span className="meta">Sleep hier een andere opname om met een nieuwe dienst te beginnen.</span>
+          ) : (
+            <>
+              <strong>Sleep hier de opname van de hele dienst, of klik om een bestand te kiezen</strong>
+              <span className="hint">Daarna loopt het vanzelf door: uitschrijven, en dan zoeken naar bruikbare momenten.</span>
+            </>
+          )}
+        </label>
+      )}
+
+      {service && (hasVideo || service.status === 'fetching' || service.status === 'error') && (
         <>
           <section className="card">
             <header className="service-head">
               <div>
-                <h2>{service.title}</h2>
-                <span className="meta">{formatTime(service.sourceInfo!.duration)} · {service.sourceInfo!.width}×{service.sourceInfo!.height}</span>
+                <h2>{hasVideo ? service.title : service.status === 'error' ? 'Deze link werkte niet' : STATUS_LABEL[service.status]}</h2>
+                {hasVideo && (
+                  <span className="meta">{formatTime(service.sourceInfo!.duration)} · {service.sourceInfo!.width}×{service.sourceInfo!.height}</span>
+                )}
               </div>
-              <div className={`state ${service.status === 'ready' || service.status === 'complete' ? 'ok' : ''} ${service.status === 'error' ? 'bad' : ''}`}>
-                {busy && <span className="spinner" />}
-                {STATUS_LABEL[service.status]}
-                {saving ? ' · opslaan' : ''}
-              </div>
+              {/* Without a recording the heading already says the state; twice is once too many. */}
+              {hasVideo && (
+                <div className={`state ${service.status === 'ready' || service.status === 'complete' ? 'ok' : ''} ${service.status === 'error' ? 'bad' : ''}`}>
+                  {busy && <span className="spinner" />}
+                  {STATUS_LABEL[service.status]}
+                  {saving ? ' · opslaan' : ''}
+                </div>
+              )}
             </header>
-            <p className="say">{STATUS_TEXT[service.status]}</p>
+            {/* Without a recording the failure is the link's, and its own message says more
+                than the general "try the last step again" would. */}
+            {(hasVideo || service.status !== 'error') && <p className="say">{STATUS_TEXT[service.status]}</p>}
             {service.status === 'error' && <div className="error" style={{ marginTop: '0.8rem', marginBottom: 0 }}>{service.error}</div>}
             {service.warning && <div className="warning">{service.warning}</div>}
             {busy && stopping && <p className="hint">Stoppen kan een halve minuut duren; de app maakt het huidige stukje eerst af.</p>}
@@ -268,7 +327,7 @@ export default function ServiceView({ onOpenClip }: Props) {
                 </div>
               </div>
             )}
-            {!busy && !service.transcript && (
+            {!busy && hasVideo && !service.transcript && (
               <div className="fields about">
                 <label htmlFor="sermonTitle">Waar gaat het over?</label>
                 <input
@@ -290,7 +349,7 @@ export default function ServiceView({ onOpenClip }: Props) {
                 </p>
               </div>
             )}
-            {!busy && (
+            {!busy && hasVideo && (
               <label className="choice">
                 <input
                   type="checkbox"
@@ -303,7 +362,7 @@ export default function ServiceView({ onOpenClip }: Props) {
                 </span>
               </label>
             )}
-            {!busy && (
+            {!busy && hasVideo && (
               <div className="acts" style={{ marginTop: '1rem' }}>
                 {!service.transcript && <button className="primary" onClick={() => run(serviceApi.transcribe)}>Uitschrijven</button>}
                 {service.transcript && service.candidates.length === 0 && (

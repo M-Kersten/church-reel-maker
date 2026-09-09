@@ -357,7 +357,7 @@ export const api = {
 // --- full-service clip discovery ---------------------------------------------
 
 export type ServiceStatus =
-  | 'created' | 'uploaded' | 'transcribing' | 'transcribed' | 'analyzing' | 'ready' | 'processing' | 'complete' | 'error'
+  | 'created' | 'fetching' | 'uploaded' | 'transcribing' | 'transcribed' | 'analyzing' | 'ready' | 'processing' | 'complete' | 'error'
 
 export interface TimeRange {
   start: number
@@ -430,6 +430,8 @@ export const serviceApi = {
   status: (id: string) => request<ServiceProgress>(`/services/${id}/status`),
   upload: (id: string, file: File, onProgress?: (fraction: number) => void) =>
     upload<Service>(`/services/${id}/upload`, file, onProgress),
+  /** Fetch the recording from where the church already publishes it. */
+  link: (id: string, url: string) => request<Service>(`/services/${id}/link`, json('POST', { url })),
   transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),
   setAccuracy: (id: string, accurate: boolean) =>
     request<Service>(`/services/${id}/accuracy`, json('PUT', { accurate })),

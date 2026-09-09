@@ -11,7 +11,7 @@ Part 1 uses a **static** centre crop. Person tracking and animated camera moveme
 
 There are two entry points on the page:
 
-- **Full service**: upload a complete recording (60–120 minutes), let the AI suggest clip-worthy moments, review and adjust them, and send the ones you pick into the clip editor. See "Full service clip discovery" below.
+- **Full service**: bring in a complete recording (60–120 minutes) by pasting the link the church already publishes it at or by uploading the file, let the AI suggest clip-worthy moments, review and adjust them, and send the ones you pick into the clip editor. See "Full service clip discovery" below.
 - **Clip**: the single-clip editor described above.
 
 ## Quick start (no technical knowledge needed)
@@ -126,10 +126,25 @@ Each line can appear in one of four ways, with the speed (60–600 ms) set along
 | `pop` | starts at 72% and springs to full size | `\fscx`/`\fscy` with `\t` |
 | `slide` | rises 40 px into place | `\move` |
 
+## Bringing the recording in
+
+Two ways, and the link is the default one. Most churches already publish the service, so
+pasting that address saves finding the file on disk and waiting out a two-gigabyte copy.
+
+The downloading is `yt-dlp`'s job (`backend/fetch.py`): YouTube, Vimeo, Facebook, a direct
+link to an mp4 or an m3u8 playlist, and for a page it does not know it still reads that page
+for an embedded player or an `og:video` tag. It runs as a job like the others, with progress
+and a stop button, and the recording keeps the title the site gave it.
+
+Some platforms hand their video only to their own player over a signed, private call.
+Kerkdienstgemist and Kerkomroep work that way: the address of the page holds no video, so
+the app says so and points at the download the station's own account offers. `SITE_ADVICE`
+in `backend/fetch.py` is where such a note is added.
+
 ## Full service clip discovery
 
 ```text
-Upload service → Transcribing → Analyzing service → Suggestions ready → Review & select → Process selected clips → Clip editor
+Link or upload → Transcribing → Analyzing service → Suggestions ready → Review & select → Process selected clips → Clip editor
 ```
 
 1. Open the **Full service** tab and drop the complete recording. Transcription starts automatically (the same faster-whisper setup as for clips, forced to `nl`) and shows progress; with the `small` model a 90-minute service takes about 20 to 40 minutes on a recent laptop CPU (`medium` takes several times longer). The black window may print warnings from the speech library while this runs; the progress bar in the browser is what counts.
@@ -386,6 +401,7 @@ GET  /templates/...                 fonts and outro.mp4 (for the preview)
 
 POST /services                      create an empty service
 POST /services/{id}/upload          multipart upload of the full recording
+POST /services/{id}/link            fetch the recording from a link (body: {"url"}), as a job
 POST /services/{id}/transcribe      background transcription (status: transcribing -> transcribed)
 POST /services/{id}/analyze         background LLM analysis (status: analyzing -> ready)
 GET  /services/{id}                 service + transcript + running job progress

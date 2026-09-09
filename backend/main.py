@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import brands, clips, discovery, fonts, health, outro, renderer, storage, transcription, wordlearn
+from . import brands, clips, discovery, fetch, fonts, health, outro, renderer, storage, transcription, wordlearn
 from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
@@ -605,6 +605,11 @@ def set_status(service: Service, status: str, error: str | None = None) -> None:
     save_service(service)
 
 
+# Stopping a job puts the service back where it was before that job started.
+STOPPED_AT = {"fetching": "created", "transcribing": "uploaded", "analyzing": "transcribed",
+              "processing": "ready"}
+
+
 def run_service_job(service: Service, busy_status: str, done_status: str, work) -> ServiceDetail:
     """Run `work(job, service)` in the shared job manager and keep service.status in sync."""
     if jobs.is_running(service.id):
@@ -617,8 +622,7 @@ def run_service_job(service: Service, busy_status: str, done_status: str, work) 
             work(job, service)
             set_status(service, done_status)
         except Cancelled:
-            set_status(service, "uploaded" if busy_status == "transcribing" else "transcribed"
-                       if busy_status == "analyzing" else "ready")
+            set_status(service, STOPPED_AT.get(busy_status, "ready"))
             raise
         except Exception as exc:  # noqa: BLE001
             set_status(service, "error", str(exc))
@@ -659,13 +663,51 @@ def upload_service_video(service_id: str, file: UploadFile):
     if not info.hasAudio:
         target.unlink(missing_ok=True)
         raise HTTPException(400, "De video heeft geen geluid")
+    adopt_recording(service, target, Path(file.filename or "Service").stem or "Service")
+    return service_detail(service)
+
+
+def adopt_recording(service: Service, target: Path, title: str) -> None:
+    """Make `target` the recording of this service, whichever way it arrived."""
     service.sourceVideo = target.name
-    service.sourceInfo = info
-    service.title = Path(file.filename or "Service").stem or "Service"
+    service.sourceInfo = renderer.probe(target)
+    service.title = title
     service.transcript = None
     service.candidates = []
     set_status(service, "uploaded")
-    return service_detail(service)
+
+
+@app.post("/services/{service_id}/link", response_model=ServiceDetail)
+def fetch_service_video(service_id: str, url: str = Body(default="", embed=True)):
+    """Fetch the recording from where the church already publishes it."""
+    service = get_service(service_id)
+    try:
+        address = fetch.tidy(url)
+    except fetch.LinkNotUsable as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    def work(job: Job, service: Service) -> None:
+        job.message = "Opname wordt opgehaald"
+
+        def on_progress(fraction: float, message: str) -> None:
+            job.advance(fraction)
+            job.message = message
+
+        if service.sourceVideo:
+            (service_dir(service.id) / service.sourceVideo).unlink(missing_ok=True)
+        target, title = fetch.fetch(address, service_dir(service.id), on_progress, job.check)
+        try:
+            info = renderer.probe(target)
+        except Exception as exc:  # noqa: BLE001
+            target.unlink(missing_ok=True)
+            raise RuntimeError(f"Wat er binnenkwam is geen video die de app kan lezen: {exc}") from exc
+        if not info.hasAudio:
+            target.unlink(missing_ok=True)
+            raise RuntimeError("Wat er binnenkwam heeft geen geluid, dus er valt niets uit te schrijven.")
+        adopt_recording(service, target, title)
+        save_service(service)
+
+    return run_service_job(service, "fetching", "uploaded", work)
 
 
 @app.get("/services/{service_id}/source")
