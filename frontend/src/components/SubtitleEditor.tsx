@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Segment } from '../api'
 import { formatTime, parseTime } from '../subtitleLayout'
 import Section from './Section'
@@ -8,10 +8,12 @@ interface Props {
   currentTime: number
   onChange: (segments: Segment[]) => void
   onSeek: (time: number) => void
+  /** Shown under the script: what the app noticed while you were correcting. */
+  children?: ReactNode
 }
 
 /** The transcript as a script: timecodes in the left rail, the text reads as one document. */
-export default function SubtitleEditor({ segments, currentTime, onChange, onSeek }: Props) {
+export default function SubtitleEditor({ segments, currentTime, onChange, onSeek, children }: Props) {
   const update = (index: number, patch: Partial<Segment>) =>
     onChange(segments.map((s, i) => (i === index ? { ...s, ...patch } : s)))
 
@@ -76,6 +78,7 @@ export default function SubtitleEditor({ segments, currentTime, onChange, onSeek
       <p style={{ marginTop: '0.7rem' }}>
         <button className="small" onClick={add}>Regel toevoegen</button>
       </p>
+      {children}
     </Section>
   )
 }

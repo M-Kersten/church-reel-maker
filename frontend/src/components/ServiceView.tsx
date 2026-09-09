@@ -268,6 +268,28 @@ export default function ServiceView({ onOpenClip }: Props) {
                 </div>
               </div>
             )}
+            {!busy && !service.transcript && (
+              <div className="fields about">
+                <label htmlFor="sermonTitle">Waar gaat het over?</label>
+                <input
+                  id="sermonTitle"
+                  defaultValue={service.sermonTitle}
+                  placeholder="Rust in een druk leven"
+                  onBlur={(e) => serviceApi.setAbout(service.id, e.target.value, service.series).then(setService).catch(fail)}
+                />
+                <label htmlFor="sermonSeries">Serie</label>
+                <input
+                  id="sermonSeries"
+                  defaultValue={service.series}
+                  placeholder="Onderweg"
+                  onBlur={(e) => serviceApi.setAbout(service.id, service.sermonTitle, e.target.value).then(setService).catch(fail)}
+                />
+                <p className="hint span">
+                  Niet verplicht. Als je het invult weet de computer waar hij op moet letten bij het uitschrijven
+                  en bij het kiezen van momenten.
+                </p>
+              </div>
+            )}
             {!busy && (
               <label className="choice">
                 <input

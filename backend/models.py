@@ -145,6 +145,26 @@ class ProjectDetail(Project):
     hasFootage: bool = True
 
 
+class Vocabulary(BaseModel):
+    """The words this church uses that a speech model would not guess.
+
+    Names cost the most: a wrong preacher name in a clip that goes out in public is the
+    error nobody forgives, and it is the one the model repeats every single week.
+    """
+
+    preachers: list[str] = []  # who preaches here
+    series: list[str] = []  # the series a sermon belongs to, when the church runs them
+    songbooks: list[str] = []  # Opwekking, Psalmen voor Nu, the hymnal they sing from
+    places: list[str] = []  # locations, neighbourhoods, buildings
+    extra: list[str] = []  # anything else worth spelling out for the model
+    corrections: dict[str, str] = {}  # what it keeps hearing -> what was said
+
+    def words(self) -> list[str]:
+        """Everything, in one list, for the prompt that goes in front of the audio."""
+        return [w for group in (self.preachers, self.series, self.songbooks, self.places, self.extra)
+                for w in group if w.strip()]
+
+
 class ChurchInfo(BaseModel):
     churchName: str = "Example Church"
     serviceTimes: list[str] = ["09:30", "11:30"]
@@ -313,6 +333,8 @@ class Service(BaseModel):
     error: str | None = None
     warning: str | None = None  # analysis finished, but not every part of the text worked
     accurate: bool = False  # use the slower, better-hearing model for this recording
+    sermonTitle: str = ""  # what the preaching was about, when the church knows it beforehand
+    series: str = ""  # the series it belongs to, if there is one
     shape: list[dict] = []  # the parts of the service: welcome, songs, sermon, notices...
     candidates: list[ClipCandidate] = []
     clips: list[ProcessedClip] = []

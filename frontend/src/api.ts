@@ -197,6 +197,16 @@ export interface MusicFile {
   sizeMb: number
 }
 
+/** The words a church uses that a speech model would not guess. */
+export interface Vocabulary {
+  preachers: string[]
+  series: string[]
+  songbooks: string[]
+  places: string[]
+  extra: string[]
+  corrections: Record<string, string>
+}
+
 export interface Brand {
   id: string
   name: string
@@ -205,6 +215,7 @@ export interface Brand {
   subtitleStyle: Style
   music: MusicSettings
   watermark: Watermark
+  vocabulary: Vocabulary
 }
 
 export interface BrandSummary {
@@ -308,6 +319,10 @@ export const api = {
     request<Project>(`/projects/${id}/meta`, json('PUT', { title, description })),
   saveWatermark: (id: string, watermark: Watermark) =>
     request<Project>(`/projects/${id}/watermark`, json('PUT', watermark)),
+  wordSuggestions: (id: string) =>
+    request<{ suggestions: Record<string, string> }>(`/projects/${id}/word-suggestions`),
+  learnWords: (id: string, corrections: Record<string, string>) =>
+    request<{ learned: number; total: number }>(`/projects/${id}/word-suggestions`, json('POST', { corrections })),
   logos: () => request<LogoFile[]>('/logos'),
   uploadLogo: (file: File, onProgress?: (f: number) => void) => upload<LogoFile>('/logos', file, onProgress),
   deleteLogo: (name: string) => request<LogoFile>(`/logos/${encodeURIComponent(name)}`, { method: 'DELETE' }),
@@ -398,6 +413,9 @@ export interface Service {
   warning: string | null
   /** Use the slower model that hears more. Applies to the next run. */
   accurate: boolean
+  /** What the preaching is about, when the church knows beforehand. */
+  sermonTitle: string
+  series: string
   shape: ServiceBlock[]
   candidates: ClipCandidate[]
   clips: ProcessedClip[]
@@ -415,6 +433,8 @@ export const serviceApi = {
   transcribe: (id: string) => request<Service>(`/services/${id}/transcribe`, { method: 'POST' }),
   setAccuracy: (id: string, accurate: boolean) =>
     request<Service>(`/services/${id}/accuracy`, json('PUT', { accurate })),
+  setAbout: (id: string, sermonTitle: string, series: string) =>
+    request<Service>(`/services/${id}/about`, json('PUT', { sermonTitle, series })),
   analyze: (id: string) => request<Service>(`/services/${id}/analyze`, { method: 'POST' }),
   saveCandidates: (id: string, candidates: ClipCandidate[]) =>
     request<ClipCandidate[]>(`/services/${id}/candidates`, json('PUT', candidates)),

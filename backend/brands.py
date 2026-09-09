@@ -14,7 +14,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .models import TEMPLATES_DIR, ChurchInfo, MusicSettings, OutroConfig, Style, Watermark, write_atomic
+from .models import (TEMPLATES_DIR, ChurchInfo, MusicSettings, OutroConfig, Style, Vocabulary, Watermark,
+                     write_atomic)
 
 BRANDS_DIR = TEMPLATES_DIR / "brands"
 ACTIVE_FILE = BRANDS_DIR / "actief.json"
@@ -28,6 +29,7 @@ class Brand(BaseModel):
     subtitleStyle: Style = Style()
     music: MusicSettings = MusicSettings()
     watermark: Watermark = Watermark()
+    vocabulary: Vocabulary = Vocabulary()
 
 
 class BrandSummary(BaseModel):
@@ -129,7 +131,8 @@ def create(name: str, copy_from: str | None = None) -> Brand:
                   outro=base.outro.model_copy(deep=True) if base else OutroConfig(),
                   subtitleStyle=base.subtitleStyle.model_copy(deep=True) if base else Style(),
                   music=base.music.model_copy(deep=True) if base else MusicSettings(),
-                  watermark=base.watermark.model_copy(deep=True) if base else Watermark())
+                  watermark=base.watermark.model_copy(deep=True) if base else Watermark(),
+                  vocabulary=base.vocabulary.model_copy(deep=True) if base else Vocabulary())
     if not base:
         brand.church.churchName = name
     return save(brand)
@@ -146,3 +149,19 @@ def delete(brand_id: str) -> None:
 def summaries() -> list[BrandSummary]:
     current = active_id()
     return [BrandSummary(id=b.id, name=b.name, active=b.id == current) for b in all_brands()]
+
+
+def learn_corrections(pairs: dict[str, str], brand_id: str | None = None) -> Brand:
+    """Remember what this church actually says, so the next service gets it right.
+
+    A correction is keyed on what the speech model heard, in lower case, because that is
+    what it will hear again next week.
+    """
+    brand = (load(brand_id) if brand_id else None) or active()
+    for heard, meant in pairs.items():
+        heard, meant = heard.strip().lower(), meant.strip()
+        # A fix that only adds capitals is still a fix: the correction is matched without
+        # case and written back with it, which is how "heilige geest" becomes "Heilige Geest".
+        if heard and meant and heard != meant:
+            brand.vocabulary.corrections[heard] = meant
+    return save(brand)

@@ -220,10 +220,10 @@ def remember_window(cache_dir: Path | None, window: Window, found: list[LlmCandi
     write_atomic(window_file(cache_dir, window), json.dumps([c.model_dump() for c in found]))
 
 
-def analyze_window(window: Window) -> list[LlmCandidate]:
+def analyze_window(window: Window, about: str = "") -> list[LlmCandidate]:
     user = (
         f"Fragment {window.index + 1}, van {window.start:.1f}s tot {window.end:.1f}s in de dienst. "
-        f"Dit deel van de dienst is: {window.part}.\n\n"
+        f"Dit deel van de dienst is: {window.part}.{(' ' + about) if about else ''}\n\n"
         f"{format_window(window)}"
     )
     return ask(user, SYSTEM_PROMPT, LlmAnalysis).candidates
@@ -368,10 +368,14 @@ def excerpt(segments: list[Segment], start: float, end: float, limit: int = EXCE
     return said if len(said) <= limit else said[:limit - 1].rsplit(" ", 1)[0] + "…"
 
 
-def shortlist_request(found: list[ClipCandidate], segments: list[Segment], shape: list[Block]) -> str:
+def shortlist_request(found: list[ClipCandidate], segments: list[Segment], shape: list[Block],
+                      about: str = "") -> str:
     """Everything the editor needs to weigh the moments against each other."""
     lines = [f"De dienst duurt {int((segments[-1].end if segments else 0) // 60)} minuten en is opgebouwd als: "
-             f"{structure.summary(shape)}.", "", f"Er zijn {len(found)} momenten voorgesteld:", ""]
+             f"{structure.summary(shape)}."]
+    if about:
+        lines.append(about)
+    lines += ["", f"Er zijn {len(found)} momenten voorgesteld:", ""]
     for candidate in found:
         lines.append(
             f"[{candidate.id}] {candidate.start:.0f}-{candidate.end:.0f}s "
@@ -384,7 +388,8 @@ def shortlist_request(found: list[ClipCandidate], segments: list[Segment], shape
     return "\n".join(lines)
 
 
-def shortlist(found: list[ClipCandidate], segments: list[Segment], shape: list[Block]) -> list[ClipCandidate]:
+def shortlist(found: list[ClipCandidate], segments: list[Segment], shape: list[Block],
+              about: str = "") -> list[ClipCandidate]:
     """Weigh every proposal against all the others and rank the ones worth posting.
 
     The first pass reads a few minutes at a time and scores its own confidence, which is
@@ -396,7 +401,7 @@ def shortlist(found: list[ClipCandidate], segments: list[Segment], shape: list[B
         for candidate in found:
             candidate.shortlisted = True
         return found
-    answer = ask(shortlist_request(found, segments, shape), SHORTLIST_PROMPT, LlmShortlist)
+    answer = ask(shortlist_request(found, segments, shape, about), SHORTLIST_PROMPT, LlmShortlist)
     judged = {v.id: v for v in answer.verdicts}
     if not any(v.keep for v in judged.values()):
         return found  # an answer that keeps nothing is not an answer; leave the order alone
@@ -454,7 +459,7 @@ class Result(BaseModel):
 
 def discover(transcript: Transcript, on_progress: ProgressCallback | None = None,
              should_stop: Callable[[], None] | None = None, cache_dir: Path | None = None,
-             duration: float | None = None) -> Result:
+             duration: float | None = None, about: str = "") -> Result:
     """Read the whole transcript and come back with ranked moments.
 
     Two passes. The first reads the service a few minutes at a time and proposes moments;
@@ -480,7 +485,7 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
             should_stop()
         found = cached_window(cache_dir, window)
         if found is None:
-            found = analyze_window(window)
+            found = analyze_window(window, about)
             remember_window(cache_dir, window, found)
         out = []
         for c in found:
@@ -530,7 +535,7 @@ def discover(transcript: Transcript, on_progress: ProgressCallback | None = None
         if should_stop:
             should_stop()
         try:
-            candidates = shortlist(candidates, transcript.segments, shape)
+            candidates = shortlist(candidates, transcript.segments, shape, about)
             chosen = sum(1 for c in candidates if c.shortlisted)
         except Cancelled:
             raise

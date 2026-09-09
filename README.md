@@ -38,7 +38,13 @@ The built web interface is committed in `frontend/dist`, so Node.js is not neede
 
 The first transcription downloads the faster-whisper model (default `small`, roughly 460 MB) into the Hugging Face cache. After that no network access is needed.
 
-Dutch church words are fed to the speech model through `templates/woordenlijst.json`: an `initialPrompt` with the vocabulary (Bible books, "gemeente", "Opwekking", "avondmaal", and the name of the active church) and a `corrections` map that repairs mistakes the model keeps making, such as "Lee 302" for "Lied 302". Add your own preacher and hymn names there; `templates/woordenlijst.example.json` is the shipped copy.
+Dutch church words are fed to the speech model through `templates/woordenlijst.json`: an `initialPrompt` with the vocabulary (Bible books, "gemeente", "Opwekking", "avondmaal") and a `corrections` map that repairs mistakes the model keeps making, such as "Lee 302" for "Lied 302". That file is shared by every church; `templates/woordenlijst.example.json` is the shipped copy.
+
+On top of it, each brand keeps **its own words**, edited under **Merk en afsluiter**: who preaches here, the series that are running, the hymnals they sing from, the locations. Those go into the prompt in front of the audio, which is where names are won or lost.
+
+And the app learns. When you correct a subtitle line, it compares your version with the machine's and works out which words actually changed. A word that sounds like what it replaced ("brie" for "Bree") or that only gained a capital in the middle of a line ("heilige geest" for "Heilige Geest") is offered back: **Zal ik dit onthouden?** Say yes and it goes in the church's list, so next Sunday it comes out right. A rewritten sentence, an added or dropped word, and sentence case at the start of a line are all left alone, because none of them teaches the model to hear.
+
+Filling in **waar gaat het over** and **serie** on a service before transcribing helps twice: the speech model gets the words, and both analysis passes know what the preaching is about.
 
 ## Developer setup
 

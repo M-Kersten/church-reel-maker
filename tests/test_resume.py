@@ -113,7 +113,7 @@ def test_a_second_run_asks_only_about_what_failed(tmp_path, monkeypatch):
     asked: list[int] = []
     failing = {windows[1].index, windows[3].index}
 
-    def flaky(window):
+    def flaky(window, about=""):
         asked.append(window.index)
         if window.index in failing:
             raise RuntimeError("de modelaanbieder deed even niet mee")

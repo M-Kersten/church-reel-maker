@@ -8,6 +8,7 @@ import BrandPanel from './BrandPanel'
 import RenderControls from './RenderControls'
 import StylePanel from './StylePanel'
 import SubtitleEditor from './SubtitleEditor'
+import WordSuggestions from './WordSuggestions'
 import VideoPreview, { type PreviewHandle } from './VideoPreview'
 
 const IDLE: RenderStatus = { status: 'idle', progress: 0, message: '', error: null }
@@ -39,6 +40,8 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
   const [currentTime, setCurrentTime] = useState(0)
   const [outputVersion, setOutputVersion] = useState(0)
   const [outroVersion, setOutroVersion] = useState(0)
+  // Bumped when subtitles are saved, so the word suggestions look again.
+  const [transcriptSavedAt, setTranscriptSavedAt] = useState(0)
   const previewRef = useRef<PreviewHandle>(null)
   const dirty = useRef({ ...CLEAN })
 
@@ -101,7 +104,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
     if (!project || !dirty.current.transcript) return
     const handle = setTimeout(() => {
       dirty.current.transcript = false
-      api.saveTranscript(project.id, { language: 'nl', segments }).catch(fail)
+      api.saveTranscript(project.id, { language: 'nl', segments })
+        .then(() => setTranscriptSavedAt(Date.now()))
+        .catch(fail)
     }, 600)
     return () => clearTimeout(handle)
   }, [segments, project])
@@ -347,7 +352,9 @@ export default function ClipEditor({ projectId, onProjectChange }: Props) {
             />
           </div>
           <div>
-            <SubtitleEditor segments={segments} currentTime={currentTime} onChange={changeSegments} onSeek={(t) => previewRef.current?.seek(t)} />
+            <SubtitleEditor segments={segments} currentTime={currentTime} onChange={changeSegments} onSeek={(t) => previewRef.current?.seek(t)}>
+              <WordSuggestions projectId={project.id} savedAt={transcriptSavedAt} />
+            </SubtitleEditor>
             <FramingPanel
               sourceUrl={api.sourceUrl(project.id)}
               sourceInfo={project.sourceInfo!}

@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from . import brands, clips, discovery, fonts, health, outro, renderer, storage, transcription
+from . import brands, clips, discovery, fonts, health, outro, renderer, storage, transcription, wordlearn
 from .jobs import Cancelled, Estimator, Job, JobManager
 from .models import (ROOT, TEMPLATES_DIR, ChurchInfo, ClipCandidate, ClipOrigin, CropWindow, MusicSettings, ProcessedClip, Project, Watermark,
                      ProjectDetail, Service, ServiceDetail, Style, Transcript, load_church_info, load_project,
@@ -199,10 +199,38 @@ def stop_transcribe(project_id: str):
 
 @app.put("/projects/{project_id}/transcript", response_model=Transcript)
 def update_transcript(project_id: str, transcript: Transcript):
+    """Save the corrected subtitles, and notice which words the model got wrong."""
     project = get_project(project_id)
+    before = load_transcript(project)
     transcript.segments = sorted(transcript.segments, key=lambda s: s.start)
     save_transcript(project, transcript)
+    if before:
+        # Kept aside rather than learned: the church decides what goes in its word list.
+        learned = wordlearn.suggestions(before.segments, transcript.segments)
+        known = brands.active().vocabulary.corrections
+        pending[project.id] = {k: v for k, v in learned.items() if known.get(k) != v}
     return transcript
+
+
+# Corrections spotted while someone edited subtitles, waiting to be offered. Per project,
+# in memory: a suggestion nobody acted on is not worth keeping over a restart.
+pending: dict[str, dict[str, str]] = {}
+
+
+@app.get("/projects/{project_id}/word-suggestions")
+def read_word_suggestions(project_id: str):
+    """Words this church says differently, spotted in the corrections just made."""
+    get_project(project_id)
+    return {"suggestions": pending.get(project_id, {})}
+
+
+@app.post("/projects/{project_id}/word-suggestions")
+def learn_words(project_id: str, corrections: dict[str, str] = Body(embed=True)):
+    """Add the chosen corrections to the active church's word list, for next Sunday."""
+    get_project(project_id)
+    brand = brands.learn_corrections(corrections)
+    pending[project_id] = {k: v for k, v in pending.get(project_id, {}).items() if k not in corrections}
+    return {"learned": len(corrections), "total": len(brand.vocabulary.corrections)}
 
 
 @app.put("/projects/{project_id}/style", response_model=ProjectDetail)
@@ -679,6 +707,26 @@ def transcribe_service(service_id: str):
     return run_service_job(service, "transcribing", "transcribed", work)
 
 
+def sermon_context(service: Service) -> str:
+    """What the church already knows about this service, for the model to lean on."""
+    said = []
+    if service.sermonTitle.strip():
+        said.append(f"De preek van deze dienst heet: {service.sermonTitle.strip()}.")
+    if service.series.strip():
+        said.append(f"Hij hoort bij de serie: {service.series.strip()}.")
+    return " ".join(said)
+
+
+@app.put("/services/{service_id}/about", response_model=ServiceDetail)
+def update_about(service_id: str, sermonTitle: str = Body(default="", embed=True),
+                 series: str = Body(default="", embed=True)):
+    """What the preaching is about, when the church knows beforehand. Helps both passes."""
+    service = get_service(service_id)
+    service.sermonTitle, service.series = sermonTitle.strip(), series.strip()
+    save_service(service)
+    return service_detail(service)
+
+
 @app.put("/services/{service_id}/accuracy", response_model=ServiceDetail)
 def set_accuracy(service_id: str, accurate: bool = Body(default=False, embed=True)):
     """Choose between the quick model and the one that hears more. Takes effect next run."""
@@ -705,7 +753,8 @@ def analyze_service(service_id: str):
             job.message = message
 
         result = discovery.discover(transcript, on_progress, should_stop=job.check, cache_dir=cache,
-                                    duration=service.sourceInfo.duration if service.sourceInfo else None)
+                                    duration=service.sourceInfo.duration if service.sourceInfo else None,
+                                    about=sermon_context(service))
         service.candidates = result.candidates
         service.shape = result.shape
         service.warning = result.warning

@@ -57,6 +57,25 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
   const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
   const config = brand?.outro ?? null
   const church = brand?.church ?? null
+  const vocabulary = brand?.vocabulary ?? null
+  const corrections = Object.entries(vocabulary?.corrections ?? {})
+
+  type WordGroup = 'preachers' | 'series' | 'songbooks' | 'places' | 'extra'
+  const wordList = (group: WordGroup) => (vocabulary?.[group] ?? []).join(', ')
+  const editWords = (group: WordGroup, value: string) => {
+    const words = value.split(',').map((w) => w.trim()).filter(Boolean)
+    setBrand((b) => (b ? { ...b, vocabulary: { ...b.vocabulary, [group]: words } } : b))
+    setDirty(true)
+    setSaved(false)
+  }
+  const forget = (heard: string) =>
+    setBrand((b) => {
+      if (!b) return b
+      const rest = Object.fromEntries(Object.entries(b.vocabulary.corrections).filter(([k]) => k !== heard))
+      setDirty(true)
+      setSaved(false)
+      return { ...b, vocabulary: { ...b.vocabulary, corrections: rest } }
+    })
 
   const openBrand = (id: string) =>
     api
@@ -225,6 +244,44 @@ export default function BrandPanel({ outroUrl, onRebuilt }: Props) {
         <label htmlFor="binsta">Instagram</label>
         <input id="binsta" value={church?.instagram ?? ''} onChange={(e) => editChurch({ instagram: e.target.value })} placeholder="@jouwkerk" />
       </div>
+
+      <h3 style={{ marginTop: '0.4rem' }}>Woorden van deze kerk</h3>
+      <p className="hint" style={{ marginTop: 0 }}>
+        Namen die de computer niet kan raden. Hoe meer hiervan klopt, hoe minder je achteraf
+        hoeft te verbeteren. Scheid ze met komma&rsquo;s.
+      </p>
+      <div className="fields" style={{ marginBottom: '1rem' }}>
+        <label htmlFor="vpreach">Voorgangers</label>
+        <input id="vpreach" value={wordList('preachers')} onChange={(e) => editWords('preachers', e.target.value)}
+               placeholder="Dirk de Bree, Hanneke Ouwerkerk" />
+        <label htmlFor="vseries">Series</label>
+        <input id="vseries" value={wordList('series')} onChange={(e) => editWords('series', e.target.value)}
+               placeholder="Onderweg, Het gaat om liefde" />
+        <label htmlFor="vsongs">Liedbundels</label>
+        <input id="vsongs" value={wordList('songbooks')} onChange={(e) => editWords('songbooks', e.target.value)}
+               placeholder="Opwekking, Psalmen voor Nu" />
+        <label htmlFor="vplaces">Locaties</label>
+        <input id="vplaces" value={wordList('places')} onChange={(e) => editWords('places', e.target.value)}
+               placeholder="Wittevrouwen, Wilhelminapark" />
+        <label htmlFor="vextra">Overig</label>
+        <input id="vextra" value={wordList('extra')} onChange={(e) => editWords('extra', e.target.value)}
+               placeholder="andere woorden die vaak misgaan" />
+      </div>
+      {corrections.length > 0 && (
+        <>
+          <p className="hint" style={{ marginTop: '-0.5rem' }}>
+            Onthouden verbeteringen ({corrections.length}). Deze worden na het uitschrijven automatisch toegepast.
+          </p>
+          <div className="fixes">
+            {corrections.map(([heard, meant]) => (
+              <span key={heard} className="fix">
+                <span className="was">{heard}</span> → <strong>{meant}</strong>
+                <button className="bare" title="Vergeten" onClick={() => forget(heard)}>✕</button>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
       <p className="hint" style={{ marginTop: '-0.6rem', marginBottom: '1rem' }}>
         Sleep de teksten in de voorvertoning naar de plek waar je ze wilt hebben. Met {'{churchName}'}, {'{serviceTimes}'} en {'{instagram}'} vul je deze gegevens automatisch in.
       </p>

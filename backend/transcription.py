@@ -64,18 +64,50 @@ def load_vocabulary() -> dict:
     return {"initialPrompt": data.get("initialPrompt", ""), "corrections": data.get("corrections", {})}
 
 
-def initial_prompt() -> str:
-    """The vocabulary plus the name of the church, which the model would not guess by itself."""
-    prompt = load_vocabulary().get("initialPrompt", "")
+def church_words() -> tuple[str, dict[str, str]]:
+    """This church's own names and fixes, on top of the shared word list.
+
+    Returns (a sentence naming them for the model, the corrections to apply afterwards).
+    """
     try:
         from . import brands
 
-        name = brands.active().church.churchName
-        if name and name.lower() not in prompt.lower():
-            prompt = f"{prompt} De kerk heet {name}."
-    except Exception:  # noqa: BLE001
-        pass
+        brand = brands.active()
+    except Exception:  # noqa: BLE001  a broken brand must not stop a transcription
+        return "", {}
+    said = []
+    name = brand.church.churchName
+    if name:
+        said.append(f"De kerk heet {name}.")
+    vocabulary = brand.vocabulary
+    for label, group in (("Er wordt gepreekt door", vocabulary.preachers),
+                         ("De serie heet", vocabulary.series),
+                         ("Er wordt gezongen uit", vocabulary.songbooks),
+                         ("Plaatsen en locaties", vocabulary.places),
+                         ("Let ook op", vocabulary.extra)):
+        words = [w.strip() for w in group if w.strip()]
+        if words:
+            said.append(f"{label}: {', '.join(words)}.")
+    return " ".join(said), dict(vocabulary.corrections)
+
+
+def initial_prompt() -> str:
+    """The shared vocabulary plus what this church calls things."""
+    prompt = load_vocabulary().get("initialPrompt", "")
+    mine, _fixes = church_words()
+    for sentence in mine.split(". "):
+        clean = sentence.strip(" .")
+        if clean and clean.lower() not in prompt.lower():
+            prompt = f"{prompt} {clean}."
     return prompt.strip()
+
+
+def all_corrections() -> dict[str, str]:
+    """The shared fixes, with this church's own on top."""
+    fixes = dict(load_vocabulary().get("corrections", {}))
+    _prompt, mine = church_words()
+    fixes.update(mine)
+    return fixes
 
 
 def apply_corrections(text: str, corrections: dict[str, str]) -> str:
@@ -265,7 +297,7 @@ def transcribe(source: Path, work_dir: Path, on_progress: Callable[[float, str],
         raise
 
     segments = chunk_words(words) if words else fallback
-    corrections = vocabulary.get("corrections", {})
+    corrections = all_corrections()
     for seg in segments:
         seg.text = apply_corrections(seg.text, corrections)
     (work_dir / PARTIAL_FILE).unlink(missing_ok=True)

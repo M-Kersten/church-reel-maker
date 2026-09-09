@@ -135,7 +135,7 @@ def test_an_excerpt_of_nothing_is_empty(service):
 def test_a_run_reports_what_it_skipped_and_what_it_chose(service, monkeypatch):
     transcript = Transcript(language="nl", segments=service)
     monkeypatch.setattr(discovery, "check_provider", lambda: None)
-    monkeypatch.setattr(discovery, "analyze_window", lambda w: [
+    monkeypatch.setattr(discovery, "analyze_window", lambda w, about="": [
         LlmCandidate(start=w.start + 5, end=w.start + 45, title=f"Uit venster {w.index}",
                      summary="s", reason="r", confidence=0.8)])
 
@@ -159,7 +159,7 @@ def test_a_run_reports_what_it_skipped_and_what_it_chose(service, monkeypatch):
 def test_a_failing_editor_leaves_the_moments_alone(service, monkeypatch):
     transcript = Transcript(language="nl", segments=service)
     monkeypatch.setattr(discovery, "check_provider", lambda: None)
-    monkeypatch.setattr(discovery, "analyze_window", lambda w: [
+    monkeypatch.setattr(discovery, "analyze_window", lambda w, about="": [
         LlmCandidate(start=w.start + 5, end=w.start + 45, title="Moment", summary="s", reason="r",
                      confidence=0.8)])
 
