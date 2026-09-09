@@ -563,7 +563,8 @@ def service_detail(service: Service) -> ServiceDetail:
     return ServiceDetail(
         **service.model_dump(),
         transcriptData=transcript,
-        analysis=discovery.estimate(transcript) if transcript else None,
+        analysis=discovery.estimate(transcript, service.sourceInfo.duration if service.sourceInfo else None)
+        if transcript else None,
         job=job.to_dict() if job.status == "running" else None,
     )
 
@@ -703,8 +704,10 @@ def analyze_service(service_id: str):
             job.advance(fraction)
             job.message = message
 
-        result = discovery.discover(transcript, on_progress, should_stop=job.check, cache_dir=cache)
+        result = discovery.discover(transcript, on_progress, should_stop=job.check, cache_dir=cache,
+                                    duration=service.sourceInfo.duration if service.sourceInfo else None)
         service.candidates = result.candidates
+        service.shape = result.shape
         service.warning = result.warning
         save_service(service)
         if not result.failed:

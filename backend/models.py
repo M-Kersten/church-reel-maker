@@ -287,6 +287,10 @@ class ClipCandidate(BaseModel):
     selected: bool = False
     score: float = 0.0  # internal sort key, not shown as a number in the UI
     alternateBoundaries: list[TimeRange] = []
+    # Filled in by the second pass, which weighs every proposal against all the others.
+    shortlisted: bool = True  # False: found, but another moment was judged better
+    verdict: str = ""  # why it was picked, or why it was passed over
+    part: str = ""  # which part of the service it comes from
 
 
 class ProcessedClip(BaseModel):
@@ -309,6 +313,7 @@ class Service(BaseModel):
     error: str | None = None
     warning: str | None = None  # analysis finished, but not every part of the text worked
     accurate: bool = False  # use the slower, better-hearing model for this recording
+    shape: list[dict] = []  # the parts of the service: welcome, songs, sermon, notices...
     candidates: list[ClipCandidate] = []
     clips: list[ProcessedClip] = []
 

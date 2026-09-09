@@ -229,6 +229,28 @@ input[type='checkbox'] { accent-color: var(--purple); width: 1rem; height: 1rem;
 .share .hint { margin-top: 0.35rem; }
 .share code { font-family: var(--mono); font-size: 0.8rem; }
 
+/* the shape of the service, behind the suggestions */
+.timeline .shape { position: relative; height: 1.15rem; margin-bottom: 0.3rem; }
+.timeline .part {
+  position: absolute; top: 0; height: 100%; border-radius: 3px; overflow: hidden;
+  display: flex; align-items: center; background: var(--lavender); color: var(--purple);
+  font-size: 0.63rem; font-weight: 600; letter-spacing: 0.01em;
+}
+.timeline .part + .part { box-shadow: -1px 0 0 var(--white); }
+.timeline .part span { padding: 0 0.35rem; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+/* the parts a clip never comes from stay quiet */
+.timeline .part.zang, .timeline .part.mededelingen, .timeline .part.zegen, .timeline .part.welkom {
+  background: #F1EEF5; color: var(--muted);
+}
+.timeline .part.preek { background: var(--purple); color: var(--white); }
+.timeline .mark.aside { opacity: 0.45; }
+
+/* a moment that was found but passed over */
+.also { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; margin: 1.4rem 0 0.6rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.also button { font-weight: 700; color: var(--purple); padding: 0 0.2rem; }
+.suggestion.aside { opacity: 0.72; }
+.verdict { margin: 0.4rem 0 0; font-size: 0.9rem; color: var(--purple); font-weight: 500; }
+
 /* opruimen */
 .tidy-open { color: rgba(237, 230, 244, 0.8); font-weight: 500; }
 .tidy-open:hover:not(:disabled) { color: var(--white); border-color: transparent; background: rgba(255, 255, 255, 0.1); }

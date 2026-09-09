@@ -126,12 +126,38 @@ Upload service → Transcribing → Analyzing service → Suggestions ready → 
 ```
 
 1. Open the **Full service** tab and drop the complete recording. Transcription starts automatically (the same faster-whisper setup as for clips, forced to `nl`) and shows progress; with the `small` model a 90-minute service takes about 20 to 40 minutes on a recent laptop CPU (`medium` takes several times longer). The black window may print warnings from the speech library while this runs; the progress bar in the browser is what counts.
-2. Analysis starts when the transcript is ready. The transcript is cut into overlapping windows of about three minutes; each window goes to the LLM with per-sentence timecodes and comes back as structured JSON candidates (start, end, title, summary, reason, confidence). Progress shows "Analyzing transcript · Section 8 of 24".
-3. Candidate boundaries are snapped to sentence boundaries, proposals that cover the same moment are merged (the extra boundaries stay available as alternatives), and the list is ranked with an internal score (confidence plus a preference for 30–60 seconds).
-4. **Clip Suggestions** lists the ranked candidates with title, timecodes, duration, transcript excerpt, summary and reason. **Preview** plays just that range of the original recording; **Transcript & timecodes** opens the full excerpt and the boundary editor with direct `mm:ss.s` input and -5 / -1 / +1 / +5 second nudges. Selections and edits are saved automatically.
-5. **Process selected clips** creates a normal clip project per selected range, with the matching part of the transcript already filled in, and lists them in the bar at the bottom of the screen. **Open in editor** switches to the Clip tab for subtitles, styling, framing and rendering. Nothing about rendering lives in the discovery layer.
+2. The transcript is labelled into the parts of a service before anything is sent: welcome, songs, reading, prayer, sermon, notices, blessing. No model is involved; it is the words a Dutch service uses, plus where in the hour a part falls and how much silence it leaves. See **Reading the shape of a service** below.
+3. Analysis runs in two passes. The **first** cuts the preaching into overlapping windows of about three minutes and sends each one, told which part of the service it is in, coming back as structured JSON candidates (start, end, title, summary, reason, confidence). Windows that sit wholly in the singing or the notices are never sent, which is a little under half of a normal service.
+4. Candidate boundaries are snapped to sentence boundaries and proposals covering the same moment are merged (the extra boundaries stay available as alternatives).
+5. The **second** pass reads every surviving proposal at once, with the shape of the service and an excerpt of what is actually said, and picks the five to ten this service is worth posting. This is the pass that makes the order mean something: a per-window confidence is not comparable between windows, because the best moment of a dull three minutes scores the same as the best moment of the service. Every proposal comes back with a one-line verdict, including the ones passed over.
+6. **Clip Suggestions** lists the chosen moments best first, with the shape of the service drawn behind them on the timeline. The ones that were found but passed over sit behind **Ook gevonden, niet gekozen** with the reason they lost. **Preview** plays just that range of the original recording; **Transcript & timecodes** opens the full excerpt and the boundary editor with direct `mm:ss.s` input and -5 / -1 / +1 / +5 second nudges. Selections and edits are saved automatically.
+7. **Process selected clips** creates a normal clip project per selected range, with the matching part of the transcript already filled in, and lists them in the bar at the bottom of the screen. **Open in editor** switches to the Clip tab for subtitles, styling, framing and rendering. Nothing about rendering lives in the discovery layer.
 
    Nothing is cut at this point. A clip records which recording it came from and which seconds it covers, and the renderer seeks into the original, so a finished clip is one encode away from the camera instead of two and processing eight moments takes a moment rather than several minutes. `clips.source_of()` answers where a clip's footage is; `clips.materialise()` gives a clip its own copy, which only happens when the recording is about to be removed.
+
+### Reading the shape of a service
+
+`backend/structure.py` labels every sentence with the part of the service it belongs to, using
+three kinds of evidence and no model at all:
+
+- **The words.** Weighted phrases per part: "de collecte" and "koffie na de dienst" are notices,
+  "laten we bidden" and "hemelse Vader" are prayer, a Bible book with a chapter is a reading,
+  "we zingen" and a hymn number are singing.
+- **The silence.** A stretch with nothing transcribed is nearly always music. How long a silence
+  has to be depends on the transcript: a thinly written one has long gaps everywhere, so the
+  threshold is three times its own median gap, never below 25 seconds.
+- **The hour.** Where a sentence falls is a tie-breaker only, and the longest unbroken stretch of
+  talking is taken as the sermon whatever the words said, so a preacher who opens with a reading
+  does not lose those minutes.
+
+Single sentences do not make a part: a label spreads to its quiet neighbours and runs shorter than
+twenty seconds are folded into what surrounds them. A window is skipped only when it lies wholly
+inside a part a clip never comes from (welcome, songs, notices, blessing), so a moment that starts
+during the singing and runs into the sermon is still seen. Prayer and readings are kept: churches
+do post those.
+
+Measured on the service in `tests/service_text.py`, 52 of 52 sentences are labelled correctly and
+11 of 24 windows are never sent.
 
 ### LLM configuration
 

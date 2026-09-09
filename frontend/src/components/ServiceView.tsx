@@ -55,8 +55,11 @@ function CostNote({ analysis }: { analysis: NonNullable<Service['analysis']> }) 
   }
   return (
     <p className="cost">
-      Bij <strong>Beste momenten zoeken</strong> gaat alleen de uitgeschreven tekst naar Claude, in {analysis.windows} stukken.
-      Dat kost tokens: ongeveer <strong>{analysis.tokens.toLocaleString('nl-NL')} tokens</strong>, dus rond de{' '}
+      Bij <strong>Beste momenten zoeken</strong> gaat alleen de uitgeschreven tekst naar Claude, in {analysis.windows} stukken
+      {analysis.skipped > 0 && (
+        <> · {analysis.skipped} {analysis.skipped === 1 ? 'stuk blijft' : 'stukken blijven'} thuis, want daar wordt gezongen,
+        gecollecteerd of afgekondigd</>
+      )}. Dat kost tokens: ongeveer <strong>{analysis.tokens.toLocaleString('nl-NL')} tokens</strong>, dus rond de{' '}
       <strong>${analysis.costUsd.toFixed(2).replace('.', ',')}</strong> met {analysis.model}. De video en het geluid blijven
       op deze computer.
     </p>

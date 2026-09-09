@@ -107,7 +107,7 @@ def test_without_a_cache_nothing_is_remembered(tmp_path):
 def test_a_second_run_asks_only_about_what_failed(tmp_path, monkeypatch):
     """The point of the cache: a run that lost two windows costs two windows to finish."""
     transcript = Transcript(language="nl", segments=talk(300))
-    windows = build_windows(transcript.segments)
+    windows, _shape, _skipped = discovery.sermon_windows(transcript.segments)
     assert len(windows) > 4
 
     asked: list[int] = []

@@ -141,7 +141,9 @@ export interface Health {
 export interface AnalysisEstimate {
   provider: string
   model: string
+  /** Windows actually sent; the rest of the service is not preaching. */
   windows: number
+  skipped: number
   tokens: number
   costUsd: number
 }
@@ -358,6 +360,21 @@ export interface ClipCandidate {
   selected: boolean
   score: number
   alternateBoundaries: TimeRange[]
+  /** False when the second pass judged another moment better. Still available. */
+  shortlisted: boolean
+  /** One line: why it was picked, or why it was passed over. */
+  verdict: string
+  /** Which part of the service it comes from. */
+  part: string
+}
+
+/** One stretch of the service: welcome, songs, reading, prayer, sermon, notices, blessing. */
+export interface ServiceBlock {
+  part: string
+  label: string
+  start: number
+  end: number
+  confidence: number
 }
 
 export interface ProcessedClip {
@@ -381,6 +398,7 @@ export interface Service {
   warning: string | null
   /** Use the slower model that hears more. Applies to the next run. */
   accurate: boolean
+  shape: ServiceBlock[]
   candidates: ClipCandidate[]
   clips: ProcessedClip[]
   transcriptData: Transcript | null

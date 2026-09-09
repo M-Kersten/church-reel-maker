@@ -21,6 +21,7 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
   const videoRef = useRef<HTMLVideoElement>(null)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [showRest, setShowRest] = useState(false)
   const [time, setTime] = useState(0)
   const duration = service.sourceInfo?.duration ?? 1
   const segments = service.transcriptData?.segments ?? []
@@ -62,19 +63,39 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
   }
 
   const active = service.candidates.find((c) => c.id === previewing)
+  const best = service.candidates.filter((c) => c.shortlisted)
+  const rest = service.candidates.filter((c) => !c.shortlisted)
 
   return (
     <Section
       title="Voorgestelde fragmenten"
-      intro="De balk laat zien waar elk voorstel in de dienst zit; klik erop om het te horen. Vink aan wat je wilt gebruiken en schuif begin of einde bij als dat nodig is."
-      aside={<span className="meta">{service.candidates.length} voorstellen</span>}
+      intro="Alles is doorgelezen en daarna met elkaar vergeleken; hieronder staat wat er van deze dienst overblijft, het sterkste bovenaan. De balk laat zien waar elk voorstel zit en hoe de dienst is opgebouwd."
+      aside={<span className="meta">{best.length} gekozen{rest.length > 0 ? ` · ${rest.length} ook gevonden` : ''}</span>}
     >
       <div className="timeline">
+        {service.shape.length > 0 && (
+          <div className="shape" aria-hidden="true">
+            {service.shape.map((block, i) => {
+              const share = (block.end - block.start) / duration
+              return (
+                <span
+                  key={i}
+                  className={`part ${block.part}`}
+                  style={{ left: `${(block.start / duration) * 100}%`, width: `${share * 100}%` }}
+                  title={`${block.label} · ${clock(block.start)}–${clock(block.end)}`}
+                >
+                  {/* Too narrow to read is worse than blank; the tooltip still says what it is. */}
+                  {share > 0.09 && <span>{block.label}</span>}
+                </span>
+              )
+            })}
+          </div>
+        )}
         <div className="rail">
           {service.candidates.map((cand, i) => (
             <button
               key={cand.id}
-              className={`mark ${cand.selected ? 'on' : ''} ${previewing === cand.id ? 'now' : ''}`}
+              className={`mark ${cand.selected ? 'on' : ''} ${previewing === cand.id ? 'now' : ''} ${cand.shortlisted ? '' : 'aside'}`}
               style={{ left: `${(cand.start / duration) * 100}%`, width: `${Math.max(1.4, ((cand.end - cand.start) / duration) * 100)}%` }}
               onClick={() => jump(cand)}
               title={`${cand.title} · ${formatTime(cand.start)} tot ${formatTime(cand.end)}`}
@@ -104,11 +125,21 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
         {service.candidates.map((cand, index) => {
           const excerpt = segments.filter((s) => s.end > cand.start && s.start < cand.end)
           const open = expanded === cand.id
+          const opensRest = rest.length > 0 && cand.id === rest[0].id
           return (
+            <div key={cand.id}>
+            {opensRest && (
+              <div className="also">
+                <button className="bare" onClick={() => setShowRest(!showRest)} aria-expanded={showRest}>
+                  {showRest ? '▾' : '▸'} Ook gevonden, niet gekozen ({rest.length})
+                </button>
+                <span className="meta">Deze momenten zijn wel voorgesteld, maar een ander moment was sterker.</span>
+              </div>
+            )}
             <article
-              key={cand.id}
               id={`f-${cand.id}`}
-              className={`suggestion ${cand.selected ? 'chosen' : ''} ${previewing === cand.id ? 'playing' : ''}`}
+              hidden={!cand.shortlisted && !showRest}
+              className={`suggestion ${cand.selected ? 'chosen' : ''} ${previewing === cand.id ? 'playing' : ''} ${cand.shortlisted ? '' : 'aside'}`}
             >
               <header>
                 <span className="no">{String(index + 1).padStart(2, '0')}</span>
@@ -133,6 +164,7 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
                 </blockquote>
               )}
               {cand.summary && <p>{cand.summary}</p>}
+              {cand.verdict && <p className="verdict">{cand.verdict}</p>}
               {cand.reason && <p className="why">{cand.reason}</p>}
 
               <div className="acts">
@@ -180,6 +212,7 @@ export default function ClipSuggestions({ service, sourceUrl, disabled, onChange
                 </div>
               )}
             </article>
+            </div>
           )
         })}
       </div>
